@@ -3114,7 +3114,8 @@ SDL_Rect GFX_CalcViewport(const int canvas_width, const int canvas_height,
 	}
 	case IntegerScalingMode::Auto:
 #if C_OPENGL
-		if (sdl.opengl.shader_info.is_adaptive) {
+		if (sdl.rendering_backend == RenderingBackend::OpenGl &&
+		    sdl.opengl.shader_info.is_adaptive) {
 			std::tie(view_w,
 			         view_h) = calculate_vertical_integer_scaling_dims();
 		} else {
@@ -3703,6 +3704,10 @@ static void FinalizeWindowState()
 
 static void maybe_auto_switch_shader()
 {
+	if (sdl.rendering_backend != RenderingBackend::OpenGl) {
+		return;
+	}
+
 	const auto canvas = get_canvas_size(sdl.rendering_backend);
 
 	constexpr auto reinit_render = true;
