@@ -1355,7 +1355,15 @@ finish:
 	// latency (and not the rendering pipeline).
 	render_pacer->Reset();
 
+	const auto rendering_backend_changed = (sdl.rendering_backend !=
+	                                        rendering_backend);
+
 	sdl.rendering_backend = rendering_backend;
+
+	if (rendering_backend_changed) {
+		RENDER_Reinit();
+	}
+
 	return sdl.window;
 }
 
