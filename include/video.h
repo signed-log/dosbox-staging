@@ -29,6 +29,46 @@
 #include "setup.h"
 #include "types.h"
 
+// As high-DPI displays are becoming increasingly the norm, understanding the
+// difference between screen dimensions expressed as *logical units* versus
+// *pixels* is essential. As we fully support high-DPI in DOSBox Staging,
+// every developer dealing with anything video related must have a good grasp
+// of this topic.
+// 
+// The high-level idea behind logical units is that a rectangle of say 200x300
+// *logical units* in size should have the same physical dimensions (when
+// measured with a ruler) on a 1080p, a 4k, and an 8k screen, given that the
+// physical dimensions of the three screens are the same. When mapping these
+// 200x300 logic units to *pixels* (actual physical pixels the monitor is
+// capable of displaying), we'll get 200x300, 400x600, and 800x1200 pixel
+// dimensions on 1080p, 4k, and 8k, respectively. The *logical size* of the
+// rectangle hasn't changed, only its *resolution* expressed in raw native
+// pixels has.
+//
+// Usually, OSes and frameworks like SDL report windowing system related
+// coordinates and dimensions in logical units (e.g., window sizes, the size
+// of the desktop, the position of the mouse, etc.). But OpenGL only deals
+// with pixels, never logical units, and in the core emulation layers we're
+// only dealing with raw "emulated pixels" too. So in `sdlmain.cpp` we'll
+// always be dealing with a mixture of logical units and pixels--this is
+// unavoidable and its never going to change.
+//
+// Therefore, it's essential to make the distinction between logical units and
+// pixels clear:
+//
+// - In `sdlmain.cpp`, we postfix every variable that holds a pixel dimension
+//   with `_px` (e.g., `render_size_px`). Logical units get no postfix (e.g.,
+//   `window_size`).
+//
+// - Functions and methods that return pixel dimensions are postfixed with
+//   `_in_pixels` and `InPixels`, respectively (e.g., `GFX_GetViewportSizeInPixels()`).
+//
+// - In the core emulation layers we're always dealing with pixels, so no
+//   postfixes are necessary there. But when these layers call `GFX_*` methods
+//   that interact with `sdlmain`, the use of pixel postfixes is highly
+//   recommended for disambiguation and consistency.
+//
+
 #define REDUCE_JOYSTICK_POLLING
 
 enum class RenderingBackend {
@@ -354,8 +394,8 @@ bool GFX_HaveDesktopEnvironment();
 void MAPPER_UpdateJoysticks(void);
 #endif
 
-DosBox::Rect GFX_CalcViewportInPixels(const DosBox::Rect& canvas_px,
-                                      const DosBox::Rect& draw_area_px,
+DosBox::Rect GFX_CalcDrawSizeInPixels(const DosBox::Rect& canvas_size_px,
+                                      const DosBox::Rect& render_size_px,
                                       const Fraction& render_pixel_aspect_ratio);
 
 DosBox::Rect GFX_GetCanvasSizeInPixels();

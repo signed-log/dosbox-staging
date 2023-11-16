@@ -37,6 +37,46 @@
 #include "shader_manager.h"
 #include "video.h"
 
+// The image rendered in the emulated computer's raw framebuffer as raw pixels
+// goes through a number of transformations until it gets shown on the host
+// display. It is important to use a common vocabulary for the terms involved
+// in these various stages and to apply the terms consistently. To understand
+// different between logical units and pixels, please see `video.h`.
+//
+// Video mode dimensions:
+//   The dimensions of the DOS video mode in raw pixels as stored on disk or
+//   in the emulated video card's framebuffer (e.g. 320x200 = 64000 pixels).
+//
+// Rendered image size:
+//   Size of the final rendered image in pixels post width and height doubling
+//   (e.g. 320x200 VGA is width and height doubled (scan-doubled) to 640x400;
+//   320x200 CGA composite output is quadrupled in width to 1280x200, etc.).
+//   This is more or less analogous to the actual video signal the CRT monitor
+//   "sees" (e.g., a monitor cannot differentiate between 320x200
+//   double-scanned to 640x400 on VGA, or an actual 640x400 video mode as
+//   they're identical at the analog VGA signal level). In OpenGL mode, this
+//   is the size of the input image for the GLSL shaders in pixels.
+//
+// Canvas size:
+//   The unrestricted total available drawing area of the emulator window or
+//   the screen in fullscreen. This is reported by SDL as logical units.
+//
+// Viewport size:
+//   The maximum area we can potentially draw into expressed as logical units.
+//   Normally, it's smaller than the canvas, but it can also be larger in
+//   certain viewport modes where we "zoom into" the content, or when we
+//   simulate the horiz/vert stretch controls of CRT monitors. In these cases,
+//   the canvas effectively acts as our "window" into the oversized viewport.
+//
+// Draw size:
+//   The actual draw size in pixels after applying the final constraints such
+//   as integer scaling. When converted to logical units, the draw size is
+//   always equal to or fits within the viewport. In OpenGL mode, this is the
+//   size of the final output image coming out of the shaders. This is the
+//   image that gets displayed on the actual host display with 1:1 raw
+//   physical pixel mapping.
+//
+
 #define SDL_NOFRAME 0x00000020
 
 // Texture buffer and presentation functions and type-defines
