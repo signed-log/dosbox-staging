@@ -294,6 +294,19 @@ extern bool CPU_CycleAutoAdjust;
 bool startup_state_numlock=false;
 bool startup_state_capslock=false;
 
+std::optional<std::pair<int, int>> parse_int_dimensions(const std::string_view s)
+{
+	const auto parts = split(s, "x");
+	if (parts.size() == 2) {
+		const auto w = parse_int(parts[0]);
+		const auto h = parse_int(parts[1]);
+		if (w && h) {
+			return {{*w, *h}};
+		}
+	}
+	return {};
+}
+
 void GFX_SetTitle(const int32_t new_num_cycles, const bool is_paused = false)
 {
 	char title_buf[200] = {0};
@@ -3034,69 +3047,94 @@ static SDL_Point clamp_to_minimum_window_dimensions(SDL_Point size)
 	return {w, h};
 }
 
-static ViewportSettings parse_viewport_settings(const std::string& viewport_resolution_pref)
+static std::optional<ViewportSettings> parse_fit_viewport_modes(const std::string& pref)
 {
-	ViewportSettings viewport = {};
-
-	viewport.mode = ViewportMode::Fit;
-
-	constexpr auto default_value = "fit";
-	if (viewport_resolution_pref == default_value) {
+	if (pref == "fit") {
+		ViewportSettings viewport = {};
+		viewport.mode             = ViewportMode::Fit;
 		return viewport;
 	}
 
-	int w   = 0;
-	int h   = 0;
-	float p = 0.0f;
-	const auto was_parsed =
-	        sscanf(viewport_resolution_pref.c_str(), "%dx%d", &w, &h) == 2 ||
-	        sscanf(viewport_resolution_pref.c_str(), "%f%%", &p) == 1;
+	const auto params = strip_prefix(pref, "fit ");
 
-	if (!was_parsed) {
-		LOG_WARNING("DISPLAY: Requested viewport resolution '%s' was not in WxH"
-		            " or N%% format, using the default setting ('%s') instead",
-		            viewport_resolution_pref.c_str(),
-		            default_value);
+	if (const auto width_and_height = parse_int_dimensions(params)) {
+		const auto [w, h] = *width_and_height;
+
+		const auto desktop = get_desktop_size();
+		const bool is_out_of_bounds = (w <= 0 || w > desktop.w ||
+		                               h <= 0 || h > desktop.h);
+		if (is_out_of_bounds) {
+			LOG_WARNING("DISPLAY: Invalid 'viewport_resolution' setting: '%s'. "
+			            "Viewport size is outside of the %dx%d desktop bounds, "
+			            "using 'fit'",
+			            pref.c_str(),
+			            desktop.w,
+			            desktop.h);
+			return {};
+		}
+
+		ViewportSettings viewport = {};
+		viewport.mode             = ViewportMode::Fit;
+
+		const DosBox::Rect limit = {w, h};
+		viewport.fit.limit_size  = limit;
+
+		const auto limit_px = limit.Copy().ScaleSize(sdl.desktop.dpi_scale);
+
+		LOG_MSG("DISPLAY: Limiting viewport resolution to %dx%d logical units "
+		        "(%dx%d pixels)",
+		        iroundf(limit.w),
+		        iroundf(limit.h),
+		        iroundf(limit_px.w),
+		        iroundf(limit_px.h));
+
 		return viewport;
-	}
 
-	const auto desktop = get_desktop_size();
+	} else if (const auto percentage = parse_percentage_with_percent_sign(params)) {
+		const auto desktop = get_desktop_size();
+		const auto p       = *percentage;
 
-	const bool is_out_of_bounds = (w <= 0 || w > desktop.w || h <= 0 ||
-	                               h > desktop.h) &&
-	                              (p <= 0.0f || p > 100.0f);
-	if (is_out_of_bounds) {
-		LOG_WARNING("DISPLAY: Requested viewport resolution of '%s' is outside "
-		            "the desktop '%dx%d' bounds or the 1-100%% range, "
-		            "using the default setting ('%s') instead",
-		            viewport_resolution_pref.c_str(),
-		            desktop.w,
-		            desktop.h,
-		            default_value);
+		const bool is_out_of_bounds = (p < 1.0f || p > 100.0f);
+		if (is_out_of_bounds) {
+			LOG_WARNING("DISPLAY: Invalid 'viewport_resolution' setting: '%s'. "
+			            "Desktop percentage is outside of the 1-100%% range, "
+			            "using 'fit'",
+			            pref.c_str());
 
-		return viewport;
-	}
+			return {};
+		}
 
-	if (p > 0.0f) {
+		ViewportSettings viewport  = {};
+		viewport.mode              = ViewportMode::Fit;
 		viewport.fit.desktop_scale = p / 100.0f;
 
-		const auto limit_w = iround(desktop.w * *viewport.fit.desktop_scale);
-		const auto limit_h = iround(desktop.h * *viewport.fit.desktop_scale);
+		const auto limit = to_rect(desktop).ScaleSize(
+		        *viewport.fit.desktop_scale);
 
-		LOG_MSG("DISPLAY: Limiting viewport resolution to %2.4g%% of the desktop (%dx%d)",
-		        static_cast<double>(p),
-		        limit_w,
-		        limit_h);
+		const auto limit_px = limit.Copy().ScaleSize(sdl.desktop.dpi_scale);
+
+		LOG_MSG("DISPLAY: Limiting viewport resolution to %2.4g%% of the desktop "
+		        "(%dx%d logical units, %dx%d pixels)",
+		        p,
+		        iroundf(limit.w),
+		        iroundf(limit.h),
+		        iroundf(limit_px.w),
+		        iroundf(limit_px.h));
 
 		return viewport;
 
 	} else {
-		viewport.fit.limit_size = {w, h};
-
-		LOG_MSG("DISPLAY: Limiting viewport resolution to %dx%d", w, h);
-
-		return viewport;
+		LOG_WARNING("DISPLAY: Invalid 'viewport_resolution' setting: '%s', "
+		            "using 'fit'",
+		            pref.c_str());
+		return {};
 	}
+}
+
+static std::optional<ViewportSettings> parse_viewport_settings(
+        const std::string& pref)
+{
+	return parse_fit_viewport_modes(pref);
 }
 
 static void setup_initial_window_position_from_conf(const std::string& window_position_val)
@@ -3367,8 +3405,13 @@ static void set_output(Section* sec, const bool wants_aspect_ratio_correction)
 	setup_initial_window_position_from_conf(
 	        section->Get_string("window_position"));
 
-	sdl.viewport = parse_viewport_settings(
-	        section->Get_string("viewport_resolution"));
+	if (const auto settings = parse_viewport_settings(
+	            section->Get_string("viewport_resolution"))) {
+		sdl.viewport = *settings;
+	} else {
+		sdl.viewport      = {};
+		sdl.viewport.mode = ViewportMode::Fit;
+	}
 
 	setup_window_sizes_from_conf(section->Get_string("windowresolution").c_str(),
 	                             sdl.interpolation_mode,
