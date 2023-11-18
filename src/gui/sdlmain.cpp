@@ -457,6 +457,16 @@ static double get_host_refresh_rate()
 	return rate;
 }
 
+static Section_prop* get_sdl_section()
+{
+	assert(control);
+
+	auto sdl_section = static_cast<Section_prop*>(control->GetSection("sdl"));
+	assert(sdl_section);
+
+	return sdl_section;
+}
+
 // Reset and populate the vsync settings from the user's conf setting. This is
 // called on-demand after startup and on output-mode changes (ie: switching from
 // an SDL-based drawing context to an OpenGL-based context).
@@ -465,7 +475,7 @@ static void initialize_vsync_settings()
 {
 	sdl.vsync = {};
 
-	const auto section = dynamic_cast<Section_prop*>(control->GetSection("sdl"));
+	const auto section = get_sdl_section();
 	const std::string user_pref = (section ? section->Get_string("vsync") : "auto");
 
 	if (has_true(user_pref)) {
@@ -4960,8 +4970,7 @@ int sdl_main(int argc, char* argv[])
 		control->Init();
 
 		// Some extra SDL Functions
-		Section_prop* sdl_sec = static_cast<Section_prop*>(
-		        control->GetSection("sdl"));
+		Section_prop* sdl_sec = get_sdl_section();
 
 		// All subsystems' hotkeys need to be registered at this point
 		// to ensure their hotkeys appear in the graphical mapper.
