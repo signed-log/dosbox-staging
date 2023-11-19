@@ -3343,6 +3343,15 @@ InterpolationMode GFX_GetInterpolationMode()
 	return sdl.interpolation_mode;
 }
 
+static void set_default_viewport_resolution_settings()
+{
+	sdl.viewport      = {};
+	sdl.viewport.mode = ViewportMode::Fit;
+
+	const auto string_prop = get_sdl_section()->GetStringProp("viewport_resolution");
+	string_prop->SetValue("fit");
+}
+
 static void set_output(Section* sec, const bool wants_aspect_ratio_correction)
 {
 	// Apply the user's mouse settings
@@ -3409,8 +3418,7 @@ static void set_output(Section* sec, const bool wants_aspect_ratio_correction)
 	            section->Get_string("viewport_resolution"))) {
 		sdl.viewport = *settings;
 	} else {
-		sdl.viewport      = {};
-		sdl.viewport.mode = ViewportMode::Fit;
+		set_default_viewport_resolution_settings();
 	}
 
 	setup_window_sizes_from_conf(section->Get_string("windowresolution").c_str(),
