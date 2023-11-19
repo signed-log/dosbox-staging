@@ -158,6 +158,13 @@ struct ViewportSettings {
 		std::optional<DosBox::Rect> limit_size = {};
 		std::optional<float> desktop_scale     = {};
 	} fit = {};
+
+	// Either 'canvas_scale' or both 'height_scale' & 'width_scale' is set
+	struct {
+		std::optional<float> canvas_scale = {};
+		std::optional<float> height_scale = {};
+		std::optional<float> width_scale  = {};
+	} relative = {};
 };
 
 struct SDL_Block {

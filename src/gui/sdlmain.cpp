@@ -298,6 +298,7 @@ std::optional<std::pair<int, int>> parse_int_dimensions(const std::string_view s
 {
 	const auto parts = split(s, "x");
 	if (parts.size() == 2) {
+
 		const auto w = parse_int(parts[0]);
 		const auto h = parse_int(parts[1]);
 		if (w && h) {
@@ -1549,6 +1550,19 @@ static DosBox::Rect calc_restricted_viewport_size_in_pixels(const DosBox::Rect& 
 			return viewport_px;
 		} else {
 			return viewport_px.Intersect(canvas_px);
+		}
+	}
+	case ViewportMode::Relative: {
+		const auto restricted_canvas_px = DosBox::Rect{4, 3}.ScaleSizeToFit(
+		        canvas_px);
+
+		if (sdl.viewport.relative.canvas_scale) {
+			return restricted_canvas_px.Copy().ScaleSize(
+			        *sdl.viewport.relative.canvas_scale);
+		} else {
+			return restricted_canvas_px.Copy()
+			        .ScaleWidth(*sdl.viewport.relative.width_scale)
+			        .ScaleHeight(*sdl.viewport.relative.height_scale);
 		}
 	}
 
@@ -3113,8 +3127,8 @@ static std::optional<ViewportSettings> parse_fit_viewport_modes(const std::strin
 
 		const auto limit_px = limit.Copy().ScaleSize(sdl.desktop.dpi_scale);
 
-		LOG_MSG("DISPLAY: Limiting viewport resolution to %2.4g%% of the desktop "
-		        "(%dx%d logical units, %dx%d pixels)",
+		LOG_MSG("DISPLAY: Limiting viewport resolution to %2.4g%% of the "
+		        "desktop (%dx%d logical units, %dx%d pixels)",
 		        p,
 		        iroundf(limit.w),
 		        iroundf(limit.h),
@@ -3131,10 +3145,96 @@ static std::optional<ViewportSettings> parse_fit_viewport_modes(const std::strin
 	}
 }
 
-static std::optional<ViewportSettings> parse_viewport_settings(
-        const std::string& pref)
+static std::optional<ViewportSettings> parse_relative_viewport_modes(const std::string& pref)
 {
-	return parse_fit_viewport_modes(pref);
+	auto check_scale_out_of_bounds = [&](const float scale,
+	                                     const char* type = "") {
+		const bool is_out_of_bounds = (scale < 30.0f || scale > 300.0f);
+
+		if (is_out_of_bounds) {
+			LOG_WARNING("DISPLAY: Requested relative %sviewport resolution '%s' "
+			            "is outside of the 30-300%% range, using 'fit' instead",
+			            pref.c_str(),
+			            type);
+
+			return false;
+		} else {
+			return true;
+		}
+	};
+
+	const auto params = strip_prefix(pref, "relative ");
+	const auto parts  = split(params);
+
+	if (parts.size() == 1) {
+		const auto percentage = parse_percentage_with_optional_percent_sign(
+		        parts[0]);
+		if (!percentage) {
+			// TODO;
+			return {};
+		}
+		const auto p = *percentage;
+
+		if (!check_scale_out_of_bounds(p)) {
+			return {};
+		}
+
+		ViewportSettings viewport      = {};
+		viewport.mode                  = ViewportMode::Relative;
+		viewport.relative.canvas_scale = p / 100.0f;
+
+		LOG_MSG("DISPLAY: Scaling viewport by %2.4g%%", p);
+
+		return viewport;
+	}
+
+	if (parts.size() == 2) {
+		const auto width_scale_opt = parse_percentage_with_optional_percent_sign(
+		        parts[0]);
+
+		const auto height_scale_opt = parse_percentage_with_optional_percent_sign(
+		        parts[1]);
+
+		if (!width_scale_opt || !height_scale_opt) {
+			// TODO
+			return {};
+		}
+
+		const auto width_scale  = *width_scale_opt;
+		const auto height_scale = *height_scale_opt;
+
+		if (!check_scale_out_of_bounds(width_scale)) {
+			return {};
+		}
+		if (!check_scale_out_of_bounds(height_scale)) {
+			return {};
+		}
+
+		ViewportSettings viewport      = {};
+		viewport.mode                  = ViewportMode::Relative;
+		viewport.relative.width_scale  = width_scale / 100.f;
+		viewport.relative.height_scale = height_scale / 100.f;
+
+		LOG_MSG("DISPLAY: Scaling viewport by %2.4g%% horizontally and %2.4g%% vertically ",
+		        width_scale,
+		        height_scale);
+
+		return viewport;
+	}
+
+	LOG_WARNING("DISPLAY: Requested relative viewport resolution '%s' "
+	            "was not in N%% or HxV%% format, using 'fit' instead",
+	            pref.c_str());
+	return {};
+}
+
+static std::optional<ViewportSettings> parse_viewport_settings(const std::string& pref)
+{
+	if (starts_with(pref, "relative")) {
+		return parse_relative_viewport_modes(pref);
+	} else {
+		return parse_fit_viewport_modes(pref);
+	}
 }
 
 static void setup_initial_window_position_from_conf(const std::string& window_position_val)
