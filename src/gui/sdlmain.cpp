@@ -3061,6 +3061,17 @@ static SDL_Point clamp_to_minimum_window_dimensions(SDL_Point size)
 	return {w, h};
 }
 
+static void log_invalid_viewport_resolution_warning(
+        const std::string& pref,
+        const std::optional<const std::string> extra_info = {})
+{
+	LOG_WARNING("DISPLAY: Invalid 'viewport_resolution' setting: '%s'"
+	            "%s%s, using 'fit'",
+	            pref.c_str(),
+	            (extra_info ? ". " : ""),
+	            (extra_info ? extra_info->c_str() : ""));
+}
+
 static std::optional<ViewportSettings> parse_fit_viewport_modes(const std::string& pref)
 {
 	if (pref == "fit") {
@@ -3075,15 +3086,16 @@ static std::optional<ViewportSettings> parse_fit_viewport_modes(const std::strin
 		const auto [w, h] = *width_and_height;
 
 		const auto desktop = get_desktop_size();
+
 		const bool is_out_of_bounds = (w <= 0 || w > desktop.w ||
 		                               h <= 0 || h > desktop.h);
 		if (is_out_of_bounds) {
-			LOG_WARNING("DISPLAY: Invalid 'viewport_resolution' setting: '%s'. "
-			            "Viewport size is outside of the %dx%d desktop bounds, "
-			            "using 'fit'",
-			            pref.c_str(),
-			            desktop.w,
-			            desktop.h);
+			const auto extra_info = format_string(
+			        "Viewport size is outside of the %dx%d desktop bounds",
+			        desktop.w,
+			        desktop.h);
+
+			log_invalid_viewport_resolution_warning(pref, extra_info);
 			return {};
 		}
 
@@ -3110,11 +3122,9 @@ static std::optional<ViewportSettings> parse_fit_viewport_modes(const std::strin
 
 		const bool is_out_of_bounds = (p < 1.0f || p > 100.0f);
 		if (is_out_of_bounds) {
-			LOG_WARNING("DISPLAY: Invalid 'viewport_resolution' setting: '%s'. "
-			            "Desktop percentage is outside of the 1-100%% range, "
-			            "using 'fit'",
-			            pref.c_str());
+			const auto extra_info = "Desktop percentage is outside of the 1-100%% range";
 
+			log_invalid_viewport_resolution_warning(pref, extra_info);
 			return {};
 		}
 
@@ -3138,9 +3148,7 @@ static std::optional<ViewportSettings> parse_fit_viewport_modes(const std::strin
 		return viewport;
 
 	} else {
-		LOG_WARNING("DISPLAY: Invalid 'viewport_resolution' setting: '%s', "
-		            "using 'fit'",
-		            pref.c_str());
+		log_invalid_viewport_resolution_warning(pref);
 		return {};
 	}
 }
@@ -3220,12 +3228,11 @@ static std::optional<ViewportSettings> parse_relative_viewport_modes(const std::
 		        height_scale);
 
 		return viewport;
-	}
 
-	LOG_WARNING("DISPLAY: Requested relative viewport resolution '%s' "
-	            "was not in N%% or HxV%% format, using 'fit' instead",
-	            pref.c_str());
-	return {};
+	} else {
+		log_invalid_viewport_resolution_warning(pref);
+		return {};
+	}
 }
 
 static std::optional<ViewportSettings> parse_viewport_settings(const std::string& pref)
