@@ -420,6 +420,7 @@ DosBox::Rect GFX_CalcDrawSizeInPixels(const DosBox::Rect& canvas_size_px,
 
 DosBox::Rect GFX_GetCanvasSizeInPixels();
 DosBox::Rect GFX_GetViewportSizeInPixels();
+std::pair<float, float> GFX_GetViewportRelativeScale();
 
 RenderingBackend GFX_GetRenderingBackend();
 

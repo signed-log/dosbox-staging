@@ -25,6 +25,8 @@
 #include <cstdint>
 #include <numeric>
 
+#include "math_utils.h"
+
 // Class to represent simple fractions. The fraction is always simplified
 // after construction or after any operation. The sign always is normalised so
 // the numerator carries the sign and the denominator is always positive.
@@ -36,28 +38,19 @@ public:
 		denom = 1;
 	}
 
-	constexpr Fraction(const int64_t n) : num(n), denom(1) {}
-
 	constexpr Fraction(const int64_t n, const int64_t d) : num(n), denom(d)
 	{
-		assert(d != 0);
+		Simplify();
+	}
 
-		if (n == 0 || d == 0) {
-			assert(num == 0);
-			denom = 1;
-			return;
-		}
+	Fraction(const double f)
+	{
+		constexpr auto precision = 10000; // 4 decimal digits
 
-		// Simplify fraction
-		const auto gcd = std::gcd(num, denom);
-		num /= gcd;
-		denom /= gcd;
+		num   = iroundf(f * precision);
+		denom = precision;
 
-		// Normalise sign so the denominator is always positive
-		if (denom < 0) {
-			num   = -num;
-			denom = -denom;
-		}
+		Simplify();
 	}
 
 	constexpr int64_t Num() const
@@ -169,6 +162,28 @@ public:
 private:
 	int64_t num   = 0;
 	int64_t denom = 1;
+
+	constexpr void Simplify() {
+		assert(denom != 0);
+
+		if (num == 0 || denom == 0) {
+			assert(num == 0);
+			denom = 1;
+			return;
+		}
+
+		// Simplify fraction
+		const auto gcd = std::gcd(num, denom);
+		num /= gcd;
+		denom /= gcd;
+
+		// Normalise sign so the denominator is always positive
+		if (denom < 0) {
+			num   = -num;
+			denom = -denom;
+		}
+	}
+
 };
 
 #endif

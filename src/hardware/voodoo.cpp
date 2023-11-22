@@ -7350,7 +7350,7 @@ static void Voodoo_UpdateScreen()
 			constexpr auto double_width  = false;
 			constexpr auto double_height = false;
 
-			constexpr Fraction render_pixel_aspect_ratio = {1};
+			constexpr Fraction render_pixel_aspect_ratio = {1, 1};
 
 			VideoMode video_mode        = {};
 			video_mode.bios_mode_number = 0;

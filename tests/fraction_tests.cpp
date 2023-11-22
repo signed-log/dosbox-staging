@@ -22,16 +22,9 @@
 
 #include <gtest/gtest.h>
 
-TEST(fraction, constructor_integer)
-{
-	const Fraction a = {2};
-	EXPECT_EQ(a.Num(), 2);
-	EXPECT_EQ(a.Denom(), 1);
-}
-
 TEST(fraction, constructor_zero)
 {
-	const Fraction a = {0};
+	const Fraction a = {0, 1};
 	EXPECT_EQ(a.Num(), 0);
 	EXPECT_EQ(a.Denom(), 1);
 }
@@ -185,3 +178,8 @@ TEST(fraction, scalar_division_assignment)
 	EXPECT_EQ(a, Fraction(1, 5));
 }
 
+TEST(fraction, x)
+{
+	EXPECT_EQ(Fraction{1.2}, Fraction(6, 5));
+	EXPECT_EQ(Fraction{29 / 45}, Fraction(6, 5));
+}

@@ -215,7 +215,7 @@ void ImageSaver::SaveRawImage(const RenderedImage& image)
 	}
 }
 
-static constexpr auto square_pixel_aspect_ratio = Fraction{1};
+static constexpr auto square_pixel_aspect_ratio = Fraction{1, 1};
 
 void ImageSaver::SaveUpscaledImage(const RenderedImage& image)
 {

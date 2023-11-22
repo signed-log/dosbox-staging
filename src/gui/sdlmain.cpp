@@ -1555,16 +1555,38 @@ static DosBox::Rect calc_restricted_viewport_size_in_pixels(const DosBox::Rect& 
 		}
 	}
 	case ViewportMode::Relative: {
-		const auto restricted_canvas_px = DosBox::Rect{4, 3}.ScaleSizeToFit(
-		        canvas_px);
+		const auto aspect_mode = RENDER_GetAspectRatioCorrectionMode();
 
-		if (sdl.viewport.relative.canvas_scale) {
-			return restricted_canvas_px.Copy().ScaleSize(
-			        *sdl.viewport.relative.canvas_scale);
+		if (aspect_mode == AspectRatioCorrectionMode::AutoAndStretch) {
+		/*	const auto horiz_scale = sdl.draw.render_pixel_aspect_ratio.ToFloat();
+			DosBox::Rect base = {horiz_scale * canvas_px.h, canvas_px.h};
+
+			// TODO
+			if (sdl.viewport.relative.canvas_scale) {
+				return base.Copy().ScaleSize(
+						*sdl.viewport.relative.canvas_scale);
+			} else {
+				return base.Copy()
+						.ScaleWidth(*sdl.viewport.relative.width_scale)
+						.ScaleHeight(*sdl.viewport.relative.height_scale);
+			}
+		*/	
+			return canvas_px.Copy()
+					.ScaleWidth(*sdl.viewport.relative.width_scale)
+					.ScaleHeight(*sdl.viewport.relative.height_scale);
+
 		} else {
-			return restricted_canvas_px.Copy()
-			        .ScaleWidth(*sdl.viewport.relative.width_scale)
-			        .ScaleHeight(*sdl.viewport.relative.height_scale);
+			const auto restricted_canvas_px = DosBox::Rect{4, 3}.ScaleSizeToFit(
+					canvas_px);
+
+			if (sdl.viewport.relative.canvas_scale) {
+				return restricted_canvas_px.Copy().ScaleSize(
+						*sdl.viewport.relative.canvas_scale);
+			} else {
+				return restricted_canvas_px.Copy()
+						.ScaleWidth(*sdl.viewport.relative.width_scale)
+						.ScaleHeight(*sdl.viewport.relative.height_scale);
+			}
 		}
 	}
 
@@ -1577,6 +1599,22 @@ DosBox::Rect GFX_GetViewportSizeInPixels()
 	const auto canvas_px = get_canvas_size_in_pixels(sdl.rendering_backend);
 
 	return calc_restricted_viewport_size_in_pixels(canvas_px);
+}
+
+std::pair<float, float> GFX_GetViewportRelativeScale()
+{
+	if (sdl.viewport.mode == ViewportMode::Relative) {
+		if (sdl.viewport.relative.canvas_scale) {
+			return {*sdl.viewport.relative.canvas_scale,
+			        *sdl.viewport.relative.canvas_scale};
+		} else {
+			return {*sdl.viewport.relative.width_scale,
+			        *sdl.viewport.relative.height_scale};
+		}
+	} else {
+		constexpr auto unity = 1.0f;
+		return {unity, unity};
+	}
 }
 
 static std::pair<double, double> get_scale_factors_from_pixel_aspect_ratio(

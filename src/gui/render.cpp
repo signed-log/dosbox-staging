@@ -812,7 +812,7 @@ static void init_render_settings(Section_prop& secprop)
 	        "            monitors).\n"
 	        "  auto-and-stretch:  TODO.");
 
-	const char* aspect_values[] = {"on", "off", "stretch", nullptr};
+	const char* aspect_values[] = {"on", "off", "stretch", "auto-and-stretch", nullptr};
 	string_prop->Set_values(aspect_values);
 
 	string_prop = secprop.Add_string("integer_scaling", always, "auto");

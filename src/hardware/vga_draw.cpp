@@ -2739,8 +2739,33 @@ ImageInfo setup_drawing()
 
 	case AspectRatioCorrectionMode::AutoAndStretch: {
 		// TODO
-		video_mode.pixel_aspect_ratio = render_pixel_aspect_ratio *
-		                                render_per_video_mode_scale;
+		const auto [width_scale,
+		            height_scale] = GFX_GetViewportRelativeScale();
+
+		constexpr auto precision = 100000.0f;
+
+		render_pixel_aspect_ratio = {
+		        static_cast<int64_t>(
+		                std::round(render_pixel_aspect_ratio.Num() *
+		                           width_scale * precision)),
+		        static_cast<int64_t>(
+		                std::round(render_pixel_aspect_ratio.Denom() *
+		                           height_scale * precision))};
+
+		// TODO
+		video_mode.pixel_aspect_ratio = {1};
+		/*		const auto scaled_render_width  =
+		   iroundf(final_render_width * width_scale);
+
+		                const auto scaled_render_height =
+		   iroundf(final_render_height * height_scale);
+
+		                const auto render_per_video_mode_scale =
+		                                Fraction(iroundf(render_width *
+		   width_scale) / video_mode.width, / video_mode.height);
+
+		                video_mode.pixel_aspect_ratio =
+		   render_pixel_aspect_ratio * render_per_video_mode_scale; */
 	} break;
 
 	default:
