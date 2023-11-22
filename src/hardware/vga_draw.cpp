@@ -2737,6 +2737,12 @@ ImageInfo setup_drawing()
 		                                render_per_video_mode_scale;
 	} break;
 
+	case AspectRatioCorrectionMode::AutoAndStretch: {
+		// TODO
+		video_mode.pixel_aspect_ratio = render_pixel_aspect_ratio *
+		                                render_per_video_mode_scale;
+	} break;
+
 	default:
 		assertm(false, "Invalid AspectRatioCorrectionMode value");
 		return {};

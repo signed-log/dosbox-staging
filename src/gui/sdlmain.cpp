@@ -1265,8 +1265,10 @@ static void NewMouseScreenParams()
 
 static bool is_aspect_ratio_correction_enabled()
 {
-	return (RENDER_GetAspectRatioCorrectionMode() ==
-	        AspectRatioCorrectionMode::Auto);
+	const auto mode = RENDER_GetAspectRatioCorrectionMode();
+
+	return (mode == AspectRatioCorrectionMode::Auto ||
+	        mode == AspectRatioCorrectionMode::AutoAndStretch);
 }
 
 static void update_fallback_dimensions(const double dpi_scale)

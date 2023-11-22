@@ -740,8 +740,11 @@ static AspectRatioCorrectionMode get_aspect_ratio_correction_mode_setting()
 	} else if (mode == "stretch") {
 		return AspectRatioCorrectionMode::Stretch;
 
+	} else if (mode == "auto-and-stretch") {
+		return AspectRatioCorrectionMode::AutoAndStretch;
+
 	} else {
-		LOG_WARNING("RENDER: Invalid aspect ratio correction mode '%s', using 'on'",
+		LOG_WARNING("RENDER: Invalid 'aspect' setting '%s', using 'on'",
 		            mode.c_str());
 		return AspectRatioCorrectionMode::Auto;
 	}
@@ -806,7 +809,8 @@ static void init_render_settings(Section_prop& secprop)
 	        "  stretch:  Calculate the aspect ratio from the viewport's dimensions. Combined\n"
 	        "            with 'viewport_resolution', this mode is useful to force arbitrary\n"
 	        "            aspect ratios (e.g., stretching DOS games to fullscreen on 16:9\n"
-	        "            monitors).");
+	        "            monitors).\n"
+	        "  auto-and-stretch:  TODO.");
 
 	const char* aspect_values[] = {"on", "off", "stretch", nullptr};
 	string_prop->Set_values(aspect_values);
