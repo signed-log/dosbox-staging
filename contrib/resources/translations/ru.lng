@@ -1,3 +1,83 @@
+:DOSBOX_HELP
+Usage: %s [OPTION]... [PATH]
+
+PATH                       If PATH is a directory, it's mounted as C:.
+                           If PATH is a bootable disk image (IMA/IMG), it's booted.
+                           If PATH is a CDROM image (CUE/ISO), it's mounted as D:.
+                           If PATH is a DOS executable (BAT/COM/EXE), it's parent
+                           path is mounted as C: and the executable is run. When
+                           the executable exits, DOSBox Staging quits.
+
+List of available options:
+
+  --conf <config_file>     Start with the options specified in <config_file>.
+                           Multiple configuration files can be specified.
+                           Example: --conf conf1.conf --conf conf2.conf
+
+  --printconf              Print the location of the primary configuration file.
+
+  --editconf               Open the primary configuration file in a text editor.
+
+  --eraseconf              Delete the primary configuration file.
+
+  --noprimaryconf          Don't load or create the primary configuration file.
+
+  --nolocalconf            Don't load the local 'dosbox.conf' configuration file
+                           if present in the current working directory.
+
+  --set <setting>=<value>  Set a configuration setting. Multiple configuration
+                           settings can be specified. Example:
+                           --set mididevice=fluidsynth --set soundfont=mysoundfont.sf2
+
+  --working-dir <path>     Set working directory to <path>. DOSBox will act as if
+                           started from this directory.
+
+  --list-glshaders         List all available OpenGL shaders and their paths.
+                           Results are useable in the 'glshader = ' config setting.
+
+  --fullscreen             Start in fullscreen mode.
+
+  --lang <lang_file>       Start with the language specified in <lang_file>.
+
+  --machine <type>         Emulate a specific type of machine. The machine type has
+                           influence on both the emulated video and sound cards.
+                           Valid choices are: hercules, cga, cga_mono, tandy,
+                           pcjr, ega, svga_s3 (default), svga_et3000, svga_et4000,
+                           svga_paradise, vesa_nolfb, vesa_oldvbe.
+
+  -c <command>             Run the specified DOS command before handling the PATH.
+                           Multiple commands can be specified.
+
+  --noautoexec             Don't run DOS commands from any [autoexec] sections.
+
+  --exit                   Exit after running '-c <command>'s and [autoexec] sections.
+
+  --startmapper            Run the mapper GUI.
+
+  --erasemapper            Delete the default mapper file.
+
+  --securemode             Enable secure mode by disabling the MOUNT and IMGMOUNT
+                           commands.
+
+  --socket <num>           Run nullmodem on the specified socket number.
+
+  -h, -?, --help           Print help message and exit.
+
+  -V, --version            Print version information and exit.
+
+.
+:PROGRAM_CONFIG_PROPERTY_ERROR
+Нет такого раздела или свойства: %s
+
+.
+:PROGRAM_CONFIG_NO_PROPERTY
+В разделе "%2$s" нет свойства "%1$s".
+
+.
+:PROGRAM_CONFIG_SET_SYNTAX
+Правильный синтаксис: config -set "[раздел] свойство=значение".
+
+.
 :TITLEBAR_CYCLES_MS
 циклов/мс
 .
@@ -187,6 +267,9 @@ host:     Сопоставить частоту DOS частоте экрана 
                некоторые игры могут задействовать их неправильно (мерцание)
                или могут потребовать больше системной памяти (mem = ).
 .
+:CONFIG_VGA_8DOT_FONT
+Use 8-pixel-wide fonts on VGA adapters (disabled by default).
+.
 :CONFIG_SPEED_MODS
 Разрешить изменения, улучшающие производительность. Сейчас неизвестны игры,
 затронутые этими изменениями. Просьба сообщить проекту об ошибке, если
@@ -218,6 +301,18 @@ low         |     нет     |      да
 quiet       |     нет     |      нет
 auto        | 'low', если передан исполняемый файл или каталог, иначе 'high'
 .
+:CONFIG_ALLOW_WRITE_PROTECTED_FILES
+Many games open all their files with writable permissions; even files that they
+never modify. This setting lets you write-protect those files while still
+allowing the game to read them. A second use-case: if you're using a
+copy-on-write or network-based filesystem, this setting avoids triggering
+write-operations for these write-protected files.
+.
+:CONFIG_SHELL_CONFIG_SHORTCUTS
+Allow shortcuts for direct configuration management (enabled by default), i.e.
+instead of 'config -set sbtype sb16' it is enough to execute 'sbtype sb16', 
+and instead of 'config -get sbtype' it is enough to execute 'sbtype' command.
+.
 :CONFIG_FRAMESKIP
 Рассмотрите возможность ограничения кадровой частоты с помощью настройки
 '[sdl] host_rate'.
@@ -229,6 +324,23 @@ auto        | 'low', если передан исполняемый файл и�
 видео, использующие прямоугольные пиксели, такие как '320x200' или '640x400';
 тогда как режимы с квадратными пикселями, например, '640x480' и '800x600',
 будут отображаться как есть.
+.
+:CONFIG_INTEGER_SCALING
+Constrain the horizontal or vertical scaling factor to integer values.
+The correct aspect ratio is always maintained according to the 'aspect'
+setting, which may result in a non-integer scaling factor in the other
+direction. If the image is larger than the viewport, the integer scaling
+constraint is auto-disabled (same as 'off'). Possible values:
+  auto:        'vertical' mode auto-enabled for adaptive CRT shaders only,
+               otherwise 'off' (default).
+  vertical:    Constrain the vertical scaling factor to integer values within
+               the viewport. This is the recommended setting when using CRT
+               shaders to avoid uneven scanlines and unwanted interference
+               artifacts.
+  horizontal:  Constrain the horizontal scaling factor to integer values within
+               the viewport.
+  off:         No integer scaling constraint is applied; the image fills the
+               viewport according to the 'aspect' setting.
 .
 :CONFIG_MONOCHROME_PALETTE
 Выберите палитру по умолчанию для монохромного дисплея.
@@ -338,6 +450,51 @@ auto        | 'low', если передан исполняемый файл и�
 :CONFIG_CYCLEDOWN
 Значение ниже 100 будет в процентах.
 .
+:CONFIG_VOODOO
+Enable 3dfx Voodoo emulation (enabled by default).
+.
+:CONFIG_VOODOO_MEMSIZE
+Set the amount of video memory for 3dfx Voodoo graphics, either 4 or 12 megabytes.
+The memory is used by the Frame Buffer Interface (FBI) and Texture Mapping Unit (TMU)
+as follows:
+   4: 2 MB for the FBI and one TMU with 2 MB (default)
+  12: 4 MB for the FBI and two TMUs, each with 4 MB.
+.
+:CONFIG_VOODOO_MULTITHREADING
+Use threads to improve 3dfx Voodoo performance (enabled by default).
+.
+:CONFIG_VOODOO_BILINEAR_FILTERING
+Use bilinear filtering to emulate the 3dfx Voodoo's texture
+smoothing effect. Only suggested if you have a fast desktop-class
+CPU, as it can impact frame rates on slower systems (disabled by default).
+.
+:CONFIG_CAPTURE_DIR
+Directory where the various captures are saved, such as audio, video, MIDI
+and screenshot captures. ('capture' in the current working directory by
+default).
+.
+:CONFIG_DEFAULT_IMAGE_CAPTURE_FORMATS
+Set the capture format of the default screenshot action ('upscaled' by
+default):
+  upscaled:  The image is bilinear-sharp upscaled and the correct aspect
+             ratio is maintained, depending on the 'aspect' setting. The
+             vertical scaling factor is always an integer. For example,
+             320x200 content is upscaled to 1600x1200 (5:6 integer scaling),
+             640x480 to 1920x1440 (3:3 integer scaling), and 640x350 to
+             1400x1050 (2.1875:3 scaling; fractional horizontally and
+             integer vertically). The filenames of upscaled screenshots
+             have no postfix (e.g. 'image0001.png').
+  rendered:  The post-rendered, post-shader image shown on the screen is
+             captured. The filenames of rendered screenshots end with
+             '-rendered' (e.g. 'image0001-rendered.png').
+  raw:       The contents of the raw framebuffer is captured (this always
+             results in square pixels). The filenames of raw screenshots
+             end with '-raw' (e.g. 'image0001-raw.png').
+If multiple formats are specified separated by spaces, the default
+screenshot action will save multiple images in the specified formats.
+Keybindings for taking single screenshots in specific formats are also
+available.
+.
 :CONFIG_MOUSE_CAPTURE
 Выберите метод управления мышью:
   onclick:   Захватить мышь при нажатии любой кнопки мыши внутри окна.
@@ -349,6 +506,14 @@ auto        | 'low', если передан исполняемый файл и�
 :CONFIG_MOUSE_MIDDLE_RELEASE
 В значении 'true', нажатие средней кнопки высвобождает мышь, а также
 захватывает в режиме seamless.
+.
+:CONFIG_MOUSE_MULTI_DISPLAY_AWARE
+Allows mouse seamless behavior and mouse pointer release to work in fullscreen
+mode for systems with more than one display. (enabled by default).
+Note: You should disable this if it incorrectly detects multiple displays
+      when only one should actually be used. This might happen if you are
+      using mirrored display mode or using an AV receiver's HDMI input for
+      audio-only listening.
 .
 :CONFIG_MOUSE_SENSITIVITY
 Чувствительность мыши. 100 является начальным значением, 150 - 150%
@@ -401,6 +566,16 @@ auto        | 'low', если передан исполняемый файл и�
 По умолчанию: wheel+msm
 Примечание:
    Включение мыши в последовательном порте осуществляется в разделе [serial].
+.
+:CONFIG_VMWARE_MOUSE
+VMware mouse interface (enabled by default).
+Fully compatible only with experimental 3rd party Windows 3.1x driver.
+Note: Requires PS/2 mouse to be enabled.
+.
+:CONFIG_VIRTUALBOX_MOUSE
+VirtualBox mouse interface (enabled by default).
+Fully compatible only with 3rd party Windows 3.1x driver.
+Note: Requires PS/2 mouse to be enabled.
 .
 :CONFIG_NOSOUND
 Включает бесшумный режим, звук продолжает эмулироваться.
@@ -493,6 +668,17 @@ auto        | 'low', если передан исполняемый файл и�
 :CONFIG_MPU401
 Тип MPU-401 для эмуляции.
 .
+:CONFIG_RAW_MIDI_OUTPUT
+Enable raw, unaltered MIDI output (disabled by default).
+The MIDI drivers of many games don't fully conform to the MIDI standard,
+which makes editing the MIDI recordings of these games very error-prone and
+cumbersome in MIDI sequencers, often resulting in hanging or missing notes.
+DOSBox corrects the MIDI output of such games by default. This results in no
+audible difference whatsoever; it only affects the representation of the MIDI
+data. You should only enable 'raw_midi_output' if you really need to capture
+the raw, unaltered MIDI output of a program, e.g. when working with music
+applications, or when debugging MIDI issues.
+.
 :CONFIG_SOUNDFONT
 Путь к файлу SoundFont в формате .sf2. Можно использовать
 абсолютный или относительный путь, или имя .sf2 внутри
@@ -572,6 +758,12 @@ auto        | 'low', если передан исполняемый файл и�
 :MT32_INVENTORY_TABLE_AVAILABLE_LETTER
 д
 .
+:MT32_ROMS_LABEL
+MT-32  ROMs  
+.
+:CM32L_ROMS_LABEL
+CM-32L ROMs  
+.
 :MT32_ACTIVE_ROM_LABEL
 Текущее ПЗУ : 
 .
@@ -608,6 +800,18 @@ auto        | 'low', если передан исполняемый файл и�
 :CONFIG_OPLMODE
 Тип эмуляции OPL. При 'auto' режим определяется 'sbtype'.
 Все режимы OPL совместимы с AdLib, за исключением 'cms'.
+.
+:CONFIG_OPL_FADEOUT
+Fade out the OPL synth output after the last IO port write:
+  off:       Don't fade out; residual output will play forever (default).
+  on:        Wait 0.5s before fading out over a 0.5s period.
+  <custom>:  A custom fade-out definition in the following format:
+               WAIT FADE
+             Where WAIT is how long after the last IO port write fading begins,
+             ranging between 100 and 5000 milliseconds; and FADE is the fade-out
+             period, ranging between 10 and 3000 milliseconds. Examples:
+                300 200 (Wait 300ms before fading out over a 200ms period)
+                1000 3000 (Wait 1s before fading out over a 3s period)
 .
 :CONFIG_OPLEMU
 Теперь поддерживается только эмуляция OPL 'nuked'.
@@ -672,6 +876,21 @@ auto        | 'low', если передан исполняемый файл и�
   off:       Не фильтровать вывод (по умолчанию).
   <своё>:    Собственное определение фильтра; подробности см. в 'sb_filter'.
 .
+:CONFIG_IMFC
+Enable the IBM Music Feature Card (disabled by default).
+.
+:CONFIG_IMFC_BASE
+The IO base address of the IBM Music Feature Card (2A20 by default).
+.
+:CONFIG_IMFC_IRQ
+The IRQ number of the IBM Music Feature Card (3 by default).
+.
+:CONFIG_IMFC_FILTER
+Filter for the IBM Music Feature Card output:
+  on:        Filter the output.
+  off:       Don't filter the output (default).
+  <custom>:  Custom filter definition; see 'sb_filter' for details.
+.
 :CONFIG_SIDMODEL
 Модель чипа для эмуляции в карте Innovation SSI-2001:
  - auto:  Выбирает чип 6581.
@@ -726,6 +945,12 @@ DC-смещение теперь устраняется глобально из 
 :CONFIG_TANDY
 Включить эмуляцию Tandy Sound System.
 Для 'auto', эмуляция включается только тогда, когда 'machine = tandy'.
+.
+:CONFIG_TANDY_FADEOUT
+Fade out the Tandy synth output after the last IO port write:
+  off:       Don't fade out; residual output will play forever (default).
+  on:        Wait 0.5s before fading out over a 0.5s period.
+  <custom>:  Custom fade out definition; see 'opl_fadeout' for details.
 .
 :CONFIG_TANDY_FILTER
 Фильтр для вывода синтезатора Tandy:
@@ -900,13 +1125,22 @@ disabled : Полностью отключить джойстики: не буд
 Если выставлено 0, будет использоваться код страны,
 соответствующий выбранной раскладке клавиатуры.
 .
+:CONFIG_KEYBOARDLAYOUT
+Языковой код раскладки клавиатуры (или 'none').
+.
 :CONFIG_EXPAND_SHELL_VARIABLE
 Включить расширение переменных среды, таких, как %PATH%,
 внутри командной строки DOS. COMMAND.COM в FreeDOS и MS-DOS 7/8
 поддерживает такое поведение.
 .
-:CONFIG_KEYBOARDLAYOUT
-Языковой код раскладки клавиатуры (или 'none').
+:CONFIG_SHELL_HISTORY_FILE
+File containing persistent command line history ('shell_history.txt'
+by default).
+.
+:CONFIG_SETVER_TABLE_FILE
+File containing the list of applications and assigned DOS versions, in a
+tab-separated format, used by SETVER.EXE as a persistent storage
+(empty by default).
 .
 :CONFIG_IPX
 Включить эмуляцию IPX поверх UDP/IP.
@@ -973,17 +1207,8 @@ MAC-адрес карты NE2000.
 :CONFIG_VALID_VALUES
 Возможные значения
 .
-:PROGRAM_CONFIG_PROPERTY_ERROR
-Нет такого раздела или свойства: %s
-
-.
-:PROGRAM_CONFIG_NO_PROPERTY
-В разделе "%2$s" нет свойства "%1$s".
-
-.
-:PROGRAM_CONFIG_SET_SYNTAX
-Правильный синтаксис: config -set "[раздел] свойство=значение".
-
+:CONFIG_DEPRECATED_VALUES
+Deprecated values
 .
 :PROGRAM_CONFIG_NOCONFIGFILE
 Не загружен файл конфигурации!
@@ -2021,33 +2246,6 @@ GOTO: Метка %s не найдена.
 Загружает программу в верхнюю память.
 
 .
-:SHELL_CMD_LS_HELP
-Отображает содержимое каталога в виде широкого списка.
-
-.
-:SHELL_CMD_LS_HELP_LONG
-Использование:
-  [color=light-green]ls[reset] [color=light-cyan]ШАБЛОН[reset]
-  [color=light-green]ls[reset] [color=light-cyan]ПУТЬ[reset]
-
-Где:
-  [color=light-cyan]ШАБЛОН[reset] - может быть точным именем файла или именем файла с символами
-         подстановки: звёздочкой (*) и знаком вопроса (?).
-  [color=light-cyan]ПУТЬ[reset]   - точный путь в смонтированном диске для показа содержимого.
-
-Примечания:
-  Команда показывает каталоги [color=light-blue]синим[reset], исполняемые программы DOS
-  (*.com, *.exe, *.bat) [color=light-green]зелёным[reset], и остальные файлы обычным цветом.
-
-Примеры:
-  [color=light-green]ls[reset] [color=light-cyan]file.txt[reset]
-  [color=light-green]ls[reset] [color=light-cyan]c*.ba?[reset]
-
-.
-:SHELL_CMD_LS_PATH_ERR
-ls: невозможно получить доступ к "%s": Нет такого файла или каталога.
-
-.
 :SHELL_CMD_CHOICE_HELP
 Ожидает нажатия клавиши и задаёт значение ERRORLEVEL.
 
@@ -3049,4 +3247,352 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 .
 :CONJUNCTION_AND
 и
+.
+:PROGRAM_CONFIG_HLP_PROPHLP_POSSIBLE_VALUES
+[color=white]Possible values:[reset]  %s
+
+.
+:PROGRAM_CONFIG_HLP_PROPHLP_DEFAULT_VALUE
+[color=white]Default value:[reset]    %s
+
+.
+:PROGRAM_CONFIG_HLP_PROPHLP_CURRENT_VALUE
+[color=white]Current value:[reset]    %s
+
+.
+:PROGRAM_LS_UNHANDLED_WILDCARD_PATTERN
+Unhandled wildcard pattern - '%s'
+
+.
+:PROGRAM_LS_HELP_LONG
+Displays directory contents in wide list format.
+
+Usage:
+  [color=light-green]ls[reset] [[color=light-cyan]PATTERN[reset] [[color=light-cyan]PATTERN[reset], ...]] [[color=light-cyan]PATH[reset] [[color=light-cyan]PATH[reset], ...]] [/a]
+
+Where:
+  [color=light-cyan]PATTERN[reset] can be either an exact filename or an inexact filename with
+          wildcards, which are the asterisk (*) and the question mark (?).
+  [color=light-cyan]PATH[reset]    is an exact path in a mounted DOS drive to list contents.
+  /a      lists all files and directories, including hidden and system.
+
+Notes:
+  The command will list directories in [color=light-blue]blue[reset], executable DOS programs
+   (*.com, *.exe, *.bat) in [color=light-green]green[reset], and other files in the normal color.
+
+Examples:
+  [color=light-green]ls[reset] [color=light-cyan]file.txt[reset]
+  [color=light-green]ls[reset] [color=light-cyan]c*.ba?[reset]
+
+.
+:SHELL_CMD_MIXER_INACTIVE_CHANNEL
+Channel [color=light-cyan]%s[reset] is not active
+.
+:SHELL_CMD_MIXER_INVALID_GLOBAL_COMMAND
+Invalid global command: [color=white]%s[reset]
+.
+:SHELL_CMD_MIXER_INVALID_VOLUME_COMMAND
+Invalid volume for the [color=light-cyan]%s[reset] channel: [color=white]%s[reset] (run MIXER /? for help)
+.
+:SHELL_CMD_MIXER_INVALID_CROSSFEED_STRENGTH
+Invalid crossfeed strength for the [color=light-cyan]%s[reset] channel: [color=white]%s[reset]
+(must be between 0 and 100)
+.
+:SHELL_CMD_MIXER_INVALID_CHORUS_LEVEL
+Invalid chorus level for the [color=light-cyan]%s[reset] channel: [color=white]%s[reset]
+(must be between 0 and 100)
+.
+:SHELL_CMD_MIXER_INVALID_REVERB_LEVEL
+Invalid reverb level for the [color=light-cyan]%s[reset] channel: [color=white]%s[reset]
+(must be between 0 and 100)
+.
+:SHELL_CMD_MIXER_MISSING_CROSSFEED_STRENGTH
+Missing crossfeed strength after [color=white]x[reset] for the [color=light-cyan]%s[reset] channel
+(must be between 0 and 100)
+.
+:SHELL_CMD_MIXER_MISSING_CHORUS_LEVEL
+Missing chorus level after [color=white]c[reset] for the [color=light-cyan]%s[reset] channel
+(must be between 0 and 100)
+.
+:SHELL_CMD_MIXER_MISSING_REVERB_LEVEL
+Missing reverb level after [color=white]r[reset] for the [color=light-cyan]%s[reset] channel
+(must be between 0 and 100)
+.
+:SHELL_CMD_MIXER_INVALID_GLOBAL_CROSSFEED_STRENGTH
+Invalid global crossfeed strength [color=white]%s[reset] (must be between 0 and 100)
+.
+:SHELL_CMD_MIXER_INVALID_GLOBAL_CHORUS_LEVEL
+Invalid global chorus level [color=white]%s[reset] (must be between 0 and 100)
+.
+:SHELL_CMD_MIXER_INVALID_GLOBAL_REVERB_LEVEL
+Invalid global reverb level [color=white]%s[reset] (must be between 0 and 100)
+.
+:SHELL_CMD_MIXER_MISSING_GLOBAL_CROSSFEED_STRENGTH
+Missing global crossfeed strength after [color=white]x[reset] (must be between 0 and 100)
+.
+:SHELL_CMD_MIXER_MISSING_GLOBAL_CHORUS_LEVEL
+Missing global chorus level after [color=white]c[reset] (must be between 0 and 100)
+.
+:SHELL_CMD_MIXER_MISSING_GLOBAL_REVERB_LEVEL
+Missing global reverb level after [color=white]r[reset] (must be between 0 and 100)
+.
+:SHELL_CMD_MIXER_MISSING_CHANNEL_COMMAND
+Missing command for the [color=light-cyan]%s[reset] channel
+.
+:SHELL_CMD_MIXER_INVALID_CHANNEL_COMMAND
+Invalid command for the [color=light-cyan]%s[reset] channel: [color=white]%s[reset]
+.
+:PROGRAM_MORE_PROMPT_PERCENT
+[reset][color=brown]--- (%d%%) press SPACE for next page, ENTER for next line, Q to quit ---[reset]
+.
+:PROGRAM_MORE_PROMPT_SHORT
+[reset][color=brown]--- more ---[reset]
+.
+:PROGRAM_MORE_PROMPT_SHORT_PERCENT
+[reset][color=brown]--- (%d%%) more ---[reset]
+.
+:PROGRAM_MORE_PROMPT_LINE
+[reset][color=brown]--- line %u ---[reset]
+.
+:PROGRAM_MORE_SKIPPED
+[reset][color=brown](skipped content)[reset]
+.
+:PROGRAM_MORE_HOW_MANY_LINES
+[reset][color=brown]how many lines?[reset]
+.
+:PROGRAM_MOUSECTL_MAPPING_BLOCKED_BY_DRIVER
+Mapping not possible with current guest mouse driver.
+
+.
+:PROGRAM_SETVER_HELP_LONG
+Displays or sets the DOS version reported to applications.
+
+Usage:
+  [color=light-green]setver[reset] \[/b] [/p]
+  [color=light-green]setver[reset] [color=light-cyan]FILE[reset] [color=light-cyan]VERSION[reset] [/q]
+  [color=light-green]setver[reset] [color=light-cyan]FILE[reset] /d [/q]
+  [color=light-green]setver[reset] [color=light-cyan]VERSION[reset] /g [/q]
+  [color=light-green]setver[reset] /d /g [/q]
+  [color=light-green]setver[reset] /d /all [/q]
+
+Where:
+  [color=light-cyan]FILE[reset]     is a file (optionally with path) to apply the settings to.
+  [color=light-cyan]VERSION[reset]  is a DOS version, in [color=white]n[reset].[color=white]nn[reset], [color=white]n[reset].[color=white]n[reset] or [color=white]n[reset] format.
+  /g       global setting, applied to all executables.
+  /d       delete entry from version table.
+  /all     together with /d clears the whole version table.
+  /b       display the list in a batch file format.
+  /p       display one page a time.
+  /q       quiet, skip confirmation messages.
+  /delete and /quiet have same meaning as /d and /q, respectively.
+
+Notes:
+  For persistent version table, specify storage in the configuration file under
+  the [dos] section, using the 'setver_table_file = [color=light-cyan]STORAGE[reset]' setting.
+
+Examples:
+  [color=light-green]setver[reset] /b              ; displays settings as a batch file
+  [color=light-green]setver[reset] [color=light-cyan]RETRO.COM[reset] [color=white]6[reset].[color=white]22[reset]  ; reports DOS version 6.22 for every RETRO.COM file
+  [color=light-green]setver[reset] [color=light-cyan]RETRO.COM[reset] /d    ; stop overriding DOS version reported
+
+.
+:PROGRAM_SETVER_WRONG_TABLE
+Only version table in Z:\ directory is supported.
+.
+:PROGRAM_SETVER_INVALID_VERSION
+Invalid DOS version.
+.
+:PROGRAM_SETVER_TABLE_UPDATED
+Version table updated.
+.
+:PROGRAM_SETVER_TABLE_CLEARED
+Version table cleared.
+.
+:PROGRAM_SETVER_TABLE_ALREADY_EMPTY
+Version table already empty.
+.
+:PROGRAM_SETVER_TABLE_ENTRY_REMOVED
+Entry removed from version table.
+.
+:PROGRAM_SETVER_TABLE_ENTRY_NOT_FOUND
+Entry not found in version table.
+.
+:PROGRAM_SETVER_TABLE_EMPTY
+Version table is empty.
+.
+:PROGRAM_SETVER_GLOBAL
+Global reported version
+.
+:PROGRAM_SETVER_BATCH_GLOBAL
+rule for every executable
+.
+:PROGRAM_SETVER_BATCH_BY_FILE_NAME
+rules for matching by file name only
+.
+:PROGRAM_SETVER_BATCH_BY_FILE_PATH
+rules for matching by file name with path
+.
+:PROGRAM_TREE_HELP_LONG
+Displays directory tree in a graphical form.
+
+Usage:
+  [color=light-green]tree[reset] [color=light-cyan][DIRECTORY][reset] [/a] \[/b] [/f] [/p] [/da] [/df] [/dh] [/o[color=white]ORDER[reset]]
+
+Where:
+  [color=light-cyan]DIRECTORY[reset] is the name of the directory to display.
+  [color=white]ORDER[reset]     is a listing order, one of:
+                [color=white]n[reset] (by name, alphabetic),
+                [color=white]s[reset] (by size, smallest first),
+                [color=white]e[reset] (by extension, alphabetic),
+                [color=white]d[reset] (by date/time, oldest first),
+            with an optional [color=white]-[reset] prefix to reverse order.
+  /a        uses only 7-bit ASCII characters.
+  /b        brief display, omits header and footer information.
+  /f        also display files.
+  /p        display one page a time, shorten output to fit width width.
+  /da       display attributes.
+  /df       display size for files.
+  /dh       also display hidden and system files/directories.
+  /o[color=white]ORDER[reset]   orders the list (see above)
+
+Notes:
+  If [color=light-cyan]DIRECTORY[reset] is omitted, the current directory is used.
+
+Examples:
+  [color=light-green]tree[reset]          ; displays directory tree starting from current directory
+  [color=light-green]tree[reset] [color=light-cyan]C:[reset] /f    ; displays C: drive content recursively, with files
+
+.
+:PROGRAM_TREE_DIRECTORY
+ Directory tree for volume %s
+.
+:PROGRAM_TREE_TOO_MANY_FILES_SUBDIRS
+Too many files or subdirectories.
+
+.
+:AUTOEXEC_BAT_GENERATED
+generated from configuration and command line
+.
+:AUTOEXEC_BAT_CONFIG_SECTION
+from [autoexec] section
+.
+:SHELL_ILLEGAL_FILE_NAME
+Illegal file name.
+
+.
+:SHELL_ILLEGAL_SWITCH_COMBO
+Illegal switch combination.
+
+.
+:SHELL_TOO_MANY_PARAMETERS
+Too many parameters.
+
+.
+:SHELL_EXPECTED_FILE_NOT_DIR
+Expected a file, not a directory.
+
+.
+:SHELL_DIRECTORY_NOT_FOUND
+Directory not found - '%s'
+
+.
+:SHELL_NO_SUBDIRS_TO_DISPLAY
+No subdirectories to display.
+
+.
+:SHELL_NO_FILES_SUBDIRS_TO_DISPLAY
+No files or subdirectories to display.
+
+.
+:SHELL_READ_ERROR
+Error reading file - '%s'
+
+.
+:SHELL_WRITE_ERROR
+Error writing file - '%s'
+
+.
+:SHELL_CMD_VOL_HELP
+Displays the disk volume and serial number, if they exist.
+
+.
+:SHELL_CMD_VOL_HELP_LONG
+Usage:
+  [color=light-green]vol[reset] [color=light-cyan][DRIVE:][reset]
+
+Where:
+  [color=light-cyan]DRIVE[reset] is a drive letter followed by a colon.
+
+Notes:
+  Running [color=light-green]vol[reset] without an argument displays uses the current drive.
+
+Examples:
+  [color=light-green]vol[reset]
+  [color=light-green]vol[reset] [color=light-cyan]c:[reset]
+
+.
+:SHELL_CMD_VOL_OUTPUT
+
+ Volume in drive %c is %s
+ Volume Serial Number is %04X-%04X
+
+
+.
+:SHELL_CMD_MOVE_HELP
+Moves files and renames files and directories.
+
+.
+:SHELL_CMD_MOVE_HELP_LONG
+Usage:
+  [color=light-green]move[reset] [color=white]FILENAME1[,FILENAME2,...][reset] [color=light-cyan]DESTINATION[reset]
+  [color=light-green]move[reset] [color=white]DIRECTORY1[reset] [color=light-cyan]DIRECTORY2[reset]
+
+Where:
+  [color=white]FILENAME[reset]    Can be either an exact filename or an inexact filename with
+              wildcards, which are the asterisk (*) and the question mark (?).
+              Multiple, comma-seperated, filenames can be provided.
+  [color=white]DIRECTORY[reset]   An exact directory name, not containing any wildcards.
+  [color=light-cyan]DESTINATION[reset] An exact filename or directory, not containing any wildcards.
+
+Notes:
+  If multiple source files are specified, destination must be a directory.
+  If not, one will be created for you.
+
+  If a single source file is specified, it will overwrite destination.
+
+Examples:
+  [color=light-green]move[reset] [color=white]source.bat[reset] [color=light-cyan]new.bat[reset]
+  [color=light-green]move[reset] [color=white]file1.txt,file2.txt[reset] [color=light-cyan]mydir[reset]
+
+.
+:SHELL_CMD_MOVE_MULTIPLE_TO_SINGLE
+Cannot move multiple files to a single file.
+
+.
+:SHELL_CMD_FOR_HELP
+Runs a specified command for each string in a set.
+
+.
+:SHELL_CMD_FOR_HELP_LONG
+Usage:
+  [color=light-green]for[reset] [color=white]%VAR[reset] [color=light-cyan]in[reset] [color=white](SET)[reset] [color=light-cyan]do[reset] [color=white]COMMAND[reset]
+
+Where:
+  [color=white]%VAR[reset]    A single character representing a variable, prefixed by a '%'.
+  [color=light-cyan]in[reset]      A case-insensitive keyword.
+  [color=white](SET)[reset]   The set of strings to replace [color=white]%VAR[reset] instances in [color=white]COMMAND[reset].
+  [color=light-cyan]do[reset]      A case-insensitive keyword.
+  [color=white]COMMAND[reset] The command to be repeated for each string in [color=white](SET)[reset].
+
+Notes:
+  - In batch files, [color=white]%VAR[reset] must be written as [color=white]%%VAR[reset] (two percent signs) instead.
+  - Strings in [color=white](SET)[reset] may be separated by any valid DOS separator.
+  - Any string in [color=white](SET)[reset] containing wildcards (* or ?) will expand to
+    the set of matching files in the current directory.
+  - Using another [color=light-green]for[reset] command as [color=white]COMMAND[reset] is not permitted.
+
+Examples:
+  [color=light-green]for[reset] [color=white]%C[reset] [color=light-cyan]in[reset] [color=white](ONE TWO)[reset] [color=light-cyan]do[reset] [color=white]MKDIR[reset] [color=white]%C[reset]
+  [color=light-green]for[reset] [color=white]%D[reset] [color=light-cyan]in[reset] [color=white](*.TXT)[reset] [color=light-cyan]do[reset] [color=white]ECHO[reset] [color=white]%D[reset]
+
 .
