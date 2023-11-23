@@ -64,6 +64,18 @@ Lista dostępnych opcji:
   -V, --version                Wyświetl wersję programu i zakończ pracę.
 
 .
+:PROGRAM_CONFIG_PROPERTY_ERROR
+Brak sekcji lub parametru: '%s'
+
+.
+:PROGRAM_CONFIG_NO_PROPERTY
+Brak parametru '%s' w sekcji [%s]
+
+.
+:PROGRAM_CONFIG_SET_SYNTAX
+Składnia: [color=light-green]config [/reset]-set [color=light-cyan][SECTION][/reset] [color=white]PARAMETR[/reset][=][color=white]WARTOŚĆ[/reset]
+
+.
 :TITLEBAR_CYCLES_MS
 cykli/ms
 .
@@ -490,16 +502,19 @@ Ilość cykli na milisekundę, która zostanie odjęta po naciśnięciu skrótu
 klawiszowego. Ustawienie mniejsze niż 100 jest traktowane jak wartość w
 procentach (domyślnie 20).
 .
+:CONFIG_VOODOO
+Enable 3dfx Voodoo emulation (enabled by default).
+.
 :CONFIG_VOODOO_MEMSIZE
 Wielkość pamięci (w megabajtach) emulowanej karty 3dfx Vodooo (domyślnie 12).
 .
-:CONFIG_VOODOO_PERF
-Optymalizacje wydajności emulowania karty 3dfx Voodoo:
-   0:  Bez optymalizacji.
-   1:  Renderowanie wielowątkowe (domyślne).
-   2:  Wyłączenie filtrowania bilinearnego.
-   3:  Obydwie optymalizacje (zarówno z punktu 1, jak i 2).
-Uwaga: Emulacja jest wyłącznie programowa, nie używa OpenGL.
+:CONFIG_VOODOO_MULTITHREADING
+Use threads to improve 3dfx Voodoo performance (enabled by default).
+.
+:CONFIG_VOODOO_BILINEAR_FILTERING
+Use bilinear filtering to emulate the 3dfx Voodoo's texture
+smoothing effect. Only suggested if you have a fast desktop-class
+CPU, as it can impact frame rates on slower systems (disabled by default).
 .
 :CONFIG_CAPTURE_DIR
 Katalog do zapisywania przechwyconego dźwięku, muzyki w formacie MIDI, zrzutów
@@ -605,6 +620,16 @@ Domyślny model myszy podłączonej do portu COM (serial):
   wheel+msm:      Automatyczna selekcja pomiędzy 'wheel' oraz 'msm'.
 Domyślnie 'wheel+msm'.
 Uwaga: Ten rodzaj myszy należy włączyć w sekcji [serial].
+.
+:CONFIG_VMWARE_MOUSE
+VMware mouse interface (enabled by default).
+Fully compatible only with experimental 3rd party Windows 3.1x driver.
+Note: Requires PS/2 mouse to be enabled.
+.
+:CONFIG_VIRTUALBOX_MOUSE
+VirtualBox mouse interface (enabled by default).
+Fully compatible only with 3rd party Windows 3.1x driver.
+Note: Requires PS/2 mouse to be enabled.
 .
 :CONFIG_NOSOUND
 Włącza tryb cichy (domyślnie wyłączony).
@@ -832,6 +857,18 @@ częstotliwość miksowania, dzięki czemu nie jest potrzebny resampling.
 Typ emulowanego układu OPL. 'auto' (domyślne) wybiera typ w zależności od
 'sbtype'. Wszystkie z wyjątkiem 'cms' są kompatybilne z kartami AdLib.
 .
+:CONFIG_OPL_FADEOUT
+Fade out the OPL synth output after the last IO port write:
+  off:       Don't fade out; residual output will play forever (default).
+  on:        Wait 0.5s before fading out over a 0.5s period.
+  <custom>:  A custom fade-out definition in the following format:
+               WAIT FADE
+             Where WAIT is how long after the last IO port write fading begins,
+             ranging between 100 and 5000 milliseconds; and FADE is the fade-out
+             period, ranging between 10 and 3000 milliseconds. Examples:
+                300 200 (Wait 300ms before fading out over a 200ms period)
+                1000 3000 (Wait 1s before fading out over a 3s period)
+.
 :CONFIG_OPLEMU
 Jedynie emulacja 'nuked' jest aktualnie obsługiwana.
 .
@@ -969,6 +1006,12 @@ Emulacja urządzenia dźwiękowego Tandy/PCjr 3 Voice:
   psg:   Włącza jedynie 3-kanałowy generator, bez obsługi DAC, aby uniknąć
          konfliktów z innymi urządzeniami wykorzystujący kanał DMA numer 1.
   off:   Wyłącza urządzenie dźwiękowe Tandy/PCjr.
+.
+:CONFIG_TANDY_FADEOUT
+Fade out the Tandy synth output after the last IO port write:
+  off:       Don't fade out; residual output will play forever (default).
+  on:        Wait 0.5s before fading out over a 0.5s period.
+  <custom>:  Custom fade out definition; see 'opl_fadeout' for details.
 .
 :CONFIG_TANDY_FILTER
 Filtrowanie dźwięku syntetyzowanego urządzenia Tandy:
@@ -1229,17 +1272,13 @@ Możliwe wartości
 :CONFIG_DEPRECATED_VALUES
 Przestarzałe wartości
 .
-:PROGRAM_CONFIG_PROPERTY_ERROR
-Brak sekcji lub parametru: '%s'
-
-.
-:PROGRAM_CONFIG_NO_PROPERTY
-Brak parametru '%s' w sekcji [%s]
-
-.
-:PROGRAM_CONFIG_SET_SYNTAX
-Składnia: [color=light-green]config [/reset]-set [color=light-cyan][SECTION][/reset] [color=white]PARAMETR[/reset][=][color=white]WARTOŚĆ[/reset]
-
+:CONFIG_VOODOO_PERF
+Optymalizacje wydajności emulowania karty 3dfx Voodoo:
+   0:  Bez optymalizacji.
+   1:  Renderowanie wielowątkowe (domyślne).
+   2:  Wyłączenie filtrowania bilinearnego.
+   3:  Obydwie optymalizacje (zarówno z punktu 1, jak i 2).
+Uwaga: Emulacja jest wyłącznie programowa, nie używa OpenGL.
 .
 :PROGRAM_CONFIG_NOCONFIGFILE
 Nie został załadowany żaden plik konfiguracyjny
@@ -3610,4 +3649,47 @@ Inne polecenia
 .
 :HELP_UTIL_CATEGORY_UNKNOWN
 Pozostałe, bez kategorii
+.
+:PROGRAM_CONFIG_HLP_PROPHLP_POSSIBLE_VALUES
+[color=white]Possible values:[reset]  %s
+
+.
+:PROGRAM_CONFIG_HLP_PROPHLP_DEFAULT_VALUE
+[color=white]Default value:[reset]    %s
+
+.
+:PROGRAM_CONFIG_HLP_PROPHLP_CURRENT_VALUE
+[color=white]Current value:[reset]    %s
+
+.
+:PROGRAM_MOUSECTL_MAPPING_BLOCKED_BY_DRIVER
+Mapping not possible with current guest mouse driver.
+
+.
+:SHELL_CMD_FOR_HELP
+Runs a specified command for each string in a set.
+
+.
+:SHELL_CMD_FOR_HELP_LONG
+Usage:
+  [color=light-green]for[reset] [color=white]%VAR[reset] [color=light-cyan]in[reset] [color=white](SET)[reset] [color=light-cyan]do[reset] [color=white]COMMAND[reset]
+
+Where:
+  [color=white]%VAR[reset]    A single character representing a variable, prefixed by a '%'.
+  [color=light-cyan]in[reset]      A case-insensitive keyword.
+  [color=white](SET)[reset]   The set of strings to replace [color=white]%VAR[reset] instances in [color=white]COMMAND[reset].
+  [color=light-cyan]do[reset]      A case-insensitive keyword.
+  [color=white]COMMAND[reset] The command to be repeated for each string in [color=white](SET)[reset].
+
+Notes:
+  - In batch files, [color=white]%VAR[reset] must be written as [color=white]%%VAR[reset] (two percent signs) instead.
+  - Strings in [color=white](SET)[reset] may be separated by any valid DOS separator.
+  - Any string in [color=white](SET)[reset] containing wildcards (* or ?) will expand to
+    the set of matching files in the current directory.
+  - Using another [color=light-green]for[reset] command as [color=white]COMMAND[reset] is not permitted.
+
+Examples:
+  [color=light-green]for[reset] [color=white]%C[reset] [color=light-cyan]in[reset] [color=white](ONE TWO)[reset] [color=light-cyan]do[reset] [color=white]MKDIR[reset] [color=white]%C[reset]
+  [color=light-green]for[reset] [color=white]%D[reset] [color=light-cyan]in[reset] [color=white](*.TXT)[reset] [color=light-cyan]do[reset] [color=white]ECHO[reset] [color=white]%D[reset]
+
 .
