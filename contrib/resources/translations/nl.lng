@@ -520,17 +520,19 @@ Aantal cycli toegevoegd of afgetrokken met sneltoetsen voor snelheidsregeling
 :CONFIG_CYCLEDOWN
 Als u deze lager instelt dan 100, is dit een percentage (standaard 20).
 .
+:CONFIG_VOODOO
+Enable 3dfx Voodoo emulation (enabled by default).
+.
 :CONFIG_VOODOO_MEMSIZE
 Geheugengrootte (in MB) van de 3dfx Vodooo-kaart (standaard 12 MB).
 .
-:CONFIG_VOODOO_PERF
-Optimalisaties om te gebruiken bij het emuleren van de 3dfx Voodoo-kaart:
-   0: Geen optimalisaties.
-   1: Multi-threading (standaard).
-   2: Bilineaire filtering uitschakelen.
-   3: Alle optimalisaties (zowel 1 als 2).
-Opmerking: Voodo-emulatie is softwaregebaseerd en maakt geen gebruik van
-      OpenGL-oproepen op hostniveau.
+:CONFIG_VOODOO_MULTITHREADING
+Use threads to improve 3dfx Voodoo performance (enabled by default).
+.
+:CONFIG_VOODOO_BILINEAR_FILTERING
+Use bilinear filtering to emulate the 3dfx Voodoo's texture
+smoothing effect. Only suggested if you have a fast desktop-class
+CPU, as it can impact frame rates on slower systems (disabled by default).
 .
 :CONFIG_CAPTURE_DIR
 Directory waar de verschillende opnames worden opgeslagen, zoals audio-,
@@ -633,6 +635,16 @@ COM (seriële) poort standaard muismodel:
   3button+msm:  Automatische keuze tussen 3button en msm.
   wheel+msm:    Automatische keuze tussen wiel en msm (standaard).
 Opmerkingen: Activeer COM-poort muis in de [serial] sectie.
+.
+:CONFIG_VMWARE_MOUSE
+VMware mouse interface (enabled by default).
+Fully compatible only with experimental 3rd party Windows 3.1x driver.
+Note: Requires PS/2 mouse to be enabled.
+.
+:CONFIG_VIRTUALBOX_MOUSE
+VirtualBox mouse interface (enabled by default).
+Fully compatible only with 3rd party Windows 3.1x driver.
+Note: Requires PS/2 mouse to be enabled.
 .
 :CONFIG_NOSOUND
 Schakel de stille modus in (standaard uitgeschakeld).
@@ -869,6 +881,18 @@ Type OPL-emulatie (standaard 'auto').
 Op 'auto' wordt de modus bepaald door 'sbtype'.
 Alle OPL-modi zijn AdLib-compatibel, behalve 'cms'.
 .
+:CONFIG_OPL_FADEOUT
+Fade out the OPL synth output after the last IO port write:
+  off:       Don't fade out; residual output will play forever (default).
+  on:        Wait 0.5s before fading out over a 0.5s period.
+  <custom>:  A custom fade-out definition in the following format:
+               WAIT FADE
+             Where WAIT is how long after the last IO port write fading begins,
+             ranging between 100 and 5000 milliseconds; and FADE is the fade-out
+             period, ranging between 10 and 3000 milliseconds. Examples:
+                300 200 (Wait 300ms before fading out over a 200ms period)
+                1000 3000 (Wait 1s before fading out over a 3s period)
+.
 :CONFIG_OPLEMU
 Alleen 'nuked' OPL-emulatie wordt nog ondersteund.
 .
@@ -1010,6 +1034,12 @@ Stel de Tandy/PCjr 3 Voice-geluidemulatie in:
          de kaart in zonder DAC om conflicten met andere kaarten die DMA 1
          gebruiken te voorkomen.
   off:   Tandy/PCjr-geluid uitschakelen.
+.
+:CONFIG_TANDY_FADEOUT
+Fade out the Tandy synth output after the last IO port write:
+  off:       Don't fade out; residual output will play forever (default).
+  on:        Wait 0.5s before fading out over a 0.5s period.
+  <custom>:  Custom fade out definition; see 'opl_fadeout' for details.
 .
 :CONFIG_TANDY_FILTER
 Filter voor de Tandy synth-uitgang:
@@ -1266,6 +1296,15 @@ Mogelijke waarden
 .
 :CONFIG_DEPRECATED_VALUES
 Verouderde waarden
+.
+:CONFIG_VOODOO_PERF
+Optimalisaties om te gebruiken bij het emuleren van de 3dfx Voodoo-kaart:
+   0: Geen optimalisaties.
+   1: Multi-threading (standaard).
+   2: Bilineaire filtering uitschakelen.
+   3: Alle optimalisaties (zowel 1 als 2).
+Opmerking: Voodo-emulatie is softwaregebaseerd en maakt geen gebruik van
+      OpenGL-oproepen op hostniveau.
 .
 :PROGRAM_CONFIG_NOCONFIGFILE
 Geen configuratiebestand geladen!
@@ -3672,4 +3711,68 @@ Diverse opdrachten
 .
 :HELP_UTIL_CATEGORY_UNKNOWN
 Onbekende opdracht
+.
+:PROGRAM_CONFIG_HLP_PROPHLP_POSSIBLE_VALUES
+[color=white]Possible values:[reset]  %s
+
+.
+:PROGRAM_CONFIG_HLP_PROPHLP_DEFAULT_VALUE
+[color=white]Default value:[reset]    %s
+
+.
+:PROGRAM_CONFIG_HLP_PROPHLP_CURRENT_VALUE
+[color=white]Current value:[reset]    %s
+
+.
+:PROGRAM_LS_HELP_LONG
+Displays directory contents in wide list format.
+
+Usage:
+  [color=light-green]ls[reset] [[color=light-cyan]PATTERN[reset] [[color=light-cyan]PATTERN[reset], ...]] [[color=light-cyan]PATH[reset] [[color=light-cyan]PATH[reset], ...]] [/a]
+
+Where:
+  [color=light-cyan]PATTERN[reset] can be either an exact filename or an inexact filename with
+          wildcards, which are the asterisk (*) and the question mark (?).
+  [color=light-cyan]PATH[reset]    is an exact path in a mounted DOS drive to list contents.
+  /a      lists all files and directories, including hidden and system.
+
+Notes:
+  The command will list directories in [color=light-blue]blue[reset], executable DOS programs
+   (*.com, *.exe, *.bat) in [color=light-green]green[reset], and other files in the normal color.
+
+Examples:
+  [color=light-green]ls[reset] [color=light-cyan]file.txt[reset]
+  [color=light-green]ls[reset] [color=light-cyan]c*.ba?[reset]
+
+.
+:PROGRAM_MOUSECTL_MAPPING_BLOCKED_BY_DRIVER
+Mapping not possible with current guest mouse driver.
+
+.
+:SHELL_CMD_FOR_HELP
+Runs a specified command for each string in a set.
+
+.
+:SHELL_CMD_FOR_HELP_LONG
+Usage:
+  [color=light-green]for[reset] [color=white]%VAR[reset] [color=light-cyan]in[reset] [color=white](SET)[reset] [color=light-cyan]do[reset] [color=white]COMMAND[reset]
+
+Where:
+  [color=white]%VAR[reset]    A single character representing a variable, prefixed by a '%'.
+  [color=light-cyan]in[reset]      A case-insensitive keyword.
+  [color=white](SET)[reset]   The set of strings to replace [color=white]%VAR[reset] instances in [color=white]COMMAND[reset].
+  [color=light-cyan]do[reset]      A case-insensitive keyword.
+  [color=white]COMMAND[reset] The command to be repeated for each string in [color=white](SET)[reset].
+
+Notes:
+  - In batch files, [color=white]%VAR[reset] must be written as [color=white]%%VAR[reset] (two percent signs) instead.
+  - Strings in [color=white](SET)[reset] may be separated by any valid DOS separator.
+  - Any string in [color=white](SET)[reset] containing wildcards (* or ?) will expand to
+    the set of matching files in the current directory.
+  - Using another [color=light-green]for[reset] command as [color=white]COMMAND[reset] is not permitted.
+
+Examples:
+  [color=light-green]for[reset] [color=white]%C[reset] [color=light-cyan]in[reset] [color=white](ONE TWO)[reset] [color=light-cyan]do[reset] [color=white]MKDIR[reset] [color=white]%C[reset]
+  [color=light-green]for[reset] [color=white]%D[reset] [color=light-cyan]in[reset] [color=white](*.TXT)[reset] [color=light-cyan]do[reset] [color=white]ECHO[reset] [color=white]%D[reset]
+
 .
