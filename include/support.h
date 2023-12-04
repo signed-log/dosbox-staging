@@ -51,13 +51,7 @@
 #define strncasecmp(a, b, n) _strnicmp(a, b, n)
 #endif
 
-#ifdef PAGESIZE
-// Some platforms like ppc64 have page sizes of 64K, so uint16_t isn't enough.
-constexpr uint32_t host_pagesize = { PAGESIZE };
-#else
-constexpr uint16_t host_pagesize = 4096;
-#endif
-
+extern uint32_t host_pagesize;
 constexpr uint16_t dos_pagesize = 4096;
 
 // Some C functions operate on characters but return integers,

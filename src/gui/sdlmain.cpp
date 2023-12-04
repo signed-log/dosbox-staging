@@ -43,6 +43,13 @@
 #include <windows.h>
 #endif
 
+// Used for host page size functions
+#ifdef WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
 #include <SDL.h>
 #if C_OPENGL
 #include <SDL_opengl.h>
@@ -4637,6 +4644,19 @@ static void override_wm_class()
 
 extern "C" int SDL_CDROMInit(void);
 
+static int get_system_page_size()
+{
+#ifdef _WIN32
+	SYSTEM_INFO systemInfo;
+	GetSystemInfo(&systemInfo);
+	return systemInfo.dwPageSize;
+#else
+	return sysconf(_SC_PAGESIZE);
+#endif
+}
+
+uint32_t host_pagesize = 4096;
+
 int sdl_main(int argc, char* argv[])
 {
 	CommandLine command_line(argc, argv);
@@ -4673,6 +4693,16 @@ int sdl_main(int argc, char* argv[])
 	int return_code = 0;
 
 	try {
+		// Set host_pagesize right away
+		const auto page_size = get_system_page_size();
+		if (page_size > 0) {
+			host_pagesize = page_size;
+		} else {
+			LOG_ERR("SYSTEM: Cannot determine system page size, using default");
+		}
+
+		LOG_INFO("SYSTEM: Host page size: %d", host_pagesize);
+
 		if (!arguments->working_dir.empty()) {
 			std::error_code ec;
 			std_fs::current_path(arguments->working_dir, ec);
