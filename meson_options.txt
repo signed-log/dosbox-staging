@@ -64,7 +64,77 @@ option(
     type: 'combo',
     choices: ['auto', 'true', 'false'],
     value: 'auto',
-    description: 'Let ManyMouse use the X Input 2.0 protocol.'
+    description: 'Let ManyMouse use the X Input 2.0 protocol.',
+)
+
+# To use the optimized built-in zlib-ng, you need CMake(*)
+# and Meson 1.3.0, which you can install through pip if your
+# package manager's version is too old.
+#
+# If you're compiling your own binary and plan to only use
+# it on your current machine, then do nothing: the default
+# will give you the best performance.
+#
+# If you're compiling a package on a very specific SBC that's
+# only meant for users of the same SBC, then do nothing:
+# the default will give you the best performance.
+#
+# If you're compiling a package targeting a range of hardware
+# and you have no qualms with built-ins, then set this to the
+# most conservative list of SIMD instructions for your supported
+# system. For example, if your binary needs to run on
+# Intel's Core 2 Duo (and newer), then set this to 'sse2,ssse3'.
+#
+# If you're a repo packager that dislikes built-ins or are
+# working under a policy that prohibits them, then set this
+# to 'false' to use your system's zlib library.
+#
+# (*) A Meson project that depends on CMake!? Well, zlib-ng
+#     is a CMake project and thankfully Meson has a module
+#     that can both configure it build it. To eliminate this
+#     dependency on CMake, please author a Meson wrap for
+#     zlib-ng here: https://github.com/mesonbuild/wrapdb
+#
+option(
+    'use_builtin_zlib_ng',
+    type: 'array',
+    choices: [
+        'false',
+
+        # Enable those instructions sets supported by the build-target
+        # machine (which is often the local system, unless you're
+        # cross-compiling). This is the default.
+        'native',
+
+        # x86 and x86-64 instruction sets
+        'avx2',
+        'avx512',
+        'avx512vnni',
+        'sse2',
+        'ssse3',
+        'sse42',
+        'pclmulqdq',
+        'vpclmulqdq',
+
+        # Arm instruction sets
+        'acle',
+        'neon',
+        'armv6',
+
+        #  POWER, PowerPC, and Power ISA instruction sets
+        'altivec',
+        'power8',
+
+        # RISC-V "V" (vector) instruction set
+        'rvv',
+
+        # IBM Z instruction sets
+        'crc32_vx',
+        'dfltcc_deflate',
+        'dfltcc_inflate',
+    ],
+    value: ['native'],
+    description: 'Enable zlib-ng releases supporting the given instruction sets',
 )
 
 option(
@@ -84,9 +154,10 @@ option(
 )
 
 option(
-    'pagesize', type : 'integer',
-    value : 0,
-    description: 'Set host memory pagesize in bytes (skip detection)'
+    'pagesize',
+    type: 'integer',
+    value: 0,
+    description: 'Set host memory pagesize in bytes (skip detection)',
 )
 
 # Per-page write-or-execute (W^X) permissions
@@ -124,7 +195,7 @@ option(
     'per_page_w_or_x',
     type: 'feature',
     value: 'auto',
-    description: 'Flag dynamic core memory write-or-execute (W^X) per-page.'
+    description: 'Flag dynamic core memory write-or-execute (W^X) per-page.',
 )
 
 # Use this option for selectively switching dependencies to look for static
