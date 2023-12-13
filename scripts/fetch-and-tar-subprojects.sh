@@ -58,13 +58,15 @@ fetch_subprojects()
 
 	"$MESON" subprojects download
 	"$MESON" subprojects update --reset
-	"$MESON" subprojects foreach meson subprojects download
+	"$MESON" subprojects foreach meson subprojects download || true
 
 	while read -r dir; do
 		(
 			set -eu
 			cd "$(dirname "$dir")"
-			"$MESON" subprojects download
+			if [[ -f meson.build ]]; then
+				"$MESON" subprojects download
+			fi
 		)
 	done < <(find . -type d -name subprojects)
 }
