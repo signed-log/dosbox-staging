@@ -1,6 +1,12 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-set -e
+# Note: the follow script is compatible with POSIX shell,
+# however Bash is used as the parser for its more robust
+# error handling (see below). This script is non-trivial and
+# often runs in a CI environemnt, so we need as much
+# error-detection as possible!
+#
+set -euo pipefail
 
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
