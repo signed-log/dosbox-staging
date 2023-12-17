@@ -200,31 +200,20 @@ jobs:
             -p msvc \
             vs/${{ matrix.conf.vs-release-dirname }}/Release \
             "${{ steps.set_pkg_dir.outputs.pkg_dir }}"
-      
-      - name:  Package the debugger
-        if:    ${{ matrix.conf.debugger }}
-        shell: bash
-        run: |
-          set -x
-          mkdir -p ${{ steps.set_pkg_dir.outputs.pkg_dir }}
-          # Move the debugger build into the release area
-          readonly RELEASE_DIR=${{ matrix.conf.vs-release-dirname }}/Release
-          ls "vs/$RELEASE_DIR"
-          cp vs/$RELEASE_DIR/dosbox.exe   ${{ steps.set_pkg_dir.outputs.pkg_dir }}/dosbox_with_debugger.exe
 
-      - name: Upload package
+      - name: Upload ${{ matrix.conf.arch }} package
         if:   ${{ !matrix.conf.debugger }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.set_pkg_dir.outputs.pkg_dir }}
           path: ${{ steps.set_pkg_dir.outputs.pkg_dir }}
 
-      - name: Upload debugger artifact
+      - name: Upload ${{ matrix.conf.arch }} debugger executable
         if:   ${{ matrix.conf.debugger }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.set_pkg_dir.outputs.pkg_dir }}-debugger
-          path: ${{ steps.set_pkg_dir.outputs.pkg_dir }}/dosbox_with_debugger.exe
+          name: dosbox-staging-windows-debugger-${{ matrix.conf.arch }}-${{ env.VERSION }}
+          path: ${{ matrix.conf.vs-release-dirname }}/Release/dosbox.exe
 
   # This job exists only to publish an artifact with version info when building
   # from main branch, so snapshot build version will be visible on:
