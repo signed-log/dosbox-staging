@@ -734,10 +734,13 @@ void CONFIG::Run(void)
 						if (p == nullptr) {
 							break;
 						}
-						WriteOut(
-						        "%s=%s\n",
-						        p->propname.c_str(),
-						        p->GetValue().ToString().c_str());
+						std::string val_utf8 = p->GetValue().ToString();
+						std::string val_dos = {};
+						utf8_to_dos(val_utf8, val_dos,
+						            UnicodeFallback::Simple);
+						WriteOut("%s=%s\n",
+						         p->propname.c_str(),
+						         val_dos.c_str());
 					}
 				} else {
 					// no: maybe it's a property?
@@ -749,10 +752,12 @@ void CONFIG::Run(void)
 						return;
 					}
 					// it's a property name
-					std::string val = sec->GetPropValue(
-					        pvars[0].c_str());
-					WriteOut("%s", val.c_str());
-					first_shell->SetEnv("CONFIG", val.c_str());
+					std::string val_utf8 = sec->GetPropValue(pvars[0].c_str());
+					std::string val_dos = {};
+					utf8_to_dos(val_utf8, val_dos,
+					            UnicodeFallback::Simple);
+					WriteOut("%s", val_dos.c_str());
+					first_shell->SetEnv("CONFIG", val_dos.c_str());
 				}
 				break;
 			}
@@ -773,6 +778,7 @@ void CONFIG::Run(void)
 					         sec_name);
 					return;
 				}
+				// XXX
 				WriteOut("%s\n", val.c_str());
 				first_shell->SetEnv("CONFIG", val.c_str());
 				break;
@@ -817,8 +823,10 @@ void CONFIG::Run(void)
 				}
 				std::string inputline = pvars[1] + "=" + value;
 				tsec->ExecuteDestroy(false);
+				std::string line_utf8 = {};
+				dos_to_utf8(inputline, line_utf8);
 				bool change_success = tsec->HandleInputline(
-				        inputline.c_str());
+				        line_utf8.c_str());
 
 				if (!change_success) {
 					trim(value);

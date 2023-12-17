@@ -401,6 +401,15 @@ void GFX_EndUpdate( const uint16_t *changedLines );
 void GFX_LosingFocus();
 void GFX_RegenerateWindow(Section *sec);
 
+void GFX_RefreshTitle();
+void GFX_RefreshAnimatedTitle();
+void GFX_NotifyBooting();
+void GFX_SetAudioCaptureMark(const bool is_capturing);
+void GFX_SetVideoCaptureMark(const bool is_capturing);
+void GFX_SetProgramName(const std::string& segment_name,
+                        const std::string& canonical_name);
+void GFX_SetCycles(const int32_t cycles);
+
 enum class MouseHint {
     None,                    // no hint to display
     NoMouse,                 // no mouse mode

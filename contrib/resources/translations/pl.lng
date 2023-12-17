@@ -430,8 +430,8 @@ Składnia: [color=light-green]config [/reset]-set [color=light-cyan][SECTION][/r
 :TITLEBAR_CYCLES_MS
 cykli/ms
 .
-:TITLEBAR_HINT_PAUSED
-(PAUZA)
+:TITLEBAR_PAUSED
+PAUZA
 .
 :TITLEBAR_HINT_NOMOUSE
 tryb bez użycia myszy

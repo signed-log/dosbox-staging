@@ -71,6 +71,7 @@
 #include "setup.h"
 #include "string_utils.h"
 #include "timer.h"
+#include "title_bar.h"
 #include "tracy.h"
 #include "vga.h"
 #include "video.h"
@@ -291,71 +292,9 @@ static void QuitSDL()
 	}
 }
 
-extern const char* RunningProgram;
-extern bool CPU_CycleAutoAdjust;
-//Globals for keyboard initialisation
-bool startup_state_numlock=false;
-bool startup_state_capslock=false;
-
-void GFX_SetTitle(const int32_t new_num_cycles, const bool is_paused = false)
-{
-	char title_buf[200] = {0};
-
-#if !defined(NDEBUG)
-	#define APP_NAME_STR DOSBOX_NAME " (debug build)"
-#else
-	#define APP_NAME_STR DOSBOX_NAME
-#endif
-
-	auto &num_cycles      = sdl.title_bar.num_cycles;
-	auto &cycles_ms_str   = sdl.title_bar.cycles_ms_str;
-	auto &hint_mouse_str  = sdl.title_bar.hint_mouse_str;
-	auto &hint_paused_str = sdl.title_bar.hint_paused_str;
-
-	if (new_num_cycles != -1) {
-		num_cycles = new_num_cycles;
-	}
-
-	if (cycles_ms_str.empty()) {
-		cycles_ms_str   = MSG_GetRaw("TITLEBAR_CYCLES_MS");
-		hint_paused_str = std::string(" ") + MSG_GetRaw("TITLEBAR_HINT_PAUSED");
-	}
-
-	const auto& hint_str = is_paused ? hint_paused_str : hint_mouse_str;
-	if (CPU_CycleAutoAdjust) {
-		if (CPU_CycleLimit > 0) {
-			safe_sprintf(title_buf,
-			             "%8s - max %d%% limit %d %s - " APP_NAME_STR "%s",
-			             RunningProgram,
-			             num_cycles,
-			             CPU_CycleLimit,
-			             cycles_ms_str.c_str(),
-			             hint_str.c_str());
-		} else {
-			safe_sprintf(title_buf,
-			             "%8s - max %d%% %s - " APP_NAME_STR "%s",
-			             RunningProgram,
-			             num_cycles,
-			             cycles_ms_str.c_str(),
-			             hint_str.c_str());
-		}
-	} else {
-		safe_sprintf(title_buf,
-		             "%8s - %d %s - " APP_NAME_STR "%s",
-		             RunningProgram,
-		             num_cycles,
-		             cycles_ms_str.c_str(),
-		             hint_str.c_str());
-	}
-
-	SDL_SetWindowTitle(sdl.window, title_buf);
-}
-
-void GFX_RefreshTitle(const bool is_paused = false)
-{
-	constexpr int8_t refresh_cycle_count = -1;
-	GFX_SetTitle(refresh_cycle_count, is_paused);
-}
+// Globals for keyboard initialisation
+static bool startup_state_numlock  = false;
+static bool startup_state_capslock = false;
 
 // Detects if we're running within a desktop environment (or window manager).
 bool GFX_HaveDesktopEnvironment()
@@ -577,8 +516,8 @@ static bool is_command_pressed(const SDL_Event event)
 	}
 	const auto inkeymod = static_cast<uint16_t>(SDL_GetModState());
 
-	bool is_paused = true;
-	GFX_RefreshTitle(is_paused);
+	sdl.is_paused = true;
+	GFX_RefreshTitle();
 
 	Delay(500);
 	SDL_Event event;
@@ -589,7 +528,7 @@ static bool is_command_pressed(const SDL_Event event)
 
 	// NOTE: This is one of the few places where we use SDL key codes with
 	// SDL 2.0, rather than scan codes. Is that the correct behavior?
-	while (is_paused && !shutdown_requested) {
+	while (sdl.is_paused && !shutdown_requested) {
 		// since we're not polling, CPU usage drops to 0.
 		SDL_WaitEvent(&event);
 
@@ -624,8 +563,8 @@ static bool is_command_pressed(const SDL_Event event)
 					// Which is tricky due to possible use
 					// of scancodes.
 				}
-				is_paused = false;
-				GFX_RefreshTitle(is_paused);
+				sdl.is_paused = false;
+				GFX_RefreshTitle();
 				break;
 			}
 
@@ -1385,7 +1324,6 @@ static SDL_Window* SetWindowMode(const RenderingBackend rendering_backend,
 		}
 #endif
 		check_and_handle_dpi_change(sdl.window, rendering_backend);
-
 		GFX_RefreshTitle();
 
 		if (!fullscreen) {
@@ -2234,57 +2172,6 @@ void GFX_SetShader([[maybe_unused]] const ShaderInfo& shader_info,
 		sdl.opengl.program_object = 0;
 	}
 #endif
-}
-
-void GFX_SetMouseHint(const MouseHint hint_id)
-{
-	static const std::string prexix = " - ";
-
-	auto create_hint_str = [](const char *requested_name) {
-		char hint_buffer[200] = {0};
-
-		safe_sprintf(hint_buffer,
-		             MSG_GetRaw(requested_name),
-		             PRIMARY_MOD_NAME);
-		return prexix + hint_buffer;
-	};
-
-	auto &hint_str = sdl.title_bar.hint_mouse_str;
-	switch (hint_id) {
-	case MouseHint::None:
-		hint_str.clear();
-		break;
-	case MouseHint::NoMouse:
-		hint_str = prexix + MSG_GetRaw("TITLEBAR_HINT_NOMOUSE");
-		break;
-	case MouseHint::CapturedHotkey:
-		hint_str = create_hint_str("TITLEBAR_HINT_CAPTURED_HOTKEY");
-		break;
-	case MouseHint::CapturedHotkeyMiddle:
-		hint_str = create_hint_str("TITLEBAR_HINT_CAPTURED_HOTKEY_MIDDLE");
-		break;
-	case MouseHint::ReleasedHotkey:
-		hint_str = create_hint_str("TITLEBAR_HINT_RELEASED_HOTKEY");
-		break;
-	case MouseHint::ReleasedHotkeyMiddle:
-		hint_str = create_hint_str("TITLEBAR_HINT_RELEASED_HOTKEY_MIDDLE");
-		break;
-	case MouseHint::ReleasedHotkeyAnyButton:
-		hint_str = create_hint_str("TITLEBAR_HINT_RELEASED_HOTKEY_ANY_BUTTON");
-		break;
-	case MouseHint::SeamlessHotkey:
-		hint_str = create_hint_str("TITLEBAR_HINT_SEAMLESS_HOTKEY");
-		break;
-	case MouseHint::SeamlessHotkeyMiddle:
-		hint_str = create_hint_str("TITLEBAR_HINT_SEAMLESS_HOTKEY_MIDDLE");
-		break;
-	default:
-		assert(false);
-		hint_str.clear();
-		break;
-	}
-
-	GFX_RefreshTitle();
 }
 
 void GFX_CenterMouse()
@@ -3217,7 +3104,6 @@ InterpolationMode GFX_GetInterpolationMode()
 
 static void set_output(Section* sec, const bool wants_aspect_ratio_correction)
 {
-	// Apply the user's mouse settings
 	const auto section = static_cast<const Section_prop *>(sec);
 	std::string output = section->Get_string("output");
 
@@ -3387,7 +3273,7 @@ static void set_output(Section* sec, const bool wants_aspect_ratio_correction)
 	const auto transparency = clamp(section->Get_int("transparency"), 0, 90);
 	const auto alpha = static_cast<float>(100 - transparency) / 100.0f;
 	SDL_SetWindowOpacity(sdl.window, alpha);
-	SDL_SetWindowTitle(sdl.window, APP_NAME_STR);
+	GFX_RefreshTitle();
 
 	RENDER_Reinit();
 }
@@ -3749,6 +3635,26 @@ static bool maybe_auto_switch_shader()
 #endif
 }
 
+static bool is_user_event(const SDL_Event& event)
+{
+	const auto start_id = sdl.start_event_id;
+	const auto end_id   = start_id + enum_val(SDL_DosBoxEvents::NumEvents);
+
+	return (event.common.type >= start_id && event.common.type < end_id);
+}
+
+static void handle_user_event(const SDL_Event& event)
+{
+	const auto id = event.common.type - sdl.start_event_id;
+	switch (static_cast<SDL_DosBoxEvents>(id)) {
+	case SDL_DosBoxEvents::RefreshAnimatedTitle:
+		GFX_RefreshAnimatedTitle();
+		break;
+	default:
+		assert(false);
+	}
+}
+
 bool GFX_Events()
 {
 #if defined(MACOSX)
@@ -3781,6 +3687,10 @@ bool GFX_Events()
 			continue;
 		}
 #endif
+		if (is_user_event(event)) {
+			handle_user_event(event);
+			continue;
+		}
 		switch (event.type) {
 		case SDL_DISPLAYEVENT:
 			switch (event.display.event) {
@@ -4018,17 +3928,16 @@ bool GFX_Events()
 					 * Instead of waiting for the user to hit Alt+Break, we wait for the window to
 					 * regain window or input focus.
 					 */
-					bool paused = true;
 					ApplyInactiveSettings();
 					SDL_Event ev;
 
-					GFX_RefreshTitle();
 					KEYBOARD_ClrBuffer();
 //					Delay(500);
 //					while (SDL_PollEvent(&ev)) {
 						// flush event queue.
 //					}
 
+					bool paused = true;
 					while (paused && !shutdown_requested) {
 						// WaitEvent waits for an event rather than polling, so CPU usage drops to zero
 						SDL_WaitEvent(&ev);
@@ -4041,6 +3950,7 @@ bool GFX_Events()
 							if ((ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST) || (ev.window.event == SDL_WINDOWEVENT_MINIMIZED) || (ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) || (ev.window.event == SDL_WINDOWEVENT_RESTORED) || (ev.window.event == SDL_WINDOWEVENT_EXPOSED)) {
 								// We've got focus back, so unpause and break out of the loop
 								if ((ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) || (ev.window.event == SDL_WINDOWEVENT_RESTORED) || (ev.window.event == SDL_WINDOWEVENT_EXPOSED)) {
+									sdl.is_paused = false;
 									GFX_RefreshTitle();
 									if (ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
 										paused = false;
@@ -4241,24 +4151,6 @@ static void messages_add_sdl()
 	MSG_Add("PROGRAM_CONFIG_SET_SYNTAX",
 	        "Usage: [color=light-green]config [reset]-set [color=light-cyan][SECTION][reset] "
 	        "[color=white]PROPERTY[reset][=][color=white]VALUE[reset]\n");
-
-	MSG_Add("TITLEBAR_CYCLES_MS",    "cycles/ms");
-	MSG_Add("TITLEBAR_HINT_PAUSED",  "(PAUSED)");
-	MSG_Add("TITLEBAR_HINT_NOMOUSE", "no-mouse mode");
-	MSG_Add("TITLEBAR_HINT_CAPTURED_HOTKEY",
-	        "mouse captured, %s+F10 to release");
-	MSG_Add("TITLEBAR_HINT_CAPTURED_HOTKEY_MIDDLE",
-	        "mouse captured, %s+F10 or middle-click to release");
-	MSG_Add("TITLEBAR_HINT_RELEASED_HOTKEY",
-	        "to capture the mouse press %s+F10");
-	MSG_Add("TITLEBAR_HINT_RELEASED_HOTKEY_MIDDLE",
-	        "to capture the mouse press %s+F10 or middle-click");
-	MSG_Add("TITLEBAR_HINT_RELEASED_HOTKEY_ANY_BUTTON",
-	        "to capture the mouse press %s+F10 or click any button");
-	MSG_Add("TITLEBAR_HINT_SEAMLESS_HOTKEY",
-	        "seamless mouse, %s+F10 to capture");
-	MSG_Add("TITLEBAR_HINT_SEAMLESS_HOTKEY_MIDDLE",
-	        "seamless mouse, %s+F10 or middle-click to capture");
 }
 
 static void config_add_sdl() {
@@ -4690,7 +4582,9 @@ int sdl_main(int argc, char* argv[])
 		DOS_Locale_AddMessages();
 		RENDER_AddMessages();
 		messages_add_sdl();
+		TITLEBAR_AddMessages();
 		config_add_sdl();
+		TITLEBAR_ConfigAdd();
 
 		// Register DOSBox's (and all modules) messages and conf sections
 		DOSBOX_Init();
@@ -4806,8 +4700,13 @@ int sdl_main(int argc, char* argv[])
 			return err;
 		}
 
-		if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) < 0) {
+		// Timer is needed for title bar animations
+		if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
 			E_Exit("SDL: Can't init SDL %s", SDL_GetError());
+		}
+		sdl.start_event_id = SDL_RegisterEvents(enum_val(SDL_DosBoxEvents::NumEvents));
+		if (sdl.start_event_id == UINT32_MAX) {
+			E_Exit("SDL: Failed to alocate event IDs");
 		}
 		if (SDL_CDROMInit() < 0) {
 			LOG_WARNING("SDL: Failed to initialise CD-ROM support");

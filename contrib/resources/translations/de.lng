@@ -90,8 +90,8 @@ Verwendung: [color=light-green]config [reset]-set [color=light-cyan][ABSCHNITT][
 :TITLEBAR_CYCLES_MS
 Zyklen/ms
 .
-:TITLEBAR_HINT_PAUSED
-(PAUSIERT)
+:TITLEBAR_PAUSED
+PAUSIERT
 .
 :TITLEBAR_HINT_NOMOUSE
 Keine Maus
