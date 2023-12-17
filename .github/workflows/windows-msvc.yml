@@ -213,7 +213,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dosbox-staging-windows-debugger-${{ matrix.conf.arch }}-${{ env.VERSION }}
-          path: ${{ matrix.conf.vs-release-dirname }}/Release/dosbox.exe
+          path: vs/${{ matrix.conf.vs-release-dirname }}/Release/dosbox.exe
 
   # This job exists only to publish an artifact with version info when building
   # from main branch, so snapshot build version will be visible on:
