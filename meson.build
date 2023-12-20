@@ -2,6 +2,7 @@ project(
     'dosbox-staging',
     'c',
     'cpp',
+    'objcpp',
     version: '0.81.0-alpha',
     license: 'GPL-2.0-or-later',
     meson_version: '>= 0.59.0',
@@ -1171,7 +1172,11 @@ configure_file(
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
 version_file = vcs_tag(input: 'src/version.cpp.in', output: 'version.cpp')
-dosbox_sources = ['src/main.cpp', 'src/dosbox.cpp', version_file]
+if host_machine.system() == 'darwin'
+    dosbox_sources = ['src/main.mm', 'src/dosbox.cpp', version_file]
+else
+    dosbox_sources = ['src/main.cpp', 'src/dosbox.cpp', version_file]
+endif
 
 # Add Windows resources file if building on Windows
 if host_machine.system() == 'windows'
