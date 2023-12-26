@@ -3138,6 +3138,18 @@ DosBox::Rect GFX_CalcDrawRectInPixels(const DosBox::Rect& canvas_size_px,
 	                .ScaleWidth(render_pixel_aspect_ratio.ToFloat())
 	                .ScaleSizeToFit(viewport_px);
 
+	LOG_DEBUG("--------------------------------------------");
+	LOG_DEBUG("GFX_CalcDrawRectInPixels");
+	LOG_TRACE("  canvas_size_px: %s", canvas_size_px.ToString().c_str());
+	LOG_TRACE("  render_size_px: %s", render_size_px.ToString().c_str());
+
+	LOG_TRACE("  render_pixel_aspect_ratio: 1:%1.6g (%d:%d)",
+	          render_pixel_aspect_ratio.Inverse().ToDouble(),
+	          static_cast<int32_t>(render_pixel_aspect_ratio.Num()),
+	          static_cast<int32_t>(render_pixel_aspect_ratio.Denom()));
+
+	LOG_TRACE("  draw_size_fit_px: %s", draw_size_fit_px.ToString().c_str());
+
 	auto calc_horiz_integer_scaling_dims_in_pixels = [&]() {
 		auto integer_scale_factor = floorf(draw_size_fit_px.w /
 		                                   render_size_px.w);
@@ -3155,17 +3167,35 @@ DosBox::Rect GFX_CalcDrawRectInPixels(const DosBox::Rect& canvas_size_px,
 	};
 
 	auto calc_vert_integer_scaling_dims_in_pixels = [&]() {
+
 		auto integer_scale_factor = floorf(draw_size_fit_px.h /
 		                                   render_size_px.h);
+
+		LOG_TRACE("  integer_scale_factor: %g", integer_scale_factor);
+		LOG_TRACE("  draw_size_fit_px.h / render_size_px.h: %g",
+		          draw_size_fit_px.h / render_size_px.h);
+
 		if (integer_scale_factor < 1.0f) {
 			// Revert to fit to viewport
 			return draw_size_fit_px;
 		} else {
 			const auto horiz_scale = render_pixel_aspect_ratio.ToFloat();
 
-			return render_size_px.Copy()
+			LOG_TRACE("  horiz_scale: %g", horiz_scale);
+
+			LOG_TRACE("  render_size_px.ScaleSize: %s",
+			          render_size_px.Copy()
+			                  .ScaleSize(integer_scale_factor)
+			                  .ToString()
+			                  .c_str());
+
+			const auto res = render_size_px.Copy()
 			        .ScaleSize(integer_scale_factor)
 			        .ScaleWidth(horiz_scale);
+
+			LOG_TRACE("  restricted_dims: %s", res.ToString().c_str());
+
+			return res;
 		}
 	};
 
