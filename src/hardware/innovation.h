@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ public:
 	void Open(const std::string_view model_choice,
 	          const std::string_view clock_choice, int filter_strength_6581,
 	          int filter_strength_8580, int port_choice,
-	          const std::string_view channel_filter_choice);
+	          const std::string& channel_filter_choice);
 
 	void Close();
 	~Innovation()
@@ -47,18 +47,19 @@ public:
 
 private:
 	bool MaybeRenderFrame(float &frame);
-	void AudioCallback(const uint16_t requested_frames);
+	void AudioCallback(const int requested_frames);
 	uint8_t ReadFromPort(io_port_t port, io_width_t width);
 	void RenderUpToNow();
 	int16_t TallySilence(const int16_t sample);
 	void WriteToPort(io_port_t port, io_val_t value, io_width_t width);
 
 	// Managed objects
-	mixer_channel_t channel               = nullptr;
+	MixerChannelPtr channel               = nullptr;
 	IO_ReadHandleObject read_handler      = {};
 	IO_WriteHandleObject write_handler    = {};
 	std::unique_ptr<reSIDfp::SID> service = {};
 	std::queue<float> fifo                = {};
+	std::mutex mutex                      = {};
 
 	// Initial configuration
 	double chip_clock            = 0.0;

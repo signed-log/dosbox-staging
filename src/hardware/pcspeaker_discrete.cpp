@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <mutex>
 
 #include "checks.h"
 
@@ -339,16 +340,16 @@ void PcSpeakerDiscrete::SetType(const PpiPortB &b)
 	(void)channel->WakeUp();
 }
 
-void PcSpeakerDiscrete::ChannelCallback(const uint16_t frames)
+void PcSpeakerDiscrete::PicCallback(const int requested_frames)
 {
-	constexpr uint16_t render_frames = 64;
-	float buf[render_frames];
+	std::vector<float> output = {};
+	output.reserve(requested_frames);
 
 	ForwardPIT(1);
 	last_index       = 0.0f;
 	auto sample_base = 0.0f;
 
-	const auto period_per_frame_ms = FLT_EPSILON + 1.0f / frames;
+	const auto period_per_frame_ms = FLT_EPSILON + 1.0f / static_cast<float>(requested_frames);
 	// The addition of epsilon ensures that queued entries
 	// having time indexes at the end of the tick cycle (ie: .index == ~1.0)
 	// will still be accepted in the comparison below:
@@ -367,68 +368,63 @@ void PcSpeakerDiscrete::ChannelCallback(const uint16_t frames)
 	// Therefore, it's better to err on the side of accepting and processing
 	// entries versus queuing, to keep the queue under control.
 
-	auto remaining = frames;
-	while (remaining > 0) {
-		const auto todo = std::min(remaining, render_frames);
-		for (auto i = 0; i < todo; ++i) {
-			auto index = sample_base;
-			sample_base += period_per_frame_ms;
-			const auto end = sample_base;
+	for (auto i = 0; i < requested_frames; ++i) {
+		auto index = sample_base;
+		sample_base += period_per_frame_ms;
+		const auto end = sample_base;
 
-			auto value = 0.0f;
+		auto value = 0.0f;
 
-			while (index < end) {
-				// Check if there is an upcoming event
-				const auto has_entries = !entries.empty();
-				const auto first_index = has_entries ? entries.front().index : 0.0f;
+		while (index < end) {
+			// Check if there is an upcoming event
+			const auto has_entries = !entries.empty();
+			const auto first_index = has_entries ? entries.front().index : 0.0f;
 
-				if (has_entries && first_index <= index) {
-					volwant = entries.front().vol;
-					entries.pop();
-					continue;
-				}
-				const auto vol_end = (has_entries && first_index < end) ? first_index : end;
-				const auto vol_len = vol_end - index;
-				// Check if we have to slide the volume
-				const auto vol_diff = volwant - volcur;
-				if (vol_diff == 0) {
-					value += volcur * vol_len;
-					index += vol_len;
+			if (has_entries && first_index <= index) {
+				volwant = entries.front().vol;
+				entries.pop();
+				continue;
+			}
+			const auto vol_end = (has_entries && first_index < end) ? first_index : end;
+			const auto vol_len = vol_end - index;
+			// Check if we have to slide the volume
+			const auto vol_diff = volwant - volcur;
+			if (vol_diff == 0) {
+				value += volcur * vol_len;
+				index += vol_len;
+			} else {
+				// Check how long it will take to goto
+				// new level
+				// TODO: describe the basis for these
+				// magic numbers and their effects
+				constexpr float spkr_speed = amp_positive * 2.0f / 0.070f;
+				const auto vol_time = fabsf(vol_diff) / spkr_speed;
+				if (vol_time <= vol_len) {
+					// Volume reaches endpoint in
+					// this block, calc until that
+					// point
+					value += vol_time * volcur;
+					value += vol_time * vol_diff / 2;
+					index += vol_time;
+					volcur = volwant;
 				} else {
-					// Check how long it will take to goto
-					// new level
-					// TODO: describe the basis for these
-					// magic numbers and their effects
-					constexpr float spkr_speed = amp_positive * 2.0f / 0.070f;
-					const auto vol_time = fabsf(vol_diff) / spkr_speed;
-					if (vol_time <= vol_len) {
-						// Volume reaches endpoint in
-						// this block, calc until that
-						// point
-						value += vol_time * volcur;
-						value += vol_time * vol_diff / 2;
-						index += vol_time;
-						volcur = volwant;
-					} else {
-						// Volume still not reached in
-						// this block
-						value += volcur * vol_len;
+					// Volume still not reached in
+					// this block
+					value += volcur * vol_len;
 
-						const auto vol_cur_delta = spkr_speed * vol_len;
-						volcur += std::copysign(vol_cur_delta, vol_diff);
+					const auto vol_cur_delta = spkr_speed * vol_len;
+					volcur += std::copysign(vol_cur_delta, vol_diff);
 
-						const auto value_delta = vol_cur_delta * vol_len / 2.0f;
-						value += std::copysign(value_delta, vol_diff);
-						index += vol_len;
-					}
+					const auto value_delta = vol_cur_delta * vol_len / 2.0f;
+					value += std::copysign(value_delta, vol_diff);
+					index += vol_len;
 				}
 			}
-			buf[i]   = value / period_per_frame_ms;
 		}
-		channel->AddSamples_mfloat(todo, buf);
-
-		remaining = check_cast<uint16_t>(remaining - todo);
+		output.push_back(value / period_per_frame_ms);
 	}
+
+	output_queue.NonblockingBulkEnqueue(output);
 }
 
 void PcSpeakerDiscrete::SetFilterState(const FilterState filter_state)
@@ -443,13 +439,13 @@ void PcSpeakerDiscrete::SetFilterState(const FilterState filter_state)
 		// sound than the raw unfiltered output, and it's a lot
 		// more pleasant to listen to, especially in headphones.
 		constexpr auto hp_order       = 3;
-		constexpr auto hp_cutoff_freq = 120;
-		channel->ConfigureHighPassFilter(hp_order, hp_cutoff_freq);
+		constexpr auto hp_cutoff_freq_hz = 120;
+		channel->ConfigureHighPassFilter(hp_order, hp_cutoff_freq_hz);
 		channel->SetHighPassFilter(FilterState::On);
 
 		constexpr auto lp_order       = 2;
-		constexpr auto lp_cutoff_freq = 4800;
-		channel->ConfigureLowPassFilter(lp_order, lp_cutoff_freq);
+		constexpr auto lp_cutoff_freq_hz = 4800;
+		channel->ConfigureLowPassFilter(lp_order, lp_cutoff_freq_hz);
 		channel->SetLowPassFilter(FilterState::On);
 	} else {
 		channel->SetHighPassFilter(FilterState::Off);
@@ -457,7 +453,7 @@ void PcSpeakerDiscrete::SetFilterState(const FilterState filter_state)
 	}
 }
 
-bool PcSpeakerDiscrete::TryParseAndSetCustomFilter(const std::string_view filter_choice)
+bool PcSpeakerDiscrete::TryParseAndSetCustomFilter(const std::string& filter_choice)
 {
 	assert(channel);
 	return channel->TryParseAndSetCustomFilter(filter_choice);
@@ -466,12 +462,15 @@ bool PcSpeakerDiscrete::TryParseAndSetCustomFilter(const std::string_view filter
 PcSpeakerDiscrete::PcSpeakerDiscrete()
 {
 	// Register the sound channel
-	const auto callback = std::bind(&PcSpeakerDiscrete::ChannelCallback,
-	                                this,
-	                                std::placeholders::_1);
+	constexpr bool Stereo = false;
+	constexpr bool SignedData = true;
+	constexpr bool NativeOrder = true;
+	const auto callback = std::bind(MIXER_PullFromQueueCallback<PcSpeakerDiscrete, float, Stereo, SignedData, NativeOrder>,
+	                                std::placeholders::_1,
+	                                this);
 
 	channel = MIXER_AddChannel(callback,
-	                           use_mixer_rate,
+	                           UseMixerRate,
 	                           device_name,
 	                           {ChannelFeature::Sleep,
 	                            ChannelFeature::ChorusSend,
@@ -479,10 +478,10 @@ PcSpeakerDiscrete::PcSpeakerDiscrete()
 	                            ChannelFeature::Synthesizer});
 	assert(channel);
 
-	sample_rate = channel->GetSampleRate();
+	sample_rate_hz = channel->GetSampleRate();
 
-	minimum_tick_rate = (PIT_TICK_RATE + sample_rate / 2 - 1) /
-	                    (sample_rate / 2);
+	minimum_tick_rate = (PIT_TICK_RATE + sample_rate_hz / 2 - 1) /
+	                    (sample_rate_hz / 2);
 
 	channel->SetPeakAmplitude(static_cast<uint32_t>(amp_positive));
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2019-2023  The DOSBox Staging Team
+ *  Copyright (C) 2019-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -34,10 +34,9 @@
 
 enum class Verbosity : int8_t {
 	//                Welcome | Early Stdout |
-	Quiet,         //   no    |    no        |
-	InstantLaunch, //   no    |    yes       |
-	Low,           //   no    |    yes       |
-	High,          //   yes   |    yes       |
+	Quiet, //   no    |    no        |
+	Low,   //   no    |    yes       |
+	High,  //   yes   |    yes       |
 };
 
 struct CommandLineArguments {
@@ -46,6 +45,8 @@ struct CommandLineArguments {
 	bool nolocalconf;
 	bool fullscreen;
 	bool list_countries;
+	bool list_layouts;
+	bool list_code_pages;
 	bool list_glshaders;
 	bool version;
 	bool help;
@@ -112,6 +113,7 @@ public:
 
 	Section_line* AddSection_line(const char* section_name, SectionFunction func);
 
+	Section_prop* AddInactiveSectionProp(const char* section_name);
 	Section_prop* AddSection_prop(const char* section_name, SectionFunction func,
 	                              bool changeable_at_runtime = false);
 
@@ -124,12 +126,14 @@ public:
 		return sectionlist.end();
 	}
 
-	Section* GetSection(const std::string& section_name) const;
+	Section* GetSection(const std::string_view section_name) const;
 	Section* GetSectionFromProperty(const char* prop) const;
 
 	void OverwriteAutoexec(const std::string& conf, const std::string& line);
 	const Section_line& GetOverwrittenAutoexecSection() const;
 	const std::string& GetOverwrittenAutoexecConf() const;
+
+	void ApplyQueuedValuesToCli(std::vector<std::string>& args) const;
 
 	void SetStartUp(void (*_function)(void));
 	void Init() const;
@@ -142,8 +146,9 @@ public:
 
 	void ParseEnv();
 	void ParseConfigFiles(const std_fs::path& config_path);
-	const std::string& GetLanguage();
 	const char* SetProp(std::vector<std::string>& pvars);
+
+	const std::string& GetArgumentLanguage();
 
 	bool SecureMode() const
 	{
@@ -157,5 +162,10 @@ public:
 
 	Verbosity GetStartupVerbosity() const;
 };
+
+using ConfigPtr = std::unique_ptr<Config>;
+extern ConfigPtr control;
+
+void restart_dosbox(std::vector<std::string> &parameters = control->startup_params);
 
 #endif

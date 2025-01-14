@@ -197,27 +197,30 @@ std::deque<std::string> ShaderManager::GenerateShaderInventoryMessage() const
 {
 	std::deque<std::string> inventory;
 	inventory.emplace_back("");
-	inventory.emplace_back(MSG_GetRaw("DOSBOX_HELP_LIST_GLSHADERS_1"));
+	inventory.emplace_back(MSG_GetForHost("DOSBOX_HELP_LIST_GLSHADERS_1"));
 	inventory.emplace_back("");
 
 	const std::string file_prefix = "        ";
+	std::error_code ec            = {};
 
-	std::error_code ec = {};
-	for (auto& [dir, shaders] : GetFilesInResource(GlShadersDir, ".glsl")) {
+	constexpr auto OnlyRegularFiles = true;
+
+	for (auto& [dir, shaders] :
+	     get_files_in_resource(GlShadersDir, ".glsl", OnlyRegularFiles)) {
+
 		const auto dir_exists      = std_fs::is_directory(dir, ec);
 		auto shader                = shaders.begin();
 		const auto dir_has_shaders = shader != shaders.end();
 
 		const char* pattern = nullptr;
 		if (!dir_exists) {
-			pattern = MSG_GetRaw("DOSBOX_HELP_LIST_GLSHADERS_NOT_EXISTS");
+			pattern = MSG_GetForHost("DOSBOX_HELP_LIST_GLSHADERS_NOT_EXISTS");
 		} else if (!dir_has_shaders) {
-			pattern = MSG_GetRaw("DOSBOX_HELP_LIST_GLSHADERS_NO_SHADERS");
+			pattern = MSG_GetForHost("DOSBOX_HELP_LIST_GLSHADERS_NO_SHADERS");
 		} else {
-			pattern = MSG_GetRaw("DOSBOX_HELP_LIST_GLSHADERS_LIST");
+			pattern = MSG_GetForHost("DOSBOX_HELP_LIST_GLSHADERS_LIST");
 		}
-		inventory.emplace_back(
-		        format_str(pattern, dir.u8string().c_str()));
+		inventory.emplace_back(format_str(pattern, dir.u8string().c_str()));
 
 		while (shader != shaders.end()) {
 			shader->replace_extension("");
@@ -229,7 +232,7 @@ std::deque<std::string> ShaderManager::GenerateShaderInventoryMessage() const
 		}
 		inventory.emplace_back("");
 	}
-	inventory.emplace_back(MSG_GetRaw("DOSBOX_HELP_LIST_GLSHADERS_2"));
+	inventory.emplace_back(MSG_GetForHost("DOSBOX_HELP_LIST_GLSHADERS_2"));
 
 	return inventory;
 }
@@ -258,21 +261,29 @@ std::string ShaderManager::MapShaderName(const std::string& name) const
 	// Map shader aliases
 	if (name == "sharp") {
 		return SharpShaderName;
+
+	} else if (name == "bilinear" || name == "none") {
+		return BilinearShaderName;
+
+	} else if (name == "nearest") {
+		return "interpolation/nearest";
 	}
 
 	// Map legacy shader names
+	// clang-format off
 	static const std::map<std::string, std::string> legacy_name_mappings = {
-	        {"advinterp2x", "scaler/advinterp2x"},
-	        {"advinterp3x", "scaler/advinterp3x"},
-	        {"advmame2x", "scaler/advmame2x"},
-	        {"advmame3x", "scaler/advmame3x"},
-	        {"default", "interpolation/sharp"},
-	        {"rgb2x", "scaler/rgb2x"},
-	        {"rgb3x", "scaler/rgb3x"},
-	        {"scan2x", "scaler/scan2x"},
-	        {"scan3x", "scaler/scan3x"},
-	        {"tv2x", "scaler/tv2x"},
-	        {"tv3x", "scaler/tv3x"}};
+		{"advinterp2x", "scaler/advinterp2x"},
+		{"advinterp3x", "scaler/advinterp3x"},
+		{"advmame2x",   "scaler/advmame2x"},
+		{"advmame3x",   "scaler/advmame3x"},
+		{"default",     "interpolation/sharp"},
+		{"rgb2x",       "scaler/rgb2x"},
+		{"rgb3x",       "scaler/rgb3x"},
+		{"scan2x",      "scaler/scan2x"},
+		{"scan3x",      "scaler/scan3x"},
+		{"tv2x",        "scaler/tv2x"},
+		{"tv3x",        "scaler/tv3x"}};
+	// clang-format on
 
 	std_fs::path shader_path = name;
 	std_fs::path ext         = shader_path.extension();
@@ -285,11 +296,12 @@ std::string ShaderManager::MapShaderName(const std::string& name) const
 		if (it != legacy_name_mappings.end()) {
 			const auto new_name = it->second;
 
-			LOG_WARNING("RENDER: Built-in shader '%s' has been renamed to '%s'; "
-			            "using '%s' instead.",
-			            old_name.c_str(),
-			            new_name.c_str(),
-			            new_name.c_str());
+			LOG_WARNING(
+			        "RENDER: Built-in shader '%s' has been renamed to '%s'; "
+			        "using '%s' instead.",
+			        old_name.c_str(),
+			        new_name.c_str(),
+			        new_name.c_str());
 
 			return new_name;
 		}
@@ -319,9 +331,9 @@ bool ShaderManager::ReadShaderSource(const std::string& shader_name, std::string
 	// Start with the name as-is and then try from resources
 	const auto candidate_paths = {std_fs::path(shader_name),
 	                              std_fs::path(shader_name + glsl_ext),
-	                              GetResourcePath(GlShadersDir, shader_name),
-	                              GetResourcePath(GlShadersDir,
-	                                              shader_name + glsl_ext)};
+	                              get_resource_path(GlShadersDir, shader_name),
+	                              get_resource_path(GlShadersDir,
+	                                                shader_name + glsl_ext)};
 
 	for (const auto& path : candidate_paths) {
 		if (std_fs::exists(path) &&
@@ -359,6 +371,9 @@ ShaderSettings ShaderManager::ParseShaderSettings(const std::string& shader_name
 
 			} else if (pragma == "force_no_pixel_doubling") {
 				settings.force_no_pixel_doubling = true;
+
+			} else if (pragma == "use_nearest_texture_filter") {
+				settings.texture_filter_mode = TextureFilterMode::Nearest;
 			}
 			++next;
 		}
@@ -413,6 +428,10 @@ void ShaderManager::MaybeAutoSwitchShader()
 		}
 
 		if (shader_changed) {
+			if (video_mode.has_vga_colors) {
+				LOG_MSG("RENDER: EGA mode with custom 18-bit VGA palette "
+				        "detected; auto-switching to VGA shader");
+			}
 			LOG_MSG("RENDER: Auto-switched to shader '%s'",
 			        current_shader.info.name.c_str());
 		}

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 #include "setup.h"
 #include "shell.h"
 #include "string_utils.h"
+#include "unicode.h"
 
 #include <algorithm>
 #include <iostream>
@@ -95,7 +96,11 @@ static std::map<Placement, std::list<std::string>> autoexec_lines;
 // AUTOEXEC.BAT generation code
 // ***************************************************************************
 
-std::string create_autoexec_bat_utf8()
+// Warning: only execute this once, when the initial AUTOEXEC.BAT is being
+// created. Language might change at runtime, affecting the length of strings;
+// if this happens when executing the AUTOEXEC.BAT, changed offsets in the file
+// might confuse our COMMAND.COM, leading to errors in BAT file execution.
+static std::string create_autoexec_bat_utf8()
 {
 	std::string out;
 
@@ -137,10 +142,10 @@ std::string create_autoexec_bat_utf8()
 	// We want unprocessed UTF8 form of messages here (thus 'MSG_GetRaw'
 	// calls, not 'MSG_Get'), they will be converted to DOS code page later,
 	// together with the '[autoexec]' section content
-	static const std::string comment_start    = ":: ";
-	static const std::string header_generated = comment_start +
+	static const std::string comment_start = ":: ";
+	const std::string header_generated = comment_start +
 		MSG_GetRaw("AUTOEXEC_BAT_GENERATED");
-	static const std::string header_autoexec_section = comment_start +
+	const std::string header_autoexec_section = comment_start +
 		MSG_GetRaw("AUTOEXEC_BAT_CONFIG_SECTION");
 
 	// Put 'ECHO OFF' and 'SET variable=value' if needed
@@ -214,8 +219,10 @@ static void create_autoexec_bat_dos(const std::string& input_utf8,
                                     const uint16_t code_page)
 {
 	// Convert UTF-8 AUTOEXEC.BAT to DOS code page
-	std::string autoexec_bat_dos = {};
-	utf8_to_dos(input_utf8, autoexec_bat_dos, UnicodeFallback::Box, code_page);
+	const auto autoexec_bat_dos = utf8_to_dos(input_utf8,
+	                                          DosStringConvertMode::WithControlCodes,
+	                                          UnicodeFallback::Box,
+	                                          code_page);
 
 	// Convert the result to a binary format
 	auto autoexec_bat_bin = std::vector<uint8_t>(autoexec_bat_dos.begin(),
@@ -323,9 +330,7 @@ AutoExecModule::AutoExecModule(Section* configuration)
 	const bool exit_arg_exists = arguments->exit;
 
 	// Check if instant-launch is active
-	const bool using_instant_launch_with_executable =
-	        control->GetStartupVerbosity() == Verbosity::InstantLaunch &&
-	        cmdline->HasExecutableName();
+	const bool using_instant_launch_with_executable = cmdline->HasExecutableName();
 
 	// Should we add an 'exit' call to the end of autoexec.bat?
 	const bool should_add_exit = exit_call_exists || exit_arg_exists ||
@@ -339,8 +344,13 @@ AutoExecModule::AutoExecModule(Section* configuration)
 
 	unsigned int index = 1;
 	while (cmdline->FindCommand(index++, argument)) {
-		// Check if argument is a file/directory
+		if (argument.starts_with("-")) {
+			LOG_WARNING("CONFIG: Illegal command line switch '%s'",
+			            argument.c_str());
+			continue;
+		}
 
+		// Check if argument is a file/directory
 		std_fs::path path = argument;
 		bool is_directory = std_fs::is_directory(path);
 		if (!is_directory) {
@@ -349,7 +359,7 @@ AutoExecModule::AutoExecModule(Section* configuration)
 		}
 
 		if (is_directory) {
-			drive_c_directory = Quote + argument + Quote;
+			drive_c_directory  = argument;
 			has_dir_or_command = true;
 			continue;
 		}
@@ -357,7 +367,6 @@ AutoExecModule::AutoExecModule(Section* configuration)
 		path = argument;
 
 		// Retrieve file extension
-
 		auto extension_ucase = path.extension().string();
 		if (!extension_ucase.empty() && extension_ucase[0] == '.') {
 			extension_ucase = extension_ucase.substr(1);
@@ -365,7 +374,6 @@ AutoExecModule::AutoExecModule(Section* configuration)
 		upcase(extension_ucase);
 
 		// Check if argument is a batch file
-
 		if (extension_ucase == "BAT") {
 			ReMountDirAsDriveC(path.parent_path().string());
 			// BATch files are called else exit will not work
@@ -376,7 +384,6 @@ AutoExecModule::AutoExecModule(Section* configuration)
 		}
 
 		// Check if argument is a boot image file
-
 		if (extension_ucase == "IMG" || extension_ucase == "IMA") {
 			AddLine(Placement::CommandsAfterAutoexecSection,
 			        CmdBoot + Quote + argument + Quote);
@@ -386,7 +393,6 @@ AutoExecModule::AutoExecModule(Section* configuration)
 		}
 
 		// Check if argument is a CD image
-
 		if (extension_ucase == "ISO" || extension_ucase == "CUE") {
 			if (!cdrom_images.empty()) {
 				cdrom_images += " ";
@@ -396,7 +402,6 @@ AutoExecModule::AutoExecModule(Section* configuration)
 		}
 
 		// Consider argument as executable
-
 		ReMountDirAsDriveC(path.parent_path().string());
 		AddLine(Placement::CommandsAfterAutoexecSection,
 		        path.filename().string());
@@ -474,7 +479,7 @@ void AutoExecModule::ProcessConfigFile(const Section_line& section,
 		}
 
 		lowcase(tmp);
-		if (tmp.substr(0, 4) != "echo" || !ends_with(tmp, "off")) {
+		if (tmp.substr(0, 4) != "echo" || !tmp.ends_with("off")) {
 			return false;
 		}
 
@@ -522,7 +527,7 @@ void AutoExecModule::AddLine(const Placement placement, const std::string& line)
 void AutoExecModule::AutoMountDrive(const std::string& dir_letter)
 {
 	// Does drives/[x] exist?
-	const auto drive_path = GetResourcePath("drives", dir_letter);
+	const auto drive_path = get_resource_path("drives", dir_letter);
 	if (!path_exists(drive_path)) {
 		return;
 	}

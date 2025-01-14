@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1079,7 +1079,7 @@ bool ChangeRegister(char* str)
 bool ParseCommand(char* str) {
 	char* found = str;
 	for(char* idx = found;*idx != 0; idx++)
-		*idx = toupper(*idx);
+		*idx = ascii_to_upper(*idx);
 
 	found = trim(found);
 	std::string s_found(found);
@@ -1743,7 +1743,7 @@ uint32_t DEBUG_CheckKeys(void) {
 			break;
 		}
 #endif
-		switch (toupper(key)) {
+		switch (ascii_to_upper(key)) {
 		case 27:	// escape (a bit slow): Clears line. and processes alt commands.
 			key=getch();
 			if(key < 0) { //Purely escape Clear line
@@ -1751,7 +1751,7 @@ uint32_t DEBUG_CheckKeys(void) {
 				break;
 			}
 
-			switch(toupper(key)) {
+			switch(ascii_to_upper(key)) {
 			case 'D' : // ALT - D: DS:SI
 				dataSeg = SegValue(ds);
 				if (cpu.pmode && !(reg_flags & FLAG_VM)) dataOfs = reg_esi;
@@ -1931,10 +1931,11 @@ uint32_t DEBUG_CheckKeys(void) {
 		}
 		if (ret<0) return ret;
 		if (ret>0) {
-			if (GCC_UNLIKELY(ret >= CB_MAX))
+			if (ret >= CB_MAX) {
 				ret = 0;
-			else
-				ret = (*CallBack_Handlers[ret])();
+			} else {
+				ret = (*Callback_Handlers[ret])();
+			}
 			if (ret) {
 				exitLoop=true;
 				CPU_Cycles=CPU_CycleLeft=0;
@@ -2759,7 +2760,9 @@ bool DEBUG_HeavyIsBreakpoint(void) {
 			if (value == 0) zero_count++;
 			else zero_count = 0;
 		}
-		if (GCC_UNLIKELY(zero_count == 10)) E_Exit("running zeroed code");
+		if (zero_count == 10) {
+			E_Exit("running zeroed code");
+		}
 	}
 
 	if (skipFirstInstruction) {

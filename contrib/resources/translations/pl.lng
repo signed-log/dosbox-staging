@@ -1,3 +1,7 @@
+// Writing script used in this translation, can be one of:
+// Latin, Arabic, Armenian, Cherokee, Cyrillic, Georgian, Greek, Hebrew
+#SCRIPT Latin
+
 :DOSBOX_HELP
 Składnia: %s [OPCJE]... [ŚCIEŻKA]
 
@@ -33,11 +37,17 @@ Lista dostępnych opcji:
 
   --list-countries             Wyświetl obsługiwane kraje wraz z ich kodami, do ustawienia 'country'.
 
+  --list-layouts               Wyświetl obsługiwane układy klawiatury wraz z ich kodami,
+                               do ustawienia 'keyboard_layout'.
+
+  --list-code-pages            Wyświetl wszystkie obsługiwane strony kodowe (czcionki ekranowe).
+
   --list-glshaders             Wyświetl dostępne shadery wraz ze ścieżkami, do ustawienia 'glshader'.
 
   --fullscreen                 Uruchom na pełnym ekranie.
 
-  --lang <plik_języka>         Uruchom z językiem komunikatów z pliku <plik_języka>.
+  --lang <plik_języka>         Uruchom z językiem komunikatów z pliku <plik_języka>. Wartość 'auto'
+                               próbuje dopasować język do ustawień systemu operacyjnego.
 
   --machine <typ>              Emuluj dany typ maszyny. Ma on wpływ na emulowane karty graficzne i
                                dźwiękowe. Dostępne type: hercules, cga, cga_mono, tandy, pcjr, ega,
@@ -67,10 +77,23 @@ Lista dostępnych opcji:
 .
 :DOSBOX_HELP_LIST_COUNTRIES_1
 Kody krajów; zazwyczaj takie same, jak telefoniczny numer kierunkowy
---------------------------------------------------------------------
 .
 :DOSBOX_HELP_LIST_COUNTRIES_2
 Powyższych kodów numerycznych należy użyć w ustawieniu 'country'
+w pliku konfiguracyjnym.
+.
+:DOSBOX_HELP_LIST_KEYBOARD_LAYOUTS_1
+Dostępne układy klawiatury
+.
+:DOSBOX_HELP_LIST_KEYBOARD_LAYOUTS_2
+Powyższych kodów należy użyć w ustawieniu 'keyboard_layout'
+w pliku konfiguracyjnym.
+.
+:DOSBOX_HELP_LIST_CODE_PAGES_1
+Dostępne strony kodowe
+.
+:DOSBOX_HELP_LIST_CODE_PAGES_2
+Powyższych stron kodowych należy użyć w ustawieniu 'keyboard_layout'
 w pliku konfiguracyjnym.
 .
 :COUNTRY_NAME_XXA
@@ -397,6 +420,825 @@ Kirgistan
 :COUNTRY_NAME_UZB
 Uzbekistan
 .
+:CODE_PAGE_DESCRIPTION_437
+amerykańska
+.
+:CODE_PAGE_DESCRIPTION_113
+jugosłowiańska
+.
+:CODE_PAGE_DESCRIPTION_667
+polska, kodowanie Mazovia
+.
+:CODE_PAGE_DESCRIPTION_668
+polska, kodowanie kompatybilne z 852
+.
+:CODE_PAGE_DESCRIPTION_737
+grecka-2
+.
+:CODE_PAGE_DESCRIPTION_770
+bałtycka, kodowanie RST 1095:8
+.
+:CODE_PAGE_DESCRIPTION_771
+litewska i rosyjska, kodowanie KBL
+.
+:CODE_PAGE_DESCRIPTION_773
+bałtycka, kodowanie KBL
+.
+:CODE_PAGE_DESCRIPTION_775
+Latin-7 (bałtycka)
+.
+:CODE_PAGE_DESCRIPTION_777
+litewska z akcentami, kodowanie KBL
+.
+:CODE_PAGE_DESCRIPTION_778
+litewska z akcentami, kodowanie LST 1590-2
+.
+:CODE_PAGE_DESCRIPTION_808
+rosyjska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_848
+ukraińska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_849
+białoruska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_850
+Latin-1 (zachodnioeuropejska)
+.
+:CODE_PAGE_DESCRIPTION_851
+grecka, stare kodowanie
+.
+:CODE_PAGE_DESCRIPTION_852
+Latin-2 (środkowoeuropejska), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_853
+Latin-3 (turecka, maltańska, esperancka)
+.
+:CODE_PAGE_DESCRIPTION_855
+południowosłowiańska
+.
+:CODE_PAGE_DESCRIPTION_856
+hebrajska-2, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_857
+Latin-5 (turecka), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_858
+Latin-1 (zachodnioeuropejska), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_859
+Latin-9 (zachodnioeuropejska), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_860
+portugalska
+.
+:CODE_PAGE_DESCRIPTION_861
+islandzka
+.
+:CODE_PAGE_DESCRIPTION_862
+hebrajska-2
+.
+:CODE_PAGE_DESCRIPTION_863
+kanadyjska francuska
+.
+:CODE_PAGE_DESCRIPTION_864
+arabska
+.
+:CODE_PAGE_DESCRIPTION_865
+nordycka
+.
+:CODE_PAGE_DESCRIPTION_866
+rosyjska
+.
+:CODE_PAGE_DESCRIPTION_867
+czeska i słowacka, kodowanie Kamenický
+.
+:CODE_PAGE_DESCRIPTION_869
+grecka, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_872
+południowosłowiańska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_899
+ormiańska, kodowanie ArmSCII-8A
+.
+:CODE_PAGE_DESCRIPTION_991
+polska, kodowanie Mazovia, z symbolem PLN
+.
+:CODE_PAGE_DESCRIPTION_1116
+estońska
+.
+:CODE_PAGE_DESCRIPTION_1117
+łotewska
+.
+:CODE_PAGE_DESCRIPTION_1118
+litewska, kodowanie LST 1283
+.
+:CODE_PAGE_DESCRIPTION_1119
+litewska i rosyjska, kodowanie LST 1284
+.
+:CODE_PAGE_DESCRIPTION_1125
+ukraińska
+.
+:CODE_PAGE_DESCRIPTION_1131
+białoruska
+.
+:CODE_PAGE_DESCRIPTION_3012
+łotewska i rosyjska, kodowanie RusLat
+.
+:CODE_PAGE_DESCRIPTION_3021
+bułgarska, kodowanie MIK
+.
+:CODE_PAGE_DESCRIPTION_3845
+węgierska, kodowanie CWI-2
+.
+:CODE_PAGE_DESCRIPTION_3846
+turecka
+.
+:CODE_PAGE_DESCRIPTION_3848
+brazylijska, kodowanie ABICOMP
+.
+:CODE_PAGE_DESCRIPTION_30000
+lapońska
+.
+:CODE_PAGE_DESCRIPTION_30001
+celtycka i szkocka, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30002
+tadżycka, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30003
+latynoamerykańska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30004
+grenlandzka i północnogermańska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30005
+nigeryjska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30006
+wietnamska, kodowanie VISCII
+.
+:CODE_PAGE_DESCRIPTION_30007
+łacińska i retoromańska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30008
+abchaska i osetyjska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30009
+romska i turkijska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30010
+gagauska i mołdawska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30011
+południoworosyjska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30012
+syberyjska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30013
+turkijska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30014
+ugrofińska (maryjska, udmurcka), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30015
+chantyjska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30016
+mansyjska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30017
+północnozachodniorosyjska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30018
+tatarska (łacińska) i rosyjska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30019
+czeczeńska (łacińska) i rosyjska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30020
+zachodniodolnoniemiecka i fryzyjska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30021
+oceaniczna, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30022
+kanadyjska indiańska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30023
+południowoafrykańska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30024
+północnoafrykańska i wschodnioafrykańska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30025
+zachodnioafrykańska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30026
+środkowoafrykańska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30027
+benińska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30028
+nigerska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30029
+meksykańska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30030
+meksykańska-2, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30031
+Latin-4 (północnoeuropejska), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30032
+Latin-6 (nordycka), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_30033
+tatarska (krymska), z symbolem UAH
+.
+:CODE_PAGE_DESCRIPTION_30034
+irokezka
+.
+:CODE_PAGE_DESCRIPTION_30039
+ukraińska, z symbolem UAH
+.
+:CODE_PAGE_DESCRIPTION_30040
+rosyjska, z symbolem UAH
+.
+:CODE_PAGE_DESCRIPTION_58152
+kazachska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_58210
+azerska (cyrylica) i rosyjska
+.
+:CODE_PAGE_DESCRIPTION_58335
+kaszubska, kodowanie Mazovia, z symbolem PLN
+.
+:CODE_PAGE_DESCRIPTION_58601
+litewska z akcentami, kodowanie LST 1590-4, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_59234
+tatarska
+.
+:CODE_PAGE_DESCRIPTION_59829
+gruzińska
+.
+:CODE_PAGE_DESCRIPTION_60258
+azerska (łacińska) i rosyjska
+.
+:CODE_PAGE_DESCRIPTION_60853
+gruzińska z wielkimi literami
+.
+:CODE_PAGE_DESCRIPTION_62306
+uzbecka
+.
+:CODE_PAGE_DESCRIPTION_65506
+ormiańska, kodowanie ArmSCII-8
+.
+:CODE_PAGE_DESCRIPTION_813
+ISO-8859-7 (grecka), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_819
+ISO-8859-1 (zachodnioeuropejska)
+.
+:CODE_PAGE_DESCRIPTION_901
+ISO-8859-13 (bałtycka), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_912
+ISO-8859-2 (środkowoeuropejska)
+.
+:CODE_PAGE_DESCRIPTION_913
+ISO-8859-3 (południowoeuropejska)
+.
+:CODE_PAGE_DESCRIPTION_914
+ISO-8859-4 (północnoeuropejska)
+.
+:CODE_PAGE_DESCRIPTION_915
+ISO-8859-5 (cyrylica)
+.
+:CODE_PAGE_DESCRIPTION_919
+ISO-8859-10 (nordycka)
+.
+:CODE_PAGE_DESCRIPTION_920
+ISO-8859-9 (turecka)
+.
+:CODE_PAGE_DESCRIPTION_921
+ISO-8859-13 (bałtycka)
+.
+:CODE_PAGE_DESCRIPTION_923
+ISO-8859-15 (zachodnioeuropejska), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_1124
+ISO 8859-5 (zmodyfikowana dla języka ukraińskiego)
+.
+:CODE_PAGE_DESCRIPTION_58163
+ISO-8859-14 (celtycka)
+.
+:CODE_PAGE_DESCRIPTION_58258
+ISO-8859-4 (północnoeuropejska), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_61235
+ISO-8859-1 (zachodnioeuropejska), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_63283
+ISO-8859-1 (zmodyfikowana dla języka litewskiego)
+.
+:CODE_PAGE_DESCRIPTION_65500
+ISO-8859-16 (południowowschodnioeutropejska)
+.
+:CODE_PAGE_DESCRIPTION_902
+ISO-8 (estońska), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_922
+ISO-8 (estońska)
+.
+:CODE_PAGE_DESCRIPTION_58259
+ISO-IR-201 (wołżańska)
+.
+:CODE_PAGE_DESCRIPTION_59187
+ISO-IR-197 (lapońska)
+.
+:CODE_PAGE_DESCRIPTION_59283
+ISO-IR-200 (uralska)
+.
+:CODE_PAGE_DESCRIPTION_60211
+ISO-IR-209 (lapońska i romska fińska)
+.
+:CODE_PAGE_DESCRIPTION_65501
+ISO-IR-123 (kanadyjska i hiszpańska)
+.
+:CODE_PAGE_DESCRIPTION_65502
+ISO-IR-143 (symbole techniczne)
+.
+:CODE_PAGE_DESCRIPTION_65503
+ISO-IR-181 (symbole elektrotechniczne)
+.
+:CODE_PAGE_DESCRIPTION_65504
+ISO-IR-39 (afrykańska)
+.
+:CODE_PAGE_DESCRIPTION_878
+KOI8-R (rosyjska)
+.
+:CODE_PAGE_DESCRIPTION_58222
+KOI8-U (rosyjska i ukraińska)
+.
+:CODE_PAGE_DESCRIPTION_59246
+KOI8-RU (rosyjska, białoruska, ukraińska)
+.
+:CODE_PAGE_DESCRIPTION_60270
+KOI8-F (słowiańska pełna)
+.
+:CODE_PAGE_DESCRIPTION_61294
+KOI8-CA (słowiańska i niesłowiańska)
+.
+:CODE_PAGE_DESCRIPTION_62318
+KOI8-T (rosyjska i tadżycka)
+.
+:CODE_PAGE_DESCRIPTION_63342
+KOI8-C (rosyjska i starorosyjska), z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_1275
+Apple, zachodnioeuropejska
+.
+:CODE_PAGE_DESCRIPTION_1280
+Apple, grecka
+.
+:CODE_PAGE_DESCRIPTION_1281
+Apple, turecka
+.
+:CODE_PAGE_DESCRIPTION_1282
+Apple, środkowoeuropejska i bałtycka
+.
+:CODE_PAGE_DESCRIPTION_1283
+Apple, cyrylica
+.
+:CODE_PAGE_DESCRIPTION_1284
+Apple, chorwacka
+.
+:CODE_PAGE_DESCRIPTION_1285
+Apple, rumuńska
+.
+:CODE_PAGE_DESCRIPTION_1286
+Apple, islandzka
+.
+:CODE_PAGE_DESCRIPTION_58619
+Apple, goidelska (stara ortografia) i walijska
+.
+:CODE_PAGE_DESCRIPTION_58627
+Apple, ukraińska
+.
+:CODE_PAGE_DESCRIPTION_58630
+Apple, lapońska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_1250
+Windows, środkowoeuropejska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_1251
+Windows, cyrylica, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_1252
+Windows, zachodnioeuropejska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_1253
+Windows, grecka, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_1254
+Windows, turecka, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_1257
+Windows, bałtycka, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_1270
+Windows, lapońska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_1361
+Windows, południowoeuropejska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_58595
+Windows, kazachska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_58596
+Windows, gruzińska
+.
+:CODE_PAGE_DESCRIPTION_58598
+Windows, azerska, z symbolem EUR
+.
+:CODE_PAGE_DESCRIPTION_59619
+Windows, środkowoazjatycka
+.
+:CODE_PAGE_DESCRIPTION_59620
+Windows, goidelska (stara ortografia) i walijska
+.
+:CODE_PAGE_DESCRIPTION_60643
+Windows, północnowschodnioirańska
+.
+:CODE_PAGE_DESCRIPTION_61667
+Windows, inuicka i aleucka
+.
+:CODE_PAGE_DESCRIPTION_62691
+Windows, tunguska i mandżurska
+.
+:SCRIPT_NAME_LATN
+alfabet łaciński
+.
+:SCRIPT_NAME_ARAB
+alfabet arabski
+.
+:SCRIPT_NAME_ARMN
+alfabet ormiański
+.
+:SCRIPT_NAME_CHER
+alfabet irokezki
+.
+:SCRIPT_NAME_CYRL
+cyrylica
+.
+:SCRIPT_NAME_GEOR
+alfabet gruziński
+.
+:SCRIPT_NAME_GREK
+alfabet grecki
+.
+:SCRIPT_NAME_HEBR
+alfabet hebrajski
+.
+:SCRIPT_PROPERTY_PHONETIC
+fonetyczny
+.
+:SCRIPT_PROPERTY_NON_STANDARD
+niestandardowy
+.
+:KEYBOARD_LAYOUT_NAME_US
+amerykański (standardowy, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_UX
+amerykański (międzynarodowy, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_CO
+amerykański (Colemak)
+.
+:KEYBOARD_LAYOUT_NAME_DV
+amerykański (Dvorak)
+.
+:KEYBOARD_LAYOUT_NAME_LH
+amerykański (Dvorak, dla leworęcznych)
+.
+:KEYBOARD_LAYOUT_NAME_RH
+amerykański (Dvorak, dla praworęcznych)
+.
+:KEYBOARD_LAYOUT_NAME_UK
+brytyjski (standardowy, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_UK168
+brytyjski (alternatywny, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_KX
+brytyjski (międzynarodowy, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_AR462
+arabski (AZERTY/arabski)
+.
+:KEYBOARD_LAYOUT_NAME_AR470
+arabski (QWERTY/arabski)
+.
+:KEYBOARD_LAYOUT_NAME_AZ
+azerski (QWERTY/cyrylica)
+.
+:KEYBOARD_LAYOUT_NAME_BA
+bośniacki (QWERTZ)
+.
+:KEYBOARD_LAYOUT_NAME_BE
+belgijski (AZERTY)
+.
+:KEYBOARD_LAYOUT_NAME_BX
+belgijski (międzynarodowy, AZERTY)
+.
+:KEYBOARD_LAYOUT_NAME_BG
+bułgarski (QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_BG103
+bułgarski (QWERTY/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_BG241
+bułgarski (JCUKEN/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_BN
+beniński (AZERTY)
+.
+:KEYBOARD_LAYOUT_NAME_BR
+brazylijski (układ ABNT, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_BR274
+brazylijski (amerykański, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_BY
+białoruski (QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_CE
+czeczeński (standardowy, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_CE443
+czeczeński (maszynistki, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_CF
+kanadyjski (standardowy, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_CF445
+kanadyjski (dwuwarstwowy, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_CG
+montenegryjski (QWERTZ)
+.
+:KEYBOARD_LAYOUT_NAME_CZ
+czeski (QWERTZ)
+.
+:KEYBOARD_LAYOUT_NAME_CZ243
+czeski (standardowy, QWERTZ)
+.
+:KEYBOARD_LAYOUT_NAME_CZ489
+czeski (programisty, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_DE
+niemiecki (standardowy, QWERTZ)
+.
+:KEYBOARD_LAYOUT_NAME_GR453
+niemiecki (dwuwarstwowy, QWERTZ)
+.
+:KEYBOARD_LAYOUT_NAME_DK
+duński (QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_EE
+estoński (QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_ES
+hiszpański (QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_SX
+hiszpański (międzynarodowy, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_FI
+fiński (QWERTY/ASERTT)
+.
+:KEYBOARD_LAYOUT_NAME_FO
+faroeski (QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_FR
+francuski (standardowy, AZERTY)
+.
+:KEYBOARD_LAYOUT_NAME_FX
+francuski (międzynarodowy, AZERTY)
+.
+:KEYBOARD_LAYOUT_NAME_GK
+grecki (319, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_GK220
+grecki (220, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_GK459
+grecki (459, niestandardowy/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_HR
+chorwacki (QWERTZ/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_HU
+węgierski (101-klawiszowy, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_HU208
+węgierski (102-klawiszowy, QWERTZ)
+.
+:KEYBOARD_LAYOUT_NAME_HY
+ormiański (QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_IL
+hebrajski (QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_IS
+islandzki (101-klawiszowy, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_IS161
+islandzki (102-klawiszowy, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_IT
+włoski (standardowy, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_IT142
+włoski (142, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_IX
+włoski (międzynarodowy, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_KA
+gruziński (QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_KK
+kazachski (QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_KK476
+kazachski (476, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_KY
+kirgiski (QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_LA
+latynoamerykański (QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_LT
+litewski (bałtycki, QWERTY/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_LT210
+litewski (programisty, QWERTY/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_LT211
+litewski (AZERTY/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_LT221
+litewski (LST 1582, AZERTY/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_LT456
+litewski (QWERTY/AZERTY/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_LV
+łotewski (standardowy, QWERTY/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_LV455
+łotewski (QWERTY/UGJRMV/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_MK
+macedoński (QWERTZ/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_MN
+mongolski (QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_MT
+maltański (brytyjski, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_MT103
+maltański (amerykański, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_NE
+nigerski (AZERTY)
+.
+:KEYBOARD_LAYOUT_NAME_NG
+nigeryjski (QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_NL
+holenderski (QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_NO
+norweski (QWERTY/ASERTT)
+.
+:KEYBOARD_LAYOUT_NAME_PH
+filipiński (QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_PL
+polski (programisty, QWERTY/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_PL214
+polski (maszynistki, QWERTZ/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_PO
+portugalski (QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_PX
+portugalski (międzynarodowy, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_RO
+rumuński (standardowy, QWERTZ/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_RO446
+rumuński (QWERTY/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_RU
+rosyjski (standardowy, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_RU443
+rosyjski (maszynistki, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_RX
+rosyjski (standardowy rozszerzony, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_RX443
+rosyjski (maszynistki rozszerzony, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_SD
+szwajcarski (niemiecki, QWERTZ)
+.
+:KEYBOARD_LAYOUT_NAME_SF
+szwajcarski (francuski, QWERTZ)
+.
+:KEYBOARD_LAYOUT_NAME_SI
+słoweński (QWERTZ)
+.
+:KEYBOARD_LAYOUT_NAME_SK
+słowacki (QWERTZ)
+.
+:KEYBOARD_LAYOUT_NAME_SQ
+albański (bez martwych klawiszy, QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_SQ448
+albański (z martwymi klawiszami, QWERTZ)
+.
+:KEYBOARD_LAYOUT_NAME_SV
+szwedzki (QWERTY/ASERTT)
+.
+:KEYBOARD_LAYOUT_NAME_TJ
+tadżycki (QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_TM
+turkmeński (QWERTY/fonetyczny)
+.
+:KEYBOARD_LAYOUT_NAME_TR
+turecki (QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_TR440
+turecki (niestandardowy)
+.
+:KEYBOARD_LAYOUT_NAME_TT
+tatarski (standardowy, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_TT443
+tatarski (maszynistki, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_UR
+ukraiński (101-klawiszowy, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_UR1996
+ukraiński (101-klawiszowy, 1996, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_UR2001
+ukraiński (102-klawiszowy, 2001, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_UR2007
+ukraiński (102-klawiszowy, 2007, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_UR465
+ukraiński (101-klawiszowy, 465, QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_UZ
+uzbecki (QWERTY/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_VI
+wietnamski (QWERTY)
+.
+:KEYBOARD_LAYOUT_NAME_YC
+serbski (z martwymi klawiszami, QWERTZ/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_YC450
+serbski (bez martwych klawiszy, QWERTZ/narodowy)
+.
+:KEYBOARD_LAYOUT_NAME_YU
+jugosłowiański (QWERTZ)
+.
+:KEYBOARD_MOD_ADJECTIVE_LEFT
+Lewy
+.
+:KEYBOARD_MOD_ADJECTIVE_RIGHT
+Prawy
+.
 :DOSBOX_HELP_LIST_GLSHADERS_1
 Lista dostępnych shaderów GLSL
 ------------------------------
@@ -430,11 +1272,17 @@ Składnia: [color=light-green]config [/reset]-set [color=light-cyan][SECTION][/r
 :TITLEBAR_CYCLES_MS
 cykli/ms
 .
-:TITLEBAR_HINT_PAUSED
-(PAUZA)
+:TITLEBAR_CYCLES_THROTTLED
+ograniczone
 .
-:TITLEBAR_HINT_NOMOUSE
-tryb bez użycia myszy
+:TITLEBAR_MUTED
+WYCISZONE
+.
+:TITLEBAR_PAUSED
+PAUZA
+.
+:TITLEBAR_HINT_CAPTURED
+mysz przejęta
 .
 :TITLEBAR_HINT_CAPTURED_HOTKEY
 mysz przejęta, wciśnij %s+F10 aby zwolnić
@@ -457,13 +1305,36 @@ zintegrowana mysz, wciśnij %s+F10 aby przejąć
 :TITLEBAR_HINT_SEAMLESS_HOTKEY_MIDDLE
 zintegrowana mysz, wciśnij %s+F10 lub środkowy przycisk aby przejąć
 .
-:CONFIG_FULLSCREEN
-Uruchom na pełnym ekranie (domyślnie wyłączone).
-Skróty klawiszowe do zarządzania oknem można wyświetlić poleceniem 'intro'.
+:CONFIGITEM_OUTPUT_OPENGL_DEFAULT
+Wybór wyjścia obrazu (domyślnie 'opengl').
+Jedynie 'opengl' obsługuje shadery, więc jest to zalecany wybór. 'texture'
+jest zalecane jedynie jedynie w rzadkich sytuacjach braku lub nieprawidłowo
+działającego sterownika OpenGL.
+.
+:CONFIGITEM_OUTPUT_TEXTURE_DEFAULT
+Wybór wyjścia obrazu (domyślnie 'texture').
+.
+:CONFIGITEM_OUTPUT_OPENGL
+  opengl:     Używa sterownika OpenGL.
+.
+:CONFIGITEM_OUTPUT_TEXTURE
+  texture:    Używa tekstury biblioteki SDL z interpolacją bilinearną.
+.
+:CONFIGITEM_OUTPUT_TEXTURENB
+  texturenb:  Używa tekstury biblioteki SDL, zawsze rysuje najbliższy sąsiedni
+              piksel (bez interpolacji).
+.
+:CONFIG_TEXTURE_RENDERER
+Wybór renderera dla 'output = texture'.
+Wartość 'auto' (domyślne) wybiera automatycznie.
 .
 :CONFIG_DISPLAY
 Numer monitora do wyświetlania obrazu (domyślnie 0); wartości zależą od
 systemu operacyjnego i jego ustawień.
+.
+:CONFIG_FULLSCREEN
+Uruchom na pełnym ekranie (domyślnie wyłączone).
+Skróty klawiszowe do zarządzania oknem można wyświetlić poleceniem 'intro'.
 .
 :CONFIG_FULLRESOLUTION
 Rozdzielczość pełnego ekranu: 'original', 'desktop' (domyślne) lub konkretna
@@ -485,6 +1356,50 @@ Początkowe współrzędne okna w trybie okienkowym:
 .
 :CONFIG_WINDOW_DECORATIONS
 Czy wyświetlać dekoracje okna w trybie okienkowym (domyślnie włączone).
+.
+:CONFIG_WINDOW_TITLEBAR
+Rozdzielona spacjami lista wartości, które zostaną wyświetlone na pasku
+tytułowym okna (domyślnie 'program=name dosbox=auto cycles=on mouse=full').
+Jeśli wartość danego parametru nie jest podana, użyta zostanie jego wartość
+domyślna. Możliwe ustawienia:
+  animation=<wartość>:  Ustawienie 'on' (domyślne) włącza animację znacznika
+                        nagrywania. Ustawienie 'off' wyłącza animacje;
+                        przydatne jeśli używana czcionka ekranowa powoduje
+                        powstawanie dziwnych efektów.
+  program=<wartość>:    Wyświetla nazwę aktualnie uruchomionego programu.
+                        <wartość> to jedno z ustawień:
+                          none/off:  Nie wyświetla nazwy programu.
+                          name:      Nazwa wraz z rozszerzeniem (domyślne).
+                          path:      Nazwa, rozszerzenie, ścieżka bezwzględna.
+                          segment:   Nazwa segmentu pamięci.
+                          'Nazwa':   Nazwa podana przez użytkownika, dozwolone
+                                     są również formy "Nazwa", (Nazwa),
+                                     <Nazwa>, lub [Nazwa].
+                        Uwaga: W niektórych przypadkach (np. jeśli uruchomiono
+                        Windows 3.1x w trybie rozszerzonym) rozpoznanie pełnej
+                        nazwy programu lub ścieżki może być niemożliwe;
+                        w takim przypadku używana jest wartość 'segment'.
+  dosbox=<wartość>:     Wyświetla 'DOSBox Staging' na pasku tytułowym.
+                        <wartość> to jedno z ustawień:
+                          always:   Zawsze wyświetla 'DOSBox Staging'.
+                          auto:     Wyświetla tylko jeśli żaden program
+                                    nie jest uruchomiony lub jeśli
+                                    'program=none' (domyślne).
+  version=<wartość>:    Wyświetla wersję DOSBoksa.
+                        <wartość> to jedno z ustawień:
+                          none/off:  Nie wyświetla wersji (domyślne).
+                          simple:    Wyświetla uproszczoną informację.
+                          detailed:  Wyświetla wersję oraz również hasz Git,
+                                     jeśli jest znany.
+  cycles=<wartość>:     Jeśli 'on' (domyślne), wyświetla ustawienie 'cycles'.
+                        Ustawienie 'off' wyłącza wyświetlanie liczby cykli.
+  mouse=<wartość>:      Poziom szczegółowości informacji o myszy:
+                          none/off:  Nie wyświetla żadnych informacji.
+                          short:     Wyświetla tylko informację, że kursor
+                                     myszy został przejęty.
+                          full:      Wyświetla szczegółowe informacje jak
+                                     przejąć lub zwolnić kursor myszy
+                                     (domyślne).
 .
 :CONFIG_TRANSPARENCY
 Przezroczystość obrazu. Od 0 (brak, domyślne) do 90 (znaczna przezroczystość).
@@ -540,17 +1455,6 @@ Tryb wyświetlania ramek obrazu:
   vfr:   Wyświetlanie zmienionych ramek obrazu, ze zmienną częstotliwością.
 Domyślnie 'auto'.
 .
-:CONFIG_OUTPUT
-Wybór wyjścia obrazu (domyślnie 'opengl').
-Ustawienia 'texture' oraz 'opengl' używają interpolacji bilinearnej, podczas
-gdy 'texturenb' oraz 'openglnb' rysują najbliższy sąsiedni piksel.
-Niektóre shadery wymagają interpolacji bilinearnej, przez co jest to
-najbezpieczniejszy wybór.
-.
-:CONFIG_TEXTURE_RENDERER
-Wybór renderera dla 'output = texture'.
-Wartość 'auto' (domyślnie) wybiera automatycznie.
-.
 :CONFIG_CAPTURE_MOUSE
 Przeniesione do sekcji [mouse], nazwa zmieniona na 'mouse_capture'.
 .
@@ -588,12 +1492,14 @@ SDL_VIDEO_ALLOW_SCREENSAVER:
 Domyślnie 'auto'.
 .
 :CONFIG_LANGUAGE
-Język interfejsu: de, en, es, fr, it, nl, pl lub ru
-(domyślnie nieustawiony - wybiera język angielski).
+Język wyświetlanych wiadomości:
+  auto:     Wybiera z ustawień systemu gospodarza (domyślne).
+  <język>:  Loads a translation from the given file.
 Uwagi:
-  - Ustawienie ma pierwszeństwo przed zmienną środowiskową 'LANG'.
-  - Pliki tłumaczeń dla poszczególnych języków znajdują się w dostarczonym
-    katalogu 'resources/translations'.
+  - Dostępne są następujące języki:
+    'br', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', oraz 'ru'.
+  - Język angielski jest wbudowany; tłumaczenia umieszczone są w katalogu
+    'resources/translations'.
 .
 :CONFIG_MACHINE
 Typ emulowanej karty graficznej lub komputera:
@@ -639,29 +1545,59 @@ Obsługa uszkodzonych bloków MCB (Memory Control Blocks):
 :CONFIG_VMEMSIZE
 Rozmiar pamięci graficznej w megabajtach (1-8) lub kilobajtach (256-8192).
 Ustawienie 'auto' (domyślne) wybiera typową dla danej karty graficznej.
-Dozwolone wartości dla poszczególnych kart graficznych opisane przy opcji
-'machine'.
+Dozwolone wartości dla poszczególnych kart graficznych, a także ich wartości
+domyślne, opisane są przy opcji 'machine'.
+.
+:CONFIG_VMEM_DELAY
+Emulacja opóźnienia dostępu do pamięci graficznej (domyślnie wyłączone).
+  off:      Wyłącza emulację opóźnienia (domyślne). Ustawienie odpowiednie
+            dla większości gier, nie powoduje utraty wydajności.
+  on:       Włącza emulację opóźnienia (3000 ns). Może zredukować lub
+            całkowicie zlikwidować migotanie obrazu w grach dla kart Hercules,
+            CGA, EGA, lub wczesnych gier dla kart VGA.
+  <value>:  Włącza emulację opóźnienia, o długości podanej w nanosekundach,
+            dozwolone wartości to od 0 do 20000 ns; najbardziej użyteczne
+            wartości to od 500 do 5000 ns.
+Uwaga: Ustawienie powoduje utratę wydajności emulacji, należy używać wyłącznie
+       dla wymagających go gier.
 .
 :CONFIG_DOS_RATE
 Częstotliwość odświeżania emulowanego obrazu:
-  default:  Określone przez tryb graficzny (zalecane, domyślne).
+  default:  Określona przez tryb graficzny (domyślne).
   host:     Taka, jak w systemie gospodarza (patrz parametr 'host_rate').
-  <value>:  Dokładna wartość, pomiędzy 24.000 oraz 1000.000 (Hz).
+  <value>:  Dokładna wartość, pomiędzy 24.000 oraz 1000.000 Hz.
+Uwaga: Zalecane jest ustawienie domyślne, innych wartości należy zawsze używać
+       tylko dla konkretnej gry.
 .
 :CONFIG_VESA_MODES
-Dostępne tryby graficzne VESA 1.2 oraz 2.0:
-  compatible  Zestaw trybów dobranych dla jak najlepszej kompatybilności;
-              zalecane, razem z 4 lub 8 megabajtów pamięci graficznej.
-  halfline    Obsługuje tryby niskiej rozdzielczości VESA 2.0 wymagane przez
-              grę Extreme Assault. Używać tylko w razie potrzeby, jest to
-              niekompatybilne z chipem S3.
-  all         Wszystkie tryby dostępne dla danej wielkości pamięci graficznej.
-              Niektóre gry mogą jednak niewłaściwie je obsługiwać (migotanie),
-              albo mogą wymagać do ich obsługi więcej pamięci.
-Domyślnie 'compatible'.
+Dostępne tryby graficzne VESA:
+  compatible:  Zestaw najbardziej kompatybilnych trybów dla skonfigurowanego
+               rozmiaru pamięci graficznej (domyślne). Zalecane dla 4 lub 8 MB
+               pamięci graficznej ('vmemsize'). Tryby 320x200 z dużą ilością
+               kolorów są pomijane, ponieważ gry nie obsługiwały ich poprawnie
+               aż do późnych lat 90-tych. Tryby 256-kolorowe z liniowym buforem
+               ramki w rozdzielczościach 320x240, 400x300, oraz 512x384 również
+               są pomijane z uwagi na problemy występujące w grach opartych
+               na silniku Build.
+  halfline:    Podobnie jak 'compatible', ale tryb VESA 120h VESA jest
+               zastąpiony specjalnym trybem używanym w grze Extreme Assault.
+               Należy używać tylko, jeśli ten tryb jest potrzebny.
+               needed.
+  all:         Wszystkie tryby graficzne, włącznie ze specyficznymi dla
+               emulatora DOSBox. Dla najlepszych rezultatów użyj 8 MB pamięci
+               graficznej. Niektóre gry nie pracują poprawnie w przypadku
+               obecności pewnych trybów graficznych; w takim przypadku użyj
+               wartości 'compatible'. Wielokolorowe tryby 320x200 dostępne
+               przy tym ustawieniu często są wymagane przez produkcje
+               demoscenowe z późnych lat 90-tych.
 .
 :CONFIG_VGA_8DOT_FONT
 Zawsze używa czcionki 8 pikseli dla obrazu VGA (domyślnie wyłączone).
+.
+:CONFIG_VGA_RENDER_PER_SCANLINE
+Dokładna emulacja karty VGA linia po linii (domyślnie wyłączone).
+Potrzebna do działania kilku gier, które bez tego ustawienia zawieszą się
+przy starcie (np., Deus, Ishar 3, Robinson's Requiem, Time Warriors).
 .
 :CONFIG_SPEED_MODS
 Zezwala na zachowania emulatora, które poprawiają wydajność (domyślnie
@@ -681,11 +1617,12 @@ zasobów emulatora. Dodatkowe ustawienia mogą być podane w formie pliku
 [c].conf, znajdującego się tam, gdzie montowany katalog, z zawartością
 jak poniżej:
   [drive]
-  type    = dir, overlay, floppy lub cdrom
-  label   = etykieta_dysku
-  path    = ustawienia ścieżki wyszukiwania, np. path = %%path%%;c:\tools
+  type     = dir, overlay, floppy lub cdrom
+  label    = etykieta_dysku
+  path     = ustawienia ścieżki wyszukiwania, np. path = %%path%%;c:\tools
   override_drive = nadpisanie litery dysku (domyślnie puste)
-  verbose = true lub false
+  verbose  = true lub false
+  readonly = true lub false
 .
 :CONFIG_STARTUP_VERBOSITY
 Rodzaj informacji wyświetlanych po uruchomieniu emulatora (domyślnie 'auto'):
@@ -711,8 +1648,47 @@ zamiast 'config -set sbtype sb16' wystarczy wykonać 'sbtype sb16', a zamiast
 :CONFIG_FRAMESKIP
 Użyj ustawienia 'host_rate'.
 .
+:CONFIGITEM_GLSHADER
+Wybór shadera w trybach OpenGL. Lista dostępnych shaderów adaptacyjnych,
+symulujących obraz monitora kineskopowego (CRT):
+  crt-auto:               Shader symulujący obraz monitora z okresu wydania
+                          danej gry (domyślne). Odpowiedni shader jest
+                          wybierany bazując na trybie graficznym
+                          i rozdzielczości, bez uwzględniania opcji
+                          'machine' - zatem nawet podczas emulowania systemu
+                          z kartą VGA, w przypadku uruchomienia gry
+                          korzystającej z trybu EGA wyświetlone zostaną
+                          wyraźne linie skanowania charakterystyczne
+                          dla monitora EGA.
+  crt-auto-machine:       Podobne do 'crt-auto', ale wybiera monitor
+                          na podstawie opcji 'machine', np. gry korzystające
+                          z trybu CGA lub EGA zostaną wyświetlone
+                          jak na monitorze VGA.
+  crt-auto-arcade:        Symuluje monitor maszyny arcade lub domowy monitor,
+                          typowo mniej ostry od monitora PC, z grubymi liniami
+                          skanowania w trybach graficznych niższej
+                          rozdzielczości. Może być użyteczne np. dla gier
+                          przeniesionych do systemu DOS z komputerów Amiga.
+  crt-auto-arcade-sharp:  Ostrzejszy wariant shadera arcade, dla lubiących
+                          grube linie skanowania, ale zachowuje ostrość typową
+                          dla monitorów PC.
+
+Inne możliwe opcje (nie jest to wyczerpująca lista):
+  sharp:                  Powiększa obraz traktując piksele jak prostokąty.
+                          Daje ostry obraz z minimalnym rozmyciem.
+  bilinear:               Powiększa obraz używając interpolacji bilinearnej.
+                          Daje rozmyty obraz.
+  nearest:                Powiększa obraz metodą najbliższego sąsiedztwa.
+                          Daje najostrzejszy możliwy obraz za cenę nierównych
+                          pikseli (ta wada jest mniej widoczna na monitorach
+                          o wysokiej rozdzielczości).
+
+Aby dostać pełną listę dostępnych wartości, uruchom emulator z opcją wiersza
+poleceń '--list-glshaders'. Możesz również podać ścieżkę względną lub
+bezwzględną do pliku z shaderem, rozszerzenie pliku '.glsl' możesz pominąć.
+.
 :CONFIG_ASPECT
-Korekcja proporcji obrazu (domyślnie włączone):
+Korekcja proporcji obrazu (domyślnie 'auto'):
   auto, on:            Koryguje proporcje obrazu dla współczesnych płaskich
                        monitorów o kwadratowych pikselach, żeby obraz wyglądał
                        tak jak na monitorze CRT o proporcjach 4:3, dla których
@@ -735,8 +1711,9 @@ Korekcja proporcji obrazu (domyślnie włączone):
 .
 :CONFIG_INTEGER_SCALING
 Ogranicza współczynnik poziomego lub pionowego skalowania obrazu do wartości
-całkowitych. Proporcje obrazu są zachowywane według ustawienia 'aspect', co
-może wymusić niecałkowity współczynnik skalowania w drugim wymiarze.
+całkowitych (domyślnie 'auto'). Proporcje obrazu są zachowywane według
+ustawień 'aspect' i 'viewport', co może wymusić niecałkowity współczynnik
+skalowania w drugim wymiarze.
 Ograniczenie jest automatycznie wyłączane, jeśli rozdzielczość wyświetlanego
 obrazu jest mniejsza od wielkości obszaru wyświetlania (jak dla 'off').
   auto:        Używa 'vertical' dla shaderów symulujących obraz monitora
@@ -749,7 +1726,9 @@ obrazu jest mniejsza od wielkości obszaru wyświetlania (jak dla 'off').
                wypełnia cały obszar wyświetlania.
 .
 :CONFIG_VIEWPORT
-Rozmiar obszaru wyświetlania (maksymalny obszar rysowania):
+Rozmiar obszaru wyświetlania (domyślnie 'fit'). Jest to maksymalny rozmiar,
+obraz zawsze się w nim mieści, a także uwzględnia skonfigurowane proporcje
+('aspect'):
   fit:             Dopasowuje obszar wyświetlania do rozmiaru okna lub ekranu
                    (domyślne). Może utworzyć czarne pasy wokół obszaru
                    wyświetlania (wypełnienie), jeśli włączone jest
@@ -758,11 +1737,11 @@ Rozmiar obszaru wyświetlania (maksymalny obszar rysowania):
                    logicznych (np., 960x720). Rozmiar nie może być większy od
                    pulpitu. Jeśli zostanie podany większy, niż rozmiar okna,
                    zostanie przeskalowany żeby się zmieścił.
-  N%:              Podobnie jak 'WxH', ale określa rozmiar jako procent
+  N%%:              Podobnie jak 'WxH', ale określa rozmiar jako procent
                    rozmiaru pulpitu.
-  relative H% V%:  Ustawia obszar wyświetlania o proporcjach 4:3, dopasowany
+  relative H%% V%%:  Ustawia obszar wyświetlania o proporcjach 4:3, dopasowany
                    do rozmiaru okna/ekranu, następnie skaluje poziomo/pionowo
-                   według parametrów H i V (dozwolony zakres od 20% do 300%).
+                   według parametrów H i V (dozwolony zakres od 20%% do 300%%).
                    Powstały w ten sposób obszar wyświetlania może rozciągać
                    się poza okno/ekran, pozwala to na powiększenie części
                    obrazu, zwłaszcza w połączeniu z ustawieniem 'aspect'.
@@ -777,7 +1756,8 @@ Barwa obrazu monochromatycznego (domyślnie 'amber'). Działa tylko z systemami
 'hercules' oraz 'cga_mono'. Barwę można zmieniać skrótem klawiszowym.
 .
 :CONFIG_CGA_COLORS
-Odwzorowanie barwy CGA RGBI, dotyczy wszystkich maszyn CGA lub lepszych.
+Odwzorowanie barwy CGA RGBI (domyślnie 'default'). Dotyczy wszystkich maszyn
+zdolnych do wyświetlania obrazu CGA lub lepszego. Wbudowane ustawienia:
   default:       Paleta CGA emulowanej przez kartę VGA (domyślne).
   tandy [BL]:    Wyidealizowany monitor Tandy, z regulowanym poziomem brązu
                  (0 - czerwony, 50 - brązowy, 100 - ciemnożółty).
@@ -794,7 +1774,7 @@ Odwzorowanie barwy CGA RGBI, dotyczy wszystkich maszyn CGA lub lepszych.
   scumm-amiga:   Paleta używana przez porty gier LucasArts EGA na
                  komputery Amiga.
   colodore:      Zainspirowane przez komputer Commodore 64 i paletę Colodore.
-  colodore-sat:  Paleta Colodore z nasyceniem większym o 20%.
+  colodore-sat:  Paleta Colodore z nasyceniem większym o 20%%.
   dga16:         Nowoczesne podejście do palety CGA, ze stonowanym kontrastem.
 Można również podać własny zestaw kolorów, jako 16 rozdzielonych spacjami
 lub przecinkami wartości, jako 3- lub 6-cyfrowe liczby szesnastkowe (np. #f00
@@ -812,35 +1792,6 @@ Skalery programowe zostały usunięte, musisz użyć skalowania sprzętowego:
   - Zamiast normal2x/3x, użyj ustawień 'windowresolution' oraz
     'viewport', rozważ użycie 'integer_scaling'.
   - W innym przypadku spróbuj użyj opcji 'glshader'.
-.
-:CONFIG_GLSHADER
-Wybór shadera w trybach OpenGL. Lista dostępnych shaderów adaptacyjnych,
-symulujących obraz monitora kineskopowego (CRT):
-  crt-auto:               Shader symulujący obraz monitora z okresu wydania
-                          danej gry (domyślnie). Odpowiedni shader jest
-                          wybierany bazując na trybie graficznym
-                          i rozdzielczości, bez uwzględniania opcji
-                          'machine' - zatem nawet podczas emulowania systemu
-                          z kartą VGA, w przypadku uruchomienia gry
-                          korzystającej z trybu EGA wyświetlone zostaną
-                          wyraźne linie skanowania charakterystyczne
-                          dla monitora EGA.
-  crt-auto-machine:       Podobne do 'crt-auto', ale wybiera monitor
-                          na podstawie opcji 'machine', np. gry korzystające
-                          z trybu CGA lub EGA zostaną wyświetlone
-                          jak na monitorze VGA.
-  crt-auto-arcade:        Symuluje monitor maszyny arcade lub domowy monitor,
-                          typowo mniej ostry od monitora PC, z grubymi liniami
-                          skanowania w trybach graficznych niższej
-                          rozdzielczości. Może być użyteczne np. dla gier
-                          przeniesionych do systemu DOS z komputerów Amiga.
-  crt-auto-arcade-sharp:  Ostrzejszy wariant shadera arcade, dla lubiących
-                          grube linie skanowania, ale zachowuje ostrość typową
-                          dla monitorów PC.
-Oprócz tego dostępne są opcje 'sharp' oraz 'none' , albo ścieżka względna lub
-bezwzględna do pliku z shaderem GLSL, albo jeden z shaderów z listy
-wyświetlanej opcją wiersza poleceń '--list-glshaders'.
-Rozszerzenie '.glsl' można w każdym przypadku pominąć.
 .
 :CONFIG_COMPOSITE
 Włącza trybu sygnału kompozytowego (tylko dla maszyn 'cga', 'pcjr', oraz
@@ -870,20 +1821,101 @@ Jasność obrazu, od ciemnej do jasnej (domyślnie 0).
 Zbieżność subpikseli, od obrazu rozmytego po ostry (domyślnie 0).
 .
 :CONFIG_CORE
-Sposób emulacji procesora. Wartość 'auto' (domyślne) przełącza na 'dynamic'
-(dynamiczną rekompilację) jeśli tylko jest dostępna i możliwa do użycia.
+Sposób emulacji procesora (domyślnie 'auto').
+  auto:     'normal' dla programów działających w trybie rzeczywistym,
+            'dynamic' dla programów działających w trybie chronionym
+            (domyślne). Odpowiednie w większości przypadków.
+  normal:   Program jest interpretowany instrukcja po instrukcji. Zwiększa to
+            dokładność, ale jest 3-5 razy wolniejsze, niż 'dynamic'. Zalecane
+            do programów wrażliwych na zależności czasowe, jest niezbędne
+            dla programów samomodyfikujących się.
+  simple:   Podobne do 'normal', zoptymalizowane dla starych programów trybu
+            rzeczywistego; może poprawić kompatybilność ze starszymi grami.
+            W trybie chronionym przełącza się automatycznie na 'normal'.
+  dynamic:  Instrukcje programu są tłumaczone na instrukcje systemu gospodarza
+            całymi blokami i wykonywane bezpośrednio. Jest to 3-5 razy szybsze,
+            niż 'normal', ale zależności czasowe są emulowane mniej dokładnie.
+            Konieczne przy wymagających grach (np. grach 3D dla kart SVGA).
+            Programy samomodyfikujące się nie działają poprawnie z tym
+            ustawieniem, wymagają 'normal'.
 .
 :CONFIG_CPUTYPE
-Typ emulowanego procesora. Wartość 'auto' (domyślne) wybiera ten model, który
-da się emulować najszybciej.
+Typ emulowanego procesora (domyślnie 'auto'). Należy zmienić wyłącznie jeśli
+program nie działa poprawnie w trybie 'auto'.
+  auto:          Zazwyczaj najszybsze i najbardziej kompatybilne (domyślne).
+                 W rzeczywistości jest to '386_fast', z instrukcją CPUID
+                 procesora 486, zachowaniem rejestru CR jak dla 486,
+                 z dodatkowymi instrukcjami procesora 486.
+  386:           CPUID jak dla procesora 386, kalkulacja praw dostępu do stron
+                 pamięci również jak dla 386.
+  386_fast:      Jak '386', ale z mniej dokładnym sprawdzaniem praw dostępu
+                 do stron pamięci, przez co jest znacznie szybsze.
+  386_prefetch:  Jak '386_fast', ale z dokładną symulacją kolejki prefetch.
+                 Wymaga 'core = normal'. Jest niezbędne dla programów
+                 samomodyfikujących się lub stosujących sztuczki przeciwko
+                 debugowaniu. Wymagane między innymi przez gry: Contra,
+                 FIFA International Soccer (1994), Terminator 1,
+                 X-Men: Madness in The Murderworld.
+  486:           CPUID jak dla procesora 486, kalkulacja praw dostępu do stron
+                 pamięci również jak dla 486, zachowanie rejestru CR jak dla
+                 486, dodatkowe instrukcje procesora 486.
+  pentium:       Jak '486', ale z instrukcją CPUID jak dla procesora Pentium,
+                 zachowanie rejestru CR jak dla Pentium, obsługa RDTSC.
+                 Zalecane dla gier działających pod systemem Windows 3.x (np.
+                 Betrayal in Antara).
+  pentium_mmx:   Jak 'pentium', ale z instrukcjami MMX. Bardzo niewiele gier
+                 używa instrukcji MMX, jest to użyteczne głównie dla produkcji
+                 demoscenowych.
 .
 :CONFIG_CYCLES
-Ilość instrukcji, którą DOSBox będzie próbował emulować każdej milisekundy.
-Zbyt duża wartość powoduje rwanie dźwięku i opóźnienia (lagi).
-  auto           Próbuje odgadnąć wartość, której gra potrzebuje (domyślne).
-  fixed #number  Stała liczba cykli. Zazwyczaj potrzebne, kiedy ustawienie
-                 'auto' zawiedzie. Przykład: 'fixed 4000'.
-  max            Emuluje tyle instrukcji, na ile pozwala wydajność komputera.
+Ustawienie 'cycles' jest przestarzałe, ale wciąż akceptowane; w zamian użyj
+'cpu_cycles', 'cpu_cycles_protected', oraz 'cpu_throttle'; 'cycles' zostanie
+w przyszłości usunięte.
+.
+:CONFIG_CPU_CYCLES
+Szybkość emulowanego procesora (domyślnie '3000'). Jeśli 'cpu_cycles_protected'
+ma wartość 'auto', wartość jest używana zarówno dla programów działających
+w trybie rzeczywistym, jak i chronionym.
+  <liczba>:  Emuluje stałą ilość cykli w ciągu milisekundy (mniej-więcej
+             odpowiednik MIPS). Dozwolone są wartości od 50 do 2000000.
+  max:       Emuluje tyle cykli, ile system gospodarza jest w stanie przy
+             użyciu jednego rdzenia. Ilość cykli na milisekundę będzie się
+             zmieniać, może to powodować problemy w niektórych programach DOS.
+Uwagi:
+  - Ustawienie 'max' może powodować przycinanie i opóźnienia (lagi) dźwięku.
+  - Najlepsze rezultaty daje najniższa liczba pozwalająca grze działać płynnie.
+  - DOSBox nie emuluje procesorów z dokładnością co do cykla, ale poniższe
+    wartości, odpowiadające mniej-więcej poszczególnym procesorom, mogą być
+    dobrym punktem wyjścia.
+      8088 (4.77 MHz)     300
+      286-8               700
+      286-12             1500
+      386SX-20           3000
+      386DX-33           6000
+      386DX-40           8000
+      486DX-33          12000
+      486DX/2-66        25000
+      Pentium 90        50000
+      Pentium MMX-166  100000
+      Pentium II 300   200000
+.
+:CONFIG_CPU_CYCLES_PROTECTED
+Szybkość emulowanego procesora dla programów działających w trybie chronionym
+(domyślnie '60000).
+  auto:      Użyj wartości `cpu_cycles'.
+  <liczba>:  Emuluje stałą ilość cykli w ciągu milisekundy (mniej-więcej
+             odpowiednik MIPS). Dozwolone są wartości od 50 do 2000000.
+  max:       Emuluje tyle cykli, ile system gospodarza jest w stanie przy
+             użyciu jednego rdzenia. Ilość cykli na milisekundę będzie się
+             zmieniać, może to powodować problemy w niektórych programach DOS.
+Uwaga: Więcej informacji znajdziesz w opisie 'cpu_cycles'.
+.
+:CONFIG_CPU_THROTTLE
+Dynamicznie ogranicza ilość emulowanych cykli procesora, jeśli system
+gospodarza nie jest w stanie emulować zadanej liczby (domyślnie wyłączone).
+Działa jedynie w przypadku ustawienia stałej liczby cykli. Po włączeniu
+ilość cykli na milisekundę będzie się zmieniać, może to powodować problemy
+w niektórych programach DOS.
 .
 :CONFIG_CYCLEUP
 Ilość cykli na milisekundę, która zostanie dodana po naciśnięciu skrótu
@@ -903,12 +1935,18 @@ Włącza emulację karty 3dfx Voodoo (domyślnie włączone).
 Wielkość pamięci (w megabajtach) emulowanej karty 3dfx Voodooo, 4 lub 12 MB.
 Pamięć jest dzielona na Frame Buffer Interface (FBI) oraz Texture Mapping Unit
 (TMU) w następujący sposób:
-   4: 2 MB dla FBI, jeden TMU z 2 MB pamięci (domyślne)
+   4: 2 MB dla FBI, jeden TMU z 2 MB pamięci (domyślne).
   12: 4 MB dla FBI, dwa TMUs, każdy z 4 MB pamięci.
 .
 :CONFIG_VOODOO_MULTITHREADING
-Używa wielowątkowości aby polepszyć wydajność emulacji 3dfx Voodoo
-(domyślnie włączone).
+Nazwa zmieniona na 'voodoo_threads'.
+.
+:CONFIG_VOODOO_THREADS
+Używa wątków procesora do polepszenia wydajności karty 3dfx:
+  auto:       Używa do 8 wątków, zależnie od ilości rdzeni (domyślne).
+  <wartość>:  Używa określonej ilości wątków, od 1 do 16.
+Uwaga: Testy wykazują, że wydajność rośnie do 8 wątków, powyżej nie ma już
+       poprawy lub wydajność maleje.
 .
 :CONFIG_VOODOO_BILINEAR_FILTERING
 Używa filtrowania bilinearnego żeby zasymulować efekt wygładzania tekstur
@@ -1033,23 +2071,32 @@ Uwaga: Wymaga włączonej emulacji myszy PS/2.
 .
 :CONFIG_NOSOUND
 Włącza tryb cichy (domyślnie wyłączony).
-Dźwięk jest emulowany, ale całkowicie wyciszony.
+Dźwięk jest emulowany, ale całkowicie wyciszony. Wciąż możliwe jest zapisywanie
+dźwięku do pliku WAV.
 .
 :CONFIG_RATE
-Częstotliwość próbkowania miksera dźwięku (domyślnie 48000).
+Częstotliwość próbkowania miksera dźwięku (domyślnie %s).
+Dozwolone są wartości od 8000 do 96000 Hz. Większość konsumenckiego sprzętu
+audio używa natywnej częstotliwości 48000. Zazwyczaj zalecane jest
+pozostawienie domyślnej wartości, system operacyjny najprawdopodobniej i tak
+przekonwertuje dźwięk do częstotliwości próbkowania 48000 Hz.
 .
 :CONFIG_BLOCKSIZE
-Rozmiar bloku miksera w ramkach (domyślnie 512). Większe wartości mogą pomóc
-zredukować przycinanie dźwięku, ale zwiększają opóźnienie (lag).
+Rozmiar bloku miksera w ramkach (domyślnie %s).
+Dozwolone są wartości od 64 to 8192. Wartości muszą być potęgami dwójki (np.
+256, 512, 1024, itd.). Większe wartości mogą pomóc zredukować przycinanie
+dźwięku, ale zwiększają opóźnienie (lag).
 .
 :CONFIG_PREBUFFER
-Ile milisekund dźwięku renderować ponad 'blocksize' (domyślnie 20). Większe
-wartości mogą pomóc redukować przycinanie dźwięku, ale zwiększają opóźnienie
-dźwięku (lag).
+Ile milisekund dźwięku renderować ponad 'blocksize' (domyślnie %s).
+Większe wartości mogą pomóc redukować przycinanie dźwięku, ale zwiększają
+opóźnienie dźwięku (lag).
 .
 :CONFIG_NEGOTIATE
 Czy próbować wynegocjować ze sterownikiem dźwięku potencjalnie lepsze
-ustawienia częstotliwości i rozmiaru bloku (domyślnie włączone).
+ustawienia częstotliwości i rozmiaru bloku (domyślnie %s).
+Należy włączyć jeśli dźwięk nie jest odgrywany lub przycina przy danym
+ustawieniu 'blocksize'.
 .
 :CONFIG_COMPRESSOR
 Włącza automatyczny kompresora dynamiki, zapobiega przesterowaniu dźwięku:
@@ -1071,7 +2118,8 @@ Włącza (globalnie) efekt 'reverb' (pogłos), dodaje dźwiękowi przestrzeni:
   off:     Bez efektu (domyślne).
   on:      Efekt włączony, ustawienie 'medium'.
   tiny:    Odpowiada zintegrowanemu głośnikowi w niewielkim pokoju, ustawienie
-           dla urządzeń typu PC Speaker, Tandy, PS/1, czy LPT DAC.
+           dla urządzeń typu wewnętrzny głośnik (PC Speaker), Tandy, PS/1,
+           czy LPT DAC.
   small:   Subtelne wrażenie przestrzeni, odpowiednie do gier używających
            pojedynczego kanału dźwięku syntetyzowanego (zazwyczaj OPL) zarówno
            do muzyki, jak i efektów dźwiękowych.
@@ -1092,29 +2140,185 @@ Włącza (globalnie) efekt 'chorus', dodaje brzmienie głosu chóralnego:
   strong:  Silny efekt.
 Uwaga: Możesz dokładniej dostosować ustawienia poleceniem 'MIXER'.
 .
+:CONFIG_SOUNDFONT
+Ścieżka do pliku SoundFont w formacie SF2 (domyślnie 'default.sf2').
+Plik będzie szukany w następujących lokacjach, w kolejności:
+  - W katalogu zdefiniowanym przez użytkownika (patrz 'soundfont_dir').
+  - W podkatalogu 'soundfonts' katalogu z konfiguracją.
+  - W innych miejscach typowych dla systemu operacyjnego.
+Rozszerzenie '.sf2' mozna pominąć. Można podać względną lub bezwzględną
+ścieżkę do pliku.
+Uwaga: Listę dostępnych plików SoundFont można wyświetlić poleceniem
+`MIXER /LISTMIDI`.
+.
+:CONFIG_SOUNDFONT_DIR
+Dodatkowy katalog z plikami SoundFont (modyślnie pusty).
+Jeśli zostanie ustawiony, pliki SoundFont będą poszukiwane najpierw w tym
+katalogu, a dopiero potem w innych lokalizacjach.
+.
+:CONFIG_SOUNDFONT_VOLUME
+Głośność plików SoundFont w procentach (domyślnie 100).
+Można użyć do normalizachi głośności różnych plików.
+Dozwolone są wartości procentowe od 1 do 800.
+.
+:CONFIG_FSYNTH_CHORUS
+Efekt chorus dla syntetyzatora FluidSynth:
+  auto:      Włącza efekt, z wyjątkiem znanych problematycznych plików
+             SoundFont (domyślne).
+  on:        Włącza efekt zawsze.
+  off:       Wyłącza efekt.
+  <custom>:  Ustawienie użytkownika parametrami rozdzielonymi spacjami:
+               - voice-count:      Wartość całkowita od 0 do 99
+               - level:            Wartość dziesiętna od 0.0 do 10.0
+               - speed:            Wartość dziesiętna od 0.0 do 5.0 (w Hz)
+               - depth:            Wartość dziesiętna od 0.0 do 21.0
+               - modulation-wave:  'sine' lib 'triangle'
+             Przykład: 'fsynth_chorus = 3 1.2 0.3 8.0 sine'
+Uwaga: Można wyłączyć efekt chorus z syntetyzatora FluidSynth i
+       w zamian włączyć efekt w mikserze lub pozwolić obydwu działać
+       jednocześnie. Czy będzie to brzmiało dobrze, zależy od plików
+       SoundFont i ustawień efektu chorus.
+.
+:CONFIG_FSYNTH_REVERB
+Efekt pogłosu dla syntetyzatora FluidSynth:
+  auto:      Włącza efekt (domyślne).
+  on:        Enable reverb.
+  off:       Wyłącza efekt.
+  <custom>:  Ustawienie użytkownika parametrami rozdzielonymi spacjami:
+               - room-size:  Wartość dziesiętna od 0.0 do 1.0
+               - damping:    Wartość dziesiętna od 0.0 do 1.0
+               - width is:   Wartość dziesiętna od 0.0 do 100.0
+               - level is:   Wartość dziesiętna od 0.0 do 1.0
+             Przykład: 'fsynth_reverb = 0.61 0.23 0.76 0.56'
+Uwaga: Można wyłączyć efekt pogłosu z syntetyzatora FluidSynth i
+       w zamian włączyć efekt w mikserze lub pozwolić obydwu działać
+       jednocześnie. Czy będzie to brzmiało dobrze, zależy od plików
+       SoundFont i ustawień efektu pogłosu.
+.
+:CONFIG_FSYNTH_FILTER
+Filtrowanie dźwięku syntetyzera FluidSynth:
+  off:       Filtrowanie wyłączone (domyślne).
+  <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
+.
+:FLUIDSYNTH_NO_SOUNDFONTS
+Brak dostępnych plików SoundFont
+.
+:CONFIG_MODEL
+Model emulowanego syntetyzatora MIDI Roland MT-32/CM-32ML.
+Musisz mieć pliki ROM dla odpowiedniego modelu (patrz 'romdir').
+Jeśli nie podasz wersji syntetyzatora, emulowany będzie model wybrany w
+kolejności poniżej.
+  auto:      Wybiera pierwszy dostępny model (domyślne).
+  cm32l:     Wybiera pierwszy dostępny model CM-32L model.
+  mt32_old:  Wybiera pierwszy dostępny model "starego" MT-32 (v1.0x).
+  mt32_new:  Wybiera pierwszy dostępny model "nowego" MT-32 (v2.0x).
+  mt32:      Wybiera pierwszy dostępny mode MT-32.
+  <wersja>:  Używa podanego modelu i wersji (np., 'mt32_204').
+Uwagi:
+  - Listę dostępnych modeli można wyświetlić poleceniem `MIXER /LISTMIDI`.
+  - To NIE JEST urządzenie zgodne ze standardem General MIDI; używaj tylko
+    jeśli gra obsługuje urządzenie Roland MT-32.
+.
+:CONFIG_ROMDIR
+Katalog zawierający ROMy syntetyzatora Roland MT-32/CM-32ML (domyślnie
+nieustawiony). Ścieżka może być względna lub bezwzględna. Pusta wartość
+spowoduje sprawdzenie podkatalogu 'mt32-roms' z katalogu z konfiguracją
+i innych typowych lokacji w danym systemie.
+Uwagi:
+  - Nazwy plików nie mają znaczenia, ROMy są identyfikowane po sumach
+    kontrolnych.
+  - Obsługiwane są zarówno obrazy ROM z przeplotem, jak i bez.
+.
+:CONFIG_MT32_FILTER
+Filtrowanie dźwięku syntetyzera Roland MT-32/CM-32L:
+  off:      Filtrowanie wyłączone (domyślne).
+  <filtr>:  Ustawienia użytkownika, patrz 'sb_filter'.
+.
+:MT32_ROMS_LABEL
+ROMy MT-32    
+.
+:CM32L_ROMS_LABEL
+ROMy CM-32L   
+.
+:MT32_ACTIVE_MODEL_LABEL
+Aktywny model  
+.
+:MT32_SOURCE_DIR_LABEL
+Załadowany z   
+.
+:CONFIG_SOUNDCANVAS_MODEL
+Model emulowanego syntetyzatora MIDI Roland Sound Canvas.
+Do działania potrzebuje jednej lub więcej wtyczek CLAP emulujących syntetyzator
+w podkatalogu 'plugin' katalogu z konfiguracją. Wtyczki są wyszukiwane
+na podstawie ich opisu.
+Model jest wybierany następująco:
+  auto:      Wybiera najlepszy model (domyslne).
+  sc55:      Wybiera najlepszy model oryginalnego SC-55.
+  sc55mk2:   Wybiera najlepszy model SC-55mk2.
+  <wersja>:  Wybiera określony model, np., 'sc55_121'.
+.
+:CONFIG_SOUNDCANVAS_FILTER
+Filtrowanie dźwięku syntetyzera Roland Sound Canvas:
+  on:       Filtrowanie włączone (domyślne).
+  off:      Filtrowanie wyłączone.
+  <filtr>:  Ustawienia użytkownika, patrz 'sb_filter'.
+.
+:SC55_MODELS_LABEL
+Modele SC-55  
+.
+:SOUNDCANVAS_ACTIVE_MODEL_LABEL
+Aktywny model  
+.
 :CONFIG_MIDIDEVICE
-Urządzenie, które otrzyma dane MIDI z emulowanego interfejsu MPU-401. Jedno z:
-  oss          Interfejs OSS (dla systemu Linux).
-  alsa         Interfejs ALSA (dla systemu Linux).
-  fluidsynth:  Wbudowany syntetyzer, patrz sekcja [fluidsynth].
-  mt32:        Emulacja syntetyzatora Roland MT-32, patrz sekcja [mt32].
-  auto:        Pierwszy działający zewnętrzny syntetyzator; może to być
-               synteza programowa lub fizyczne urządzenie.
-  none:        Wyłącz wyjście MIDI.
-Domyślnie 'auto'.
+Urządzenie, które otrzyma dane MIDI z emulowanego interfejsu MPU-401
+(domyślnie 'port'). Jedno z:
+.
+:CONFIGITEM_MIDIDEVICE_PORT
+  port:         Port MIDI systemu gospodarza (domyślne). Port można wybrać
+                ustawieniem 'midiconfig'.
+.
+:CONFIGITEM_MIDIDEVICE_COREAUDIO
+  coreaudio:    Sytetyzer MIDI wbudowany w macOS.
+.
+:CONFIGITEM_MIDIDEVICE_MT32
+  mt32:         Wbudowany syntetyzer MIDI Roland MT-32, patrz sekcja [mt32].
+.
+:CONFIGITEM_MIDIDEVICE_SOUNDCANVAS
+  soundcanvas:  Syntetyzator Roland SC-55, patrz sekcja [soundcanvas].
+.
+:CONFIGITEM_MIDIDEVICE_FLUIDSYNTH
+  fluidsynth:   Syntetyzator MIDI FluidSynth, używający plików SoundFont,
+                patrz sekcja [fluidsynth].
+.
+:CONFIGITEM_MIDIDEVICE_NONE
+  none:         Wyłącz wyjście MIDI.
 .
 :CONFIG_MIDICONFIG
-Parametry wybranego interfejsu MIDI. Zazwyczaj jest to identyfikator lub nazwa
-syntetyzatora - można je sprawdzić poleceniem DOSu 'MIXER /LISTMIDI'.
-Uwagi:
-  - Opcja nie ma znaczenia, jeśli użyty został wbudowany syntetyzator MIDI
-    (mididevice = fluidsynth lub mt32).
-  - Dla systemu Linux i podsystemu dźwiękowego ALSA, wyświetl listę portów
-    MIDI poleceniem 'aconnect -l' i wpisz wybrany, np. 'midiconfig=14:0' dla
-    klienta numer 14 i portu 0.
-  - Fizyczny Roland MT-32 w płytą główną w wersji 0 może potrzebować
-    opóźnienia, inaczej przepełni się jego wewnętrzny bufor. W takim wypadku
-    dodaj parametr 'delaysysex', np.: 'midiconfig=2 delaysysex'.
+Parametry wybranego interfejsu MIDI (domyślnie puste). Uwagi:
+.
+:CONFIGITEM_MIDICONFIG_WINDOWS_OR_MACOS
+  - Dla 'mididevice = port', użyj polecenia 'MIXER /LISTMIDI' aby znaleźć port
+    MIDI, następnie podaj jego ID lub część nazwy, np. aby użyć portu
+   "loopMIDI Port A" o identyfikatorze 2, podaj  'midiconfig = 2' lub
+   'midiconfig = port a'.
+.
+:CONFIGITEM_MIDICONFIG_COREAUDIO
+  - Dla 'mididevice = coreaudio' podaj tu nazwę pliku SoundFont, wymagana jest
+    ścieżka bezwzględna.
+.
+:CONFIGITEM_MIDICONFIG_LINUX
+  - Dla 'mididevice = port', użyj linuksowego polecenia 'aconnect -l'
+    aby wyświetlić otwarte porty MIDI i wybierz jeden z nich, np.
+    'midiconfig = 14:0' dla sekwencera 14 i portu 0.
+.
+:CONFIGITEM_MIDICONFIG_INTERNAL_SYNTH
+  - Dla 'mididevice = fluidsynth', 'mt32', oraz 'soundcanvas' ustawienie jest
+    ignorowane.
+.
+:CONFIGITEM_MIDICONFIG_PHYSICAL_MT32
+  - Jeśli używasz fizycznego urządzenia Rolan MT-32 rev. 0, może ono wymagać
+    opóźnienia aby zapobiec przepełnienia buforu. Można je włączyć słowem
+    kluczowym 'delaysysex', np. 'midiconfig = 2 delaysysex'.
 .
 :CONFIG_MPU401
 Typ emulowanego interfejsu MPU-401 (domyślnie 'intelligent').
@@ -1129,104 +2333,38 @@ w słyszalny sposób, wpływa jedynie na reprezentację danych MIDI.
 Włącz jedynie, jeśli potrzebujesz surowych, nieprzetworzonych danych MIDI, np.
 do pracy z programami muzycznymi, lub aby debugować problemy związane z MIDI.
 .
-:CONFIG_SOUNDFONT
-Ścieżka do pliku SoundFont w formacie SF2 (domyślnie 'default.sf2'). Może być
-względna lub bezwzględna, można też podać nazwę pliku z podkatalogu
-'soundfonts' katalogu z konfiguracją.
-Opcjonalny drugi parametr określa głośność muzyki, np. 'my_soundfont.sf2 50'
-zmniejszy głośność syntezy o 50%. Procentowa wartość głośności powinna
-zawierać się w przedziale od 1 do 800.
+:MIDI_DEVICE_LIST_NOT_SUPPORTED
+Wykrywanie nieobsługiwane
 .
-:CONFIG_FSYNTH_CHORUS
-Efekt chorus: auto' (domyślne), 'on', 'off' lub ustawienia użytkownika.
-Ustawienia użytkownika wymagają podania wszystkich 5 parametrów,
-oddzielonych spacjami, zachowując kolejność. Są to:
-voice-count level speed depth modulation-wave, gdzie:
-  voice-count:      wartość całkowita od 0 do 99
-  level:            wartość dziesiętna, od 0.0 do 10.0
-  speed:            wartość dziesiętna, od 0.1 do 5.0, wartość w Hz
-  depth:            wartość dziesiętna, od 0.0 do 21.0
-  modulation-wave:  'sine' lub 'triangle'
-  Przykład: chorus = 3 1.2 0.3 8.0 sine
-Uwaga: Można wyłączyć efekt 'chorus' z syntetyzatora FluidSynth i
-       w zamian włączyć efekt w mikserze lub pozwolić obydwu działać
-       jednocześnie. Czy będzie to brzmiało dobrze, zależy od plików
-       SoundFont i ustawień efektu 'chorus'.
+:MIDI_DEVICE_NOT_CONFIGURED
+Urządzenie nie zostało skonfigurowane
 .
-:CONFIG_FSYNTH_REVERB
-Efekt pogłosu: auto', (domyślne) 'on', 'off' lub ustawienia użytkownika.
-Ustawienia użytkownika wymagają podania wszystkich 4 parametrów,
-oddzielonych spacjami, zachowując kolejność. Są to:
-room-size damping width level, gdzie:
-  room-size:  wartość dziesiętna od 0.0 do 1.0
-  damping:    wartość dziesiętna od 0.0 do 1.0
-  width:      wartość dziesiętna od 0.0 do 100.0
-  level:      wartość dziesiętna od 0.0 do 1.0
-  Przykład: reverb = 0.61 0.23 0.76 0.56
-Uwaga: Można wyłączyć efekt 'reverb' z syntetyzatora FluidSynth i
-       w zamian włączyć efekt w mikserze lub pozwolić obydwu działać
-       jednocześnie. Czy będzie to brzmiało dobrze, zależy od plików
-       SoundFont i ustawień efektu 'reverb'.
+:MIDI_DEVICE_NO_PORTS
+Brak dostępnych portów
 .
-:CONFIG_FSYNTH_FILTER
-Filtrowanie dźwięku syntetyzera FluidSynth:
-  off:       Filtrowanie wyłączone (domyślne).
-  <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
+:MIDI_DEVICE_NO_MODEL_ACTIVE
+Żaden model nie jest obecnie aktywny
 .
-:CONFIG_MODEL
-Model emulowanego syntetyzatora MIDI Roland MT-32/CM-32ML.
-Musisz mieć pliki ROM dla odpowiedniego modelu (patrz 'romdir').
-Jeśli nie podasz wersji syntetyzatora, emulowany będzie model wybrany w
-kolejności poniżej.
-  auto:       Wybiera pierwszy dostępny model (domyślne).
-  cm32l:      Wybiera pierwszy dostępny model CM-32L model.
-  mt32_old:   Wybiera pierwszy dostępny model "starego" MT-32 (v1.0x).
-  mt32_new:   Wybiera pierwszy dostępny model "nowego" MT-32 (v2.0x).
-  mt32:       Wybiera pierwszy dostępny mode MT-32.
-  <version>:  Używa podanego modelu i wersji (np., 'mt32_204').
-.
-:CONFIG_ROMDIR
-Katalog zawierający ROMy syntetyzatora Roland MT32/CM-32ML (domyślnie
-nieustawiony). Ścieżka może być względna lub bezwzględna. Pusta wartość
-spowoduje sprawdzenie podkatalogu 'mt32-roms' z katalogu z konfiguracją
-i innych typowych lokacji w danym systemie.
-Uwagi:
-  - Nazwy plików nie mają znaczenia, ROMy są identyfikowane po sumach
-    kontrolnych.
-  - Obsługiwane są zarówno obrazy ROM z przeplotem, jak i bez.
-.
-:CONFIG_MT32_FILTER
-Filtrowanie dźwięku syntetyzera Roland MT-32/CM-32L:
-  off:       Filtrowanie wyłączone (domyślne).
-  <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
-.
-:MT32_NO_SUPPORTED_MODELS
-Żaden obsługiwany model nie jest obecny
-.
-:MT32_ROM_NOT_LOADED
-ROM nie został załadowany
-.
-:MT32_INVENTORY_TABLE_MISSING_LETTER
--
-.
-:MT32_INVENTORY_TABLE_AVAILABLE_LETTER
-+
-.
-:MT32_ROMS_LABEL
-ROMy MT-32    
-.
-:CM32L_ROMS_LABEL
-ROMy CM-32L   
-.
-:MT32_ACTIVE_ROM_LABEL
-Aktywny ROM   
-.
-:MT32_SOURCE_DIR_LABEL
-Załadowany z  
+:MIDI_DEVICE_NO_MODELS
+Brak dostępnych modeli
 .
 :CONFIG_SBTYPE
 Model karty muzycznej Sound Blaster (domyślnie 'sb').
-Wartość 'gb' oznacza kartę Game Blaster.
+  gb:        Game Blaster          - CMS
+  sb1:       Sound Blaster 1.0     - OPL2, CMS
+  sb2:       Sound Blaster 2.0     - OPL2
+  sbpro1:    Sound Blaster Pro     - Dual OPL2
+  sbpro2:    Sound Blaster Pro 2   - OPL3
+  sb16:      Sound Blaster 16      - OPL3 (domyślne)
+  ess:       ESS ES1688 AudioDrive - ESFM
+  none/off:  Wyłącza emulację karty Sound Blaster.
+Uwagi:
+  - Creative Music System został później przemianowany na Game Blaster;
+    są to te same karty.
+  - Ustawienie 'ess' umożliwia rozszerzoną syntezę FM w grach obsługujących
+    moduł ESFM. DAC nie jest emulowany, ale karta jest kompatybilna z
+    Sound Blaster Pro - skonfiguruj grę, żeby używała tej karty dla efektów
+    dźwiękowych.
 .
 :CONFIG_SBBASE
 Adres bazowy (I/O) karty muzycznej Sound Blaster (domyślnie 220).
@@ -1242,35 +2380,21 @@ Numer kanału High DMA karty muzycznej Sound Blaster (domyślnie 5).
 .
 :CONFIG_SBMIXER
 Zezwala mikserowi karty Sound Blaster na zmianę ustawień miksera DOSBoksa
-(domyślnie włączone).
+(domyślnie włączone). Sound Blaster Pro 1 i nowsze karty pozwalają programom
+zmieniać głośność dźwięku digitalizowanego (DAC), syntezy FM, i dźwięku
+z płyt CD - ustawienia te odnoszą się do kanałów miksera SB, OPL, oraz CDAUDIO,
+odpowiednio.
+  on:   Finalny poziom głośności jest kombinacją ustawienia programu
+        i ustawienia użytkownika w mikserze DOSBoksa.
+  off:  Jedynie ustawienia użytkownika są brane pod uwagę.
+Uwaga: Niektóre gry zmieniają głośność dynamicznie, np. obniżają poziom
+       głośności syntezy FM kiedy odtwarzana jest mowa. W takim wypadku
+       ustawienie 'sbmixer' należy pozostawić włączone.
 .
 :CONFIG_SBWARMUP
 Czas wyciszenia początkowych transferów DMA, w milisekundach (domyślnie 100).
 Wycisza trzaski słyszalne podczas uruchamiania wielu gier. Zmniejsz wartość,
 jeśli zauważysz ucięty początek dźwięku.
-.
-:CONFIG_OPLRATE
-Częstotliwość dźwięku syntetyzowanego OPL jest obecnie taka sama, jak
-częstotliwość miksowania, dzięki czemu nie jest potrzebny resampling.
-.
-:CONFIG_OPLMODE
-Typ emulowanego układu OPL. 'auto' (domyślne) wybiera typ w zależności od
-'sbtype'. Wszystkie z wyjątkiem 'cms' są kompatybilne z kartami AdLib.
-.
-:CONFIG_OPL_FADEOUT
-Wycisz dźwięk układu OPL po ostatnim zapisie do portu IO:
-  off:       Niewyciszony dźwięk będzie słyszalny bez końca (domyślne).
-  on:        Zaczekaj 0.5s, wyciszaj dźwięk przez kolejne 0.5s.
-  <custom>:  Ustawienie użytkownika w formacie:
-               WAIT FADE
-             gdzie WAIT oznacza czas nieaktywności IO, po którym zacznie się
-             wyciszanie, od 100 do 5000 milisekund; a FADE to długość okresu
-             wyciszania, od 10 do 3000 milisekund. Przykłady:
-                300 200 (czekaj 300ms, po czym wyciszaj przez 200ms)
-                1000 3000 (czekaj 1s, po czym wyciszaj przez 3s)
-.
-:CONFIG_OPLEMU
-Jedynie emulacja 'nuked' jest aktualnie obsługiwana.
 .
 :CONFIG_SB_FILTER
 Filtrowanie dźwięku digitalizowanego karty Sound Blaster:
@@ -1293,6 +2417,48 @@ Filtrowanie dźwięku digitalizowanego karty Sound Blaster:
 Wymusza włączone filtrowanie dźwięku karty Sound Blaster (domyślnie
 wyłączone). Uniemożliwia oprogramowaniu wyłączenie filtrowania.
 .
+:CONFIG_OPLRATE
+Częstotliwość dźwięku syntetyzowanego OPL jest obecnie taka sama, jak
+częstotliwość miksowania.
+.
+:CONFIG_OPLMODE
+Typ emulowanego układu OPL (domyślnie 'auto').
+  auto:      Wybiera typ odpowiedni dla 'sbtype'.
+  opl2:      Yamaha OPL2 (YM3812, mono).
+  dualopl2:  Dual OPL2 (dwa układy OPL2 w konfiguracji stereo).
+  opl3:      Yamaha OPL3 (YMF262, stereo).
+  opl3gold:  OPL3 wraz z modułem AdLib Gold Surround.
+             Razem z 'sbtype = sb16' emuluje kartę AdLib Gold 1000.
+  esfm:      ESS ESFM (rozszerzona synteza FM kompatybilna z Yamaha OPL3).
+  none/off:  Wyłącz emulację układu OPL.
+Uwagi:
+  - 'sbtype = none' wraz z 'oplmode = opl2' emuluje oryginalną kartę AdLib.
+  - Ustawienie 'oplmode = esfm' nie wystarczy, żeby uzyskać rozszerzoną
+    syntezę FM w grach; należy ustawić również 'sbtype = ess'. Można natomiast
+    za pomocą 'oplmode = esfm' uzyskać nieco odmienny dźwięk układu OPL.
+.
+:CONFIG_OPL_FADEOUT
+Wycisz dźwięk układu OPL po ostatnim zapisie do portu IO:
+  off:       Niewyciszony dźwięk będzie słyszalny bez końca (domyślne).
+  on:        Zaczekaj 0.5s, wyciszaj dźwięk przez kolejne 0.5s.
+  <custom>:  Ustawienie użytkownika w formacie:
+               WAIT FADE
+             gdzie WAIT oznacza czas nieaktywności IO, po którym zacznie się
+             wyciszanie, od 100 do 5000 milisekund; a FADE to długość okresu
+             wyciszania, od 10 do 3000 milisekund. Przykłady:
+                300 200 (czekaj 300ms, po czym wyciszaj przez 200ms)
+                1000 3000 (czekaj 1s, po czym wyciszaj przez 3s)
+.
+:CONFIG_OPL_REMOVE_DC_BIAS
+Usuwa bias DC z wyjścia układu OPL. Należy używać jedynie jako ostatniej deski
+ratunku w przypadku trzasków podczas odgrywania dźwięku PCM na układzie OPL
+kart SoundBlaster lub Adlib w grach Golden Eagle (1991), Wizardry 6 (1990),
+oraz Wizardry 7 (1992). W przypadku znalezienia innych tego typu gier, prosimy
+o wystawienie nam (po angielsku) 'issue' w serwisie GitHub.
+.
+:CONFIG_OPLEMU
+Jedynie emulacja 'nuked' jest aktualnie obsługiwana.
+.
 :CONFIG_OPL_FILTER
 Filtrowanie dźwięku syntetyzowanego OPL karty Sound Blaster:
   auto:      Filtrowania jak dla modelu podanego w 'sbtype' (domyślne).
@@ -1300,6 +2466,12 @@ Filtrowanie dźwięku syntetyzowanego OPL karty Sound Blaster:
              Filtrowania odpowiednie dla podanego danego modelu.
   off:       Filtrowanie wyłączone.
   <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
+.
+:CONFIG_CMS
+Emulacja układu CMS (domyślnie 'auto').
+  off:   Wyłącza emulację CMS (chyba, że karta Game Blaster jest emulowana).
+  on:    Włącza emulację CMS na kartach Sound Blaster 1 i 2.
+  auto:  Włącza emulację CMS na kartach Sound Blaster 1 oraz Game Blaster.
 .
 :CONFIG_CMS_FILTER
 Filtrowanie dźwięku syntetyzowanego CMS karty Sound Blaster:
@@ -1312,7 +2484,8 @@ Włącza emulację karty muzycznej Gravis UltraSound (domyślnie wyłączone).
 Domyślne ustawienia (adres 240, IRQ 5, DMA 3) zostały dobrane tak, żeby GUS
 mógł koegzystować z kartą SoundBlaster. Działają z większością oprogramowania,
 ale niektóre dema mogą wymagać fabrycznych wartości domyślnych - adresu 220,
-IRQ 11, DMA 1.
+IRQ 11, DMA 1. Fabryczna wartość IRQ 11 może nie działać w niektórymi wersjami
+ekstendera DOS4GW, które nie potrafią obsługiwać przerwań powyżej 7.
 .
 :CONFIG_GUSBASE
 Adres bazowy (I/O) karty muzycznej Gravis UltraSound (domyślnie 240).
@@ -1323,14 +2496,14 @@ Numer przerwania (IRQ) karty muzycznej Gravis UltraSound (domyślnie 5).
 :CONFIG_GUSDMA
 Numer kanału DMA karty muzycznej Gravis UltraSound (domyślnie 3).
 .
-:CONFIG_ULTRADIR
-Ścieżka do katalogu UltraSound, domyślnie 'C:\ULTRASND'.
-Powinien zawierać podkatalog 'MIDI' z definicjami instrumentów w formacie PAT.
-.
 :CONFIG_GUS_FILTER
 Filtrowanie dźwięku karty Gravis UltraSound:
   off:       Filtrowanie wyłączone (domyślne).
   <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
+.
+:CONFIG_ULTRADIR
+Ścieżka do katalogu UltraSound, domyślnie 'C:\ULTRASND'.
+Powinien zawierać podkatalog 'MIDI' z definicjami instrumentów w formacie PAT.
 .
 :CONFIG_IMFC
 Włącza emulację karty muzycznej IBM Music Feature Card (domyślnie wyłączone).
@@ -1380,16 +2553,15 @@ Filtrowanie dźwięku karty Innovation SSI-2001:
   <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
 .
 :CONFIG_PCSPEAKER
-Sposób emulacji urządzenia dźwiękowego PC Speaker:
-  discrete: Za pomocą kroków discrete steps (domyślne). Działa dobrze z grami
-            generującymi efekty typu RealSound.
-  impulse:  Za pomocą funkcji interpolującej. Zalecany do gier generujących
-            falę prostokątna, np. serii Commander Keen.
-            Dokładniejsze, ale zużywa więcej mocy procesora.
+Sposób emulacji wewnętrznego głośnika (PC Speaker):
+  impulse:  Bardzo wierna emulacja (domyślne). Działa z większością gier,
+            ale może nie działać poprawnie z niektórymi tytułami.
+  discrete: Starszy sposób emulacji; używaj tylko, jeśli 'impulse' powoduje
+            problemy.
   none/off: Wyłącz emulację.
 .
 :CONFIG_PCSPEAKER_FILTER
-Filtrowanie dźwięku urządzenia PC Speaker:
+Filtrowanie dźwięku wewnętrznego głośnika (PC Speaker):
   on:        Włączone (domyślne).
   off:       Filtrowanie wyłączone.
   <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
@@ -1439,7 +2611,7 @@ Filtrowanie dźwięku urządzenia LPT DAC:
   <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
 .
 :CONFIG_DISNEY
-Żeby włączyć Disney Sound Source użyj 'lpt_dac=disney'.
+Żeby włączyć Disney Sound Source użyj 'lpt_dac = disney'.
 .
 :CONFIG_PS1AUDIO
 Włącza emulację urządzenia dźwiękowego IBM PS/1 (domyślnie wyłączone).
@@ -1574,6 +2746,13 @@ z innymi wartościami lub wymagać wyłączenia pamięci EMS żeby w ogóle dzia
 :CONFIG_UMB
 Włącza emulację pamięci górnej, UMB (domyślnie włączone).
 .
+:CONFIG_PCJR_MEMORY_CONFIG
+Pamięć komputera PCjr (domyślnie 'expanded').
+  expanded:  640 KB pamięci, aplikacje rezydują powyżej 128 KB.
+             Kompatybilne z większością gier.
+  standard:  128 KB pamięci, aplikacje rezydują poniżej 96 KB.
+             Wymagane dla kilu starszych gier (np., Jumpman, Troll).
+.
 :CONFIG_VER
 Wersja systemu DOS raportowana oprogramowanie (domyślnie 5.0). Format to
 'major.minor', pojedyncza liczba będzie traktowana jako główny numer wersji.
@@ -1593,11 +2772,22 @@ poleceń '--list-countries'. Ustawienie 'auto' wybiera kraj odpowiadający
 wybranemu układowi klawiatury.
 .
 :CONFIG_KEYBOARDLAYOUT
-Kod języka klawiatury (domyślnie 'auto') - np. 'pl' (polski układ
-programisty), 'pl214' (polski układ maszynistki).
+Kod języka klawiatury (domyślnie 'auto') - np. 'us' (układ amerykański), 'pl'
+(polski układ programisty), 'pl214' (polski układ maszynistki). Akceptowane
+są takie same wartości, jakich używa system FreeDOS.
+.
+:CONFIG_KEYBOARD_LAYOUT
+Keyboard layout code ('auto' by default).
+The list of supported keyboard layout codes can be displayed using the
+'--list-layouts' command-line argument, e.g., 'uk' is the British English
+layout. The layout can be followed by the code page number, e.g., 'uk 850'
+selects a Western European screen font.
+Set to 'auto' to guess the values from the host OS settings.
+After startup, use the 'KEYB' command to manage keyboard layouts and code pages
+(run 'HELP KEYB' for details).
 .
 :CONFIG_EXPAND_SHELL_VARIABLE
-Rozwija zmienne środowiskowe, np. %PATH%, w wierszu poleceń.
+Rozwija zmienne środowiskowe, np. %%PATH%%, w wierszu poleceń.
 Domyślnie 'auto', włączone jeśli wersja systemu DOS to 7.0 lub wyższa.
 Obsługiwane przez COMMAND.COM z systemów MS-DOS 7/8 oraz FreeDOS.
 .
@@ -1611,10 +2801,17 @@ Plik z tabelą programów i przypisanych do nich wersji systemu DOS, w formacie
 wartości rozdzielonych tabulatorami, używany przez polecenie SETVER.EXE do
 trwałego zapamiętania ustawień (domyślnie wartość pusta).
 .
-:CONFIG_IPX
-Włącza emulację protokołu IPX po UDP/IP (domyślnie włączone).
+:CONFIG_FILE_LOCKING
+Włącza blokowanie plików (emulacja SHARE.EXE; domyślnie włączona).
+Wymagane do poprawnego działania niektórych aplikacji Windows 3.1x.
+Zazwyczaj nie powoduje problemów z grami dla systemu DOS, z rzadkimi wyjątkami
+(np. demo Astral Blur). Jeśli zobaczysz błędy związane z dostępem do plików,
+spróbuj wyłączyć to ustawienie.
 .
-:CONFIG_NE2000
+:CONFIGITEM_IPX
+Włącza emulację protokołu IPX po UDP/IP (domyślnie wyłączone).
+.
+:CONFIGITEM_NE2000_SLIRP
 Włącza emulację karty sieciowej Novell NE2000 podłączonej do wirtualnej
 sieci 'libslirp' z parametrami jak poniżej:
   10.0.2.0       : Adres wirtualnej sieci LAN.
@@ -1629,20 +2826,20 @@ Uwagi:
     przekierowanie portów z systemu gospodarza do DOSa, oraz z routera
     do gospodarza.
 .
-:CONFIG_NICBASE
+:CONFIGITEM_NICBASE_SLIRP
 Adres bazowy (I/O) karty sieciowej NE2000 (domyślnie 300).
 Uwaga: Adresy 220 oraz 240 mogą być niedostępne, gdyż są domyślnie przypisane
        do kart muzycznych Sound Blaster oraz Gravis UltraSound.
 .
-:CONFIG_NICIRQ
+:CONFIGITEM_NICIRQ_SLIRP
 Numer przerwania (IRQ) karty sieciowej NE2000 (domyślnie 3).
 Uwaga: Przerwania 3 oraz 5 mogą być niedostępne, gdyż są domyślnie przypisane
        do portu COM2 i karty muzycznej Gravis UltraSound.
 .
-:CONFIG_MACADDR
+:CONFIGITEM_MACADDR_SLIRP
 Adres MAC karty sieciowej NE2000 (domyślnie 'AC:DE:48:88:99:AA').
 .
-:CONFIG_TCP_PORT_FORWARDS
+:CONFIGITEM_TCP_PORT_FORWARDS_SLIRP
 Przekierowuje jeden lub więcej portów UDP z systemu gospodarza do DOSu
 Format:
   port1  port2  port3 ... (np., 21 80 443)
@@ -1661,17 +2858,16 @@ Uwagi:
   - W razie konfliktu portów gospodarza, tylko pierwszy zostanie ustawiony.
   - W razie konfliktu portów gościa, tylko ostatni zostanie ustawiony.
 .
-:CONFIG_UDP_PORT_FORWARDS
+:CONFIGITEM_UDP_PORT_FORWARDS_SLIRP
 Przekierowuje jeden lub więcej portów UDP z systemu gospodarza do DOSu.
 Format jest taki sam jak dla portów TCP.
 .
 :AUTOEXEC_CONFIGFILE_HELP
 Linie z tej sekcji zostaną wykonane podczas startu.
-Jest to dobre miejsce na umieszczenie poleceń MOUNT.
-
+Ważne: sekcja [autoexec] musi znajdować się na końcu pliku konfiguracyjnego!
 .
 :CONFIGFILE_INTRO
-# DOSBox Staging %s - plik konfiguracyjny.
+# DOSBox Staging (%s) - plik konfiguracyjny.
 # Linie zaczynające się od # są komentarzami.
 
 .
@@ -1763,10 +2959,10 @@ Gdzie [color=white]POLECENIE[reset] jest jednym z:
   -set [color=light-cyan][SEKCJA][reset] [color=white]PARAMETR[reset][=][color=white]VALUE[reset]
                     ustaw wartość parametru konfiguracji
 
+  -securemode       włącza tryb bezpieczny
 .
 :PROGRAM_CONFIG_HLP_PROPHLP
-[color=white]Informacja o parametrze [color=light-green]'%s'[color=white] (zawartym w sekcji [color=light-cyan][%s][color=white]):[reset]
-%s
+[color=white]Informacja o parametrze [color=light-green]'%s'[color=white] zawartym w sekcji [color=light-cyan][%s][color=white]:[reset]
 
 
 .
@@ -1782,22 +2978,21 @@ Gdzie [color=white]POLECENIE[reset] jest jednym z:
 [color=white]Aktualna wartość:[reset]  %s
 
 .
-:PROGRAM_CONFIG_HLP_LINEHLP
-[color=white]Informacja o sekcji [%s]:[reset]
-%s
-[color=white]Aktualna wartość:[reset]
+:PROGRAM_CONFIG_HLP_AUTOEXEC
+[color=white]Opis sekcji [color=light-cyan][autoexec][color=white][reset]
+
 %s
 
 .
 :PROGRAM_CONFIG_HLP_NOCHANGE
-Ten parametr nie może być zmieniony w trakcie pracy.
+[color=yellow]Ten parametr nie może być zmieniony w trakcie pracy.[reset]
 
 .
 :PROGRAM_CONFIG_HLP_POSINT
 dodatnia liczba całkowita
 .
 :PROGRAM_CONFIG_HLP_SECTHLP
-[color=white]Sekcja [color=light-cyan][%s] [color=white]zawiera następujące parametry:[reset]
+[color=white]Sekcja [color=light-cyan][%s][color=white] zawiera następujące parametry:[reset]
 
 .
 :PROGRAM_CONFIG_HLP_SECTLIST
@@ -1805,7 +3000,7 @@ dodatnia liczba całkowita
 
 .
 :PROGRAM_CONFIG_SECURE_ON
-Przełączono w tryb bezpieczny.
+Tryb bezpieczny włączony.
 
 .
 :PROGRAM_CONFIG_SECURE_DISALLOW
@@ -1845,11 +3040,16 @@ Nie znaleziono pliku wykonywalnego: '%s'
 :CONJUNCTION_AND
 i
 .
-:MIDI_DEVICE_LIST_NOT_SUPPORTED
-Wykrywanie nieobsługiwane
+:PROGRAM_CONFIG_NOT_CHANGEABLE
+[color=yellow]Ustawienie '%s' nie może być zmieniony w trakcie pracy.[reset]
+Zmiana zostanie uwzględniona dopiero po restarcie poleceniem 'CONFIG -r'
+lub odpowiednim skrótem klawiszowym.
 .
-:MIDI_DEVICE_NOT_CONFIGURED
-Urządzenie nie zostało skonfigurowane
+:PROGRAM_CONFIG_DEPRECATED
+[color=light-red]To ustawienie jest przestarzałe, obsługiwane wyłącznie dla kompatybilności
+za starymi plikami konfiguracyjnymi. W przyszłości zostanie usunięte, użyj
+sugerowanych alternatyw.[reset]
+
 .
 :PROGRAM_FMPDRV_HELP_LONG
 Ładuj lub usuń wbudowany sterownik karty ReelMagic.
@@ -1890,6 +3090,15 @@ ReelMagic Full Motion Player (wbudowany sterownik) %hhu.%hhu
 :PROGRAM_FMPDRV_UNLOAD_FAILED_BLOCKED
 [reset][color=brown]Sterownik nie został usunięty: skonfigurowany jako rezydentny[reset]
 
+.
+:BIOS_REBOOTING_3
+Restart za 3 sekundy...
+.
+:BIOS_REBOOTING_2
+Restart za 2 sekundy...
+.
+:BIOS_REBOOTING_1
+Restart za 1 sekundę...
 .
 :MOUNT_TYPE_LOCAL_DIRECTORY
 Katalog lokalny
@@ -1977,7 +3186,7 @@ Obraz dysku jest tylko do odczytu! To może powodować problemy.
 :PROGRAM_BOOT_PRINT_ERROR
 To polecenie bootuje system operacyjny z obrazu dyskietki lub dysku twardego.
 
-Można podać kilka obrazów dyskietek, przełączanych za pomocą %s+F4. Opcją -l
+Można podać kilka obrazów dyskietek, przełączanych za pomocą [color=yellow]%s+F4[reset]. Opcją -l
 można podać dysk, z którego ma zostać uruchomiony system, domyślny to A.
 Jedyne dozwolone litery dysków to A, C, oraz D. Aby wystartować system z
 obrazu dysku twardego (C lub D) musi on być wcześniej zamontowany poleceniem
@@ -2015,6 +3224,32 @@ Dostępne komendy kartridży PCjr: %s
 .
 :PROGRAM_BOOT_CART_NO_CMDS
 Nie znaleziono komend kartridża PCjr.
+
+.
+:PROGRAM_CLIP_HELP_LONG
+Kopiuj tekst do schowka lub odczytaj zawartość schowka.
+
+Składnia:
+  [color=light-cyan]POLECENIE[reset] | [color=light-green]clip[reset]
+  [color=light-green]clip[reset] < [color=light-cyan]PLIK[reset]
+  [color=light-green]clip[reset]
+
+Uwagi:
+  - Jeśli nie podano żadnego wejścia, polecenie wyświetla zawartość schowka.
+  - Polecenie obsługuje wyłącznie dane tekstowe (nie binarne).
+
+Przykłady:
+  [color=light-cyan]dir[reset] | [color=light-green]clip[reset]               ; kopiuje listę plików do schowka
+  [color=light-green]clip[reset] < [color=light-cyan]Z:\AUTOEXEC.BAT[reset]   ; kopiuje plik do schowka
+  [color=light-green]clip[reset]                     ; wyświetla zawartość schowka
+
+.
+:PROGRAM_CLIP_INPUT_TOO_LARGE
+Dane wejściowe zbyt duże.
+
+.
+:PROGRAM_CLIP_READ_ERROR
+Błąd podczas czytania danych wejściowych.
 
 .
 :MSCDEX_SUCCESS
@@ -2080,6 +3315,10 @@ Slot
 Lista zamontowanych dysków:
 
 .
+:PROGRAM_MOUNT_READONLY
+Zamontowany tylko do odczytu
+
+.
 :PROGRAM_IMGMOUNT_HELP_LONG
 Montuj obraz dyskietki, płyty CD lub dysku pod wybraną literę.
 
@@ -2097,14 +3336,33 @@ Gdzie:
              bajtów-na-sektor,sektorów-na-głowicę,głowice,cylindry
 
 Uwagi:
-  - %s+F4 przechodzi do następnego dysku z listy [color=light-cyan]CD-LISTA[reset] lub [color=light-cyan]BOOTOBRAZ[reset].
+  - Mozna używać znaków wieloznaczności do zamontowania kilku obrazów:
+      [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy*.img[reset] -t floppy
+  - [color=yellow]%s+F4[reset] przechodzi do następnego dysku z listy [color=light-cyan]CD-LISTA[reset] lub [color=light-cyan]BOOTOBRAZ[reset].
   - Flaga -ro montuje dysk tylko do odczytu (read-only).
   - Flaga -ide włącza emulację kontrolera IDE z zamontowanym obrazem CD.
 
 Przykłady:
-  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/home/USERNAME/games/doom.iso[reset] -t cdrom
+
+.
+:PROGRAM_IMGMOUNT_HELP_LONG_WIN32
+  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]C:\Gry\doom.iso[reset] -t cdrom
+
+.
+:PROGRAM_IMGMOUNT_HELP_LONG_MACOSX
+  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/Users/UŻYTKOWNIK/Gry/doom.iso[reset] -t cdrom
+
+.
+:PROGRAM_IMGMOUNT_HELP_LONG_OTHER
+  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/home/UŻYTKOWNIK/gry/doom.iso[reset] -t cdrom
+
+.
+:PROGRAM_IMGMOUNT_HELP_LONG_GENERIC
+  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]cd/quake1.cue[reset] -t cdrom
   [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy1.img floppy2.img floppy3.img[reset] -t floppy -ro
+  [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy*.img[reset] -t floppy -ro
   [color=light-green]imgmount[reset] [color=white]C[reset] [color=light-cyan]bootable.img[reset] -t hdd -fs none -size 512,63,32,1023
+
 .
 :PROGRAM_IMGMOUNT_SPECIFY_DRIVE
 Podaj literę dysku, pod którą zamontowany będzie obraz.
@@ -2115,11 +3373,12 @@ Podaj numer dysku (0 - 3), gdzie zamontowany będzie obraz (0=fda, 1=fdb, 2=hda,
 
 .
 :PROGRAM_IMGMOUNT_SPECIFY_GEOMETRY
-Dla obrazów [color=brown]CD-ROM[reset]:           [color=light-blue]IMGMOUNT dysk plikobraz -t iso[reset]
+Dla obrazów płyt CD-ROM:
+  [color=light-green]imgmount[reset] [color=white]DYSK[reset] [color=light-cyan]PLIKOBRAZ[reset] -t iso
+Dla obrazów dysków twardych należy podać geometrię w formacie:
+  bajtów-na-sektor,sektorów-na-głowicę,ilość-głowic,ilość-cylindrów
+  [color=light-green]imgmount[reset] [color=white]DYSK[reset] [color=light-cyan]PLIKOBRAZ[reset] -size bps,spc,hpc,cyl
 
-Dla obrazów [color=brown]dysków twardych[reset]:  Geometria w formacie
-bajtów-na-sektor,sektorów-na-głowicę,ilość-głowic,ilość-cylindrów
-[color=light-blue]IMGMOUNT dysk plikobraz -size bps,spc,hpc,cyl[reset]
 .
 :PROGRAM_IMGMOUNT_STATUS_NONE
 Żaden obraz nie został zamontowany.
@@ -2156,7 +3415,7 @@ Nie znaleziono pliku obrazu.
 
 .
 :PROGRAM_IMGMOUNT_MOUNT
-Aby zamontować katalog użyj polecenia '[color=light-blue]mount[reset], a nie [color=light-blue]imgmount[reset].
+Aby zamontować katalog użyj polecenia '[color=light-green]mount[reset], a nie [color=light-green]imgmount[reset].
 
 .
 :PROGRAM_IMGMOUNT_ALREADY_MOUNTED
@@ -2172,11 +3431,7 @@ Dysk %d jest zamontowany jako '%s'.
 
 .
 :PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE
-Obraz musi znajdować się na dysku widocznym dla systemu gospodarza.
-
-.
-:PROGRAM_IMGMOUNT_MULTIPLE_NON_CUEISO_FILES
-Używanie wielu plików jest obsługiwane tylko dla obrazów CUE/ISO.
+Obraz musi znajdować się na dysku widocznym w systemie gospodarza.
 
 .
 :PROGRAM_INTRO_HELP
@@ -2250,47 +3505,28 @@ ich nazwy w wierszu poleceń.
 .
 :PROGRAM_INTRO_CDROM_WINDOWS
 [erases=entire][color=light-green]Używanie rzeczywistych/wirtualnych dysków CD-ROM[reset]
-DOSBox emuluje napędy CD-ROM na dwóch poziomach.
-
-Poziom [color=brown]podstawowy[reset] używa zwykłych katalogów; instaluje sterownik MSCDEX
-i oznacza ich zawartość jako tylko do odczytu. To wystarcza do większości gier:
+Polecenie [color=light-blue]mount[reset] działa ze wszystkimi normalnymi katalogami. Instaluje ono
+program MSCDEX i oznacza pliki jako tylko-do-odczytu.
+To wystarcza do większości gier:
 [color=light-blue]mount D C:\katalog -t cdrom[reset]
 Jeśli to nie zadziała, podaj dodatkowo etykietę symulowanego dysku CD-ROM:
 [color=light-blue]mount D C:\katalog -t cdrom -label ETYKIETA[reset]
 
-Poziom [color=brown]rozszerzony[reset] to bardziej niskopoziomowa obsługa.
-Działa tylko z rzeczywistymi napędami CD-ROM:
-[color=light-blue]mount d[reset] [color=red]D:\ [color=light-blue]-t cdrom -usecd [color=yellow]0[reset]
-Zastąp [color=red]D:\[reset] przez lokację Twojego napędu CD-ROM.
-Zastąp [color=yellow]0[reset] w parametrze [color=light-blue]-usecd [color=yellow]0[reset] przez numer Twojego napędu CD-ROM, wyświetlanego przez polecenie:
-[color=light-blue]mount -listcd[reset]
-
-Dodatkowo, poleceniem [color=light-blue]imgmount[reset] możesz użyć montować obrazy w formatach ISO
-lub CUE/BIN:
+Ponadto poleceniem [color=light-blue]imgmount[reset] można zamontować obraz ISO lub CUE/BIN:
 [color=light-blue]imgmount D C:\cd.iso -t cdrom[reset]
 [color=light-blue]imgmount D C:\cd.cue -t cdrom[reset]
 
 .
 :PROGRAM_INTRO_CDROM_OTHER
 [erases=entire][color=light-green]Używanie rzeczywistych/wirtualnych dysków CD-ROM[reset]
-DOSBox emuluje napędy CD-ROM na dwóch poziomach.
-
-Poziom [color=brown]podstawowy[reset] używa zwykłych katalogów; instaluje sterownik MSCDEX
-i oznacza ich zawartość jako tylko do odczytu. To wystarcza do większości gier:
+Polecenie [color=light-blue]mount[reset] działa ze wszystkimi normalnymi katalogami. Instaluje ono
+program MSCDEX i oznacza pliki jako tylko-do-odczytu.
+To wystarcza do większości gier:
 [color=light-blue]mount D ~/katalog -t cdrom[reset]
 Jeśli to nie zadziała, podaj dodatkowo etykietę symulowanego dysku CD-ROM:
 [color=light-blue]mount D ~/katalog -t cdrom -label ETYKIETA[reset]
 
-Poziom [color=brown]rozszerzony[reset] to bardziej niskopoziomowa obsługa.
-Działa tylko z rzeczywistymi napędami CD-ROM:
-[color=light-blue]mount d[reset] [color=red]~/przykład[color=light-blue] -t cdrom -usecd [color=yellow]0[reset]
-
-Zastąp [color=red]~/przykład[reset] przez lokację Twojego napędu CD-ROM.
-Zastąp [color=yellow]0[reset] w parametrze [color=light-blue]-usecd [color=yellow]0[reset] przez numer Twojego napędu CD-ROM, wyświetlanego przez polecenie:
-[color=light-blue]mount -listcd[reset]
-
-Dodatkowo, poleceniem [color=light-blue]imgmount[reset] możesz montować obrazy płyt w formatach ISO
-lub CUE/BIN:
+Ponadto poleceniem [color=light-blue]imgmount[reset] można zamontować obraz ISO lub CUE/BIN:
 [color=light-blue]imgmount D ~/cd.iso -t cdrom[reset]
 [color=light-blue]imgmount D ~/cd.cue -t cdrom[reset]
 
@@ -2316,78 +3552,140 @@ To są domyślne skróty klawiszowe. Można je zmienić za pomocą [color=brown]
 [color=yellow]%s+F12[reset]    Odblokuj maksymalną prędkość (tryb turbo).
 
 .
-:PROGRAM_KEYB_INFO
-Strona kodowa %i została załadowana.
-
-.
-:PROGRAM_KEYB_INFO_LAYOUT
-Strona kodowa %i dla układu klawiatury '%s' została załadowana.
-
-.
 :PROGRAM_KEYB_HELP_LONG
-Konfiguruj klawiaturę i czcionkę ekranową dla danego języka.
+Konfiguruj układ klawiatury i czcionkę ekranową.
 
 Składnia:
-  [color=light-green]keyb[reset] [color=light-cyan][KLAWIATURA][reset]
-  [color=light-green]keyb[reset] [color=light-cyan]KLAWIATURA[reset] [color=white]KODOWANIE[reset] [PLIK]
+  [color=light-green]keyb[reset]
+  [color=light-green]keyb[reset] /list
+  [color=light-green]keyb[reset] [color=light-cyan]UKŁAD_KLAWIATURY[reset] [[color=white]STRONA_KODOWA[reset]] /rom
+  [color=light-green]keyb[reset] [color=light-cyan]UKŁAD_KLAWIATURY[reset] [[color=white]STRONA_KODOWA[reset] [[color=white]PLIK_CPI[reset]]]
 
 Gdzie:
-  [color=light-cyan]KLAWIATURA[reset]  układ klawiatury, np. [color=light-cyan]pl[reset] (programisty) lub [color=light-cyan]pl214[reset] (maszynistki)
-  [color=white]KODOWANIE[reset]   strona kodowa, np. [color=white]668[reset] (Polska, zalecana; zachowuje więcej
-              znaków graficznych niż 852), [color=white]667[reset] (Polska, Mazovia), [color=white]58335[reset] (język
-              kaszubski), [color=white]850[reset] (Europa Zachodnia), [color=white]858[reset] (Europa Zachodnia,
-              z symbolem euro), [color=white]852[reset] (Europa Środkowo-Wschodnia) lub [color=white]437[reset] (USA)
-  PLIK        nazwa pliku CPI lub CPX z informacjami o stronie kodowej
+  [color=light-cyan]UKŁAD_KLAWIATURY[reset]  kod układu klawiatury
+  [color=white]STRONA_KODOWA[reset]     strona kodowa, np. [color=white]437[reset] lub [color=white]668[reset]
+  PLIK_CPI          nazwa pliku CPI lub CPX z czcionką ekranową
+  /list             wyświetl dostępne kody układów klawiatury
+  /rom              jeśli możliwe, użyj czcionki z pamięci ROM karty graficznej
 
 Uwagi:
-  Uruchomienie bez argumentów pokazuje aktualny układ klawiatury i stronę
-  kodową. [color=light-cyan]KLAWIATURA[reset] może być także zmieniona w pliku konfiguracyjnym
-  w sekcji [dos], parametrem 'keyboardlayout = [color=light-cyan]KLAWIATURA[reset]'.
+  - Uruchomienie [color=light-green]keyb[reset] bez argumentów wyświetla aktualny układ klawiatury
+    i stronę kodową
+  - [color=white]PLIK_CPI[reset], jeśli jest podany, musi zawierać czcionkę ekranową dla podanej
+    strony kodowej.
+  - Jeśli [color=white]PLIK_CPI[reset] nie zostanie podany, polecenie szuka czcionki ekranowej
+    w domyślnych (dostarczonych) plikach CPI.
+  - Jeśli [color=white]STRONA_KODOWA[reset] nie zostanie podana, a czcionka ekranowa z pamięci ROM
+    karty graficznej jest odpowiednia, zostanie użyta czcionka z pamięci ROM.
+  - Jedynie karty EGA i lepsze pozwalają na zmianę czcionki ekranowej; karty
+    MDA, CGA, oraz Hercules zawsze używają czcionki ze swojej pamięci ROM.
+  - Układu klawiatury 'us' możesz używać z dowolną stroną kodową; pozostałe
+    mogą być używane jedynie z obsługiwanymi przez nie stronami kodowymi.
 
 Przykłady:
-  [color=light-green]KEYB[reset] [color=light-cyan]us[reset]
-  [color=light-green]KEYB[reset] [color=light-cyan]sp[reset] [color=white]850[reset]
+  [color=light-green]KEYB[reset]
+  [color=light-green]KEYB[reset] [color=light-cyan]uk[reset]
+  [color=light-green]KEYB[reset] [color=light-cyan]pl[reset] [color=white]667[reset]
   [color=light-green]KEYB[reset] [color=light-cyan]de[reset] [color=white]858[reset] mycp.cpi
 .
-:PROGRAM_KEYB_NOERROR
-Układ klawiatury '%s' dla strony kodowej %i został załadowany.
+:PROGRAM_KEYB_CODE_PAGE
+Strona kodowa
+.
+:PROGRAM_KEYB_ROM_FONT
+czcionka ROM
+.
+:PROGRAM_KEYB_CUSTOM_FONT
+czcionka użytkownika
+.
+:PROGRAM_KEYB_KEYBOARD_LAYOUT
+Układ klawiatury
+.
+:PROGRAM_KEYB_KEYBOARD_SCRIPT
+Typ klawiatury
+.
+:PROGRAM_KEYB_NOT_LOADED
+nie załadowano
+.
+:PROGRAM_KEYB_WARNING_CODE_PAGE
+[color=light-red]Uwaga:[reset] Strona kodowa %d jest niezalecana!
+.
+:PROGRAM_KEYB_WARNING_DOTTED_I
+Zastępuja ona standardową wielką literę 'I' przez narodową wersją z kropką, a
+oryginalny symbol przenosi w inne miejsce. Nie ma możliwości pełnej obsługi
+takiej strony kodowej bez ryzyka problemów z kompatybilnością istniejącego
+oprogramowania
+.
+:PROGRAM_KEYB_WARNING_LOW_CODES
+Nie zawiera ona standardowych dla PC symboli o kodach 0-31, takie strony
+kodowe nie są w pełni obsługiwane.
+.
+:PROGRAM_KEYB_INVALID_CODE_PAGE
+Nieprawidłowa strona kodowa.
 
 .
-:PROGRAM_KEYB_FILENOTFOUND
-Nie znaleziono pliku układu klawiatury '%s'.
+:PROGRAM_KEYB_LAYOUT_FILE_NOT_FOUND
+Plik z układem klawiatury '%s' nie znaleziony.
 
 .
-:PROGRAM_KEYB_INVALIDFILE
-Plik układu klawiatury '%s' jest nieprawidłowy.
+:PROGRAM_KEYB_INVALID_LAYOUT_FILE
+Nieprawidłowy plik z układem klawiatury '%s'.
 
 .
-:PROGRAM_KEYB_LAYOUTNOTFOUND
-Brak układu klawiatury w '%s' dla strony kodowej %i.
+:PROGRAM_KEYB_CPI_FILE_NOT_FOUND
+Plik CPI nie znaleziony.
 
 .
-:PROGRAM_KEYB_INVCPFILE
-Brak lub nieprawidłowy plik strony kodowej dla układu klawiatury '%s'.
+:PROGRAM_KEYB_INVALID_CPI_FILE
+Nieprawidłowy plik strony kodowej.
+
+.
+:PROGRAM_KEYB_CPI_FILE_DR_DOS
+Plik strony kodowej jest w niewspieranym formacie DR-DOS.
+
+.
+:PROGRAM_KEYB_LAYOUT_NOT_KNOWN
+Nieznany układ klawiatury '%s'.
+
+.
+:PROGRAM_KEYB_NO_LAYOUT_FOR_CODE_PAGE
+Brak układu klawiatury '%s' dla strony kodowej %d.
+
+.
+:PROGRAM_KEYB_NO_BUNDLED_CPI_FILE
+Brak informacji o stronie kodowej %d.
+
+.
+:PROGRAM_KEYB_NO_CODE_PAGE_IN_FILE
+Plik nie zawiera strony kodowej %d.
+
+.
+:PROGRAM_KEYB_INCOMPATIBLE_MACHINE
+Nie można zmienić strony kodowej; wymagana maszyna z kartą EGA lub lepszą.
 
 .
 :PROGRAM_LOADFIX_HELP_LONG
 Załaduj program w określone miejsce pamięci i uruchom go.
 
 Składnia:
-  [color=light-green]loadfix[reset] [color=light-cyan]PROGRAM[reset] [color=white][ARGUMENTY][reset]
+  [color=light-green]loadfix[reset] [color=white][-ROZMIAR][reset] [color=light-cyan]PROGRAM[reset] [color=white][ARGUMENTY][reset]
   [color=light-green]loadfix[reset] [/d] (lub [/f])
 
 Gdzie:
-  [color=light-cyan]PROGRAM[reset]  program lub gra do załadowania, opcjonalnie z argumentami
+  [color=light-cyan]PROGRAM[reset]      program lub gra do załadowania, opcjonalnie z argumentami
+  [color=white]ROZMIAR[reset]      rozmiar w kilobajtach pamięci do zaalokowania
+  /d (lub /f)  zwalnia uprzednio zarezerwowaną pamięć
 
 Uwagi:
-  Typowy przykład użycia to uruchomienie gry lub programu, który normalnie
-  zgłasza błąd '[color=white]Packed File Corrupt[reset]' lub '[color=white]Not enough memory[reset]', jak
-  niektóre gry z lat 1980-tych (California Games II, itd.).
+  Typowy przykład użycia to uruchomienie gry, jak California Games II lub
+  Wing Commander 2, która normalnie zgłasza błąd '[color=white]Packed File Corrupt[reset]'
+  lub '[color=white]Not enough memory[reset]'.
   Uruchomienie bez argumentów tylko alokuje pamięć na grę; pamięć można później
   zwolnić przełącznikiem /d lub /f.
 
 Przykłady:
-  [color=light-green]loadfix[reset] [color=light-cyan]mygame[reset] [color=white]args[reset]
+  [color=light-green]loadfix[reset] [color=light-cyan]wc2[reset]
+  [color=light-green]loadfix[reset] [color=white]-32[reset] [color=light-cyan]wc2[reset]
+  [color=light-green]loadfix[reset] [color=white]-128[reset]
   [color=light-green]loadfix[reset] /d
 .
 :PROGRAM_LOADFIX_ALLOC
@@ -2445,6 +3743,10 @@ Nie można rozpoznać ROMu.
 Załadowano BASIC ROM.
 
 .
+:PROGRAM_LS_UNHANDLED_WILDCARD_PATTERN
+Nieobsługiwany wzorzec maski - '%s'
+
+.
 :PROGRAM_LS_HELP_LONG
 Wyświetl zawartość katalogu w formie szerokiej listy.
 
@@ -2464,10 +3766,6 @@ Uwagi:
 Przykłady:
   [color=light-green]ls[reset] [color=light-cyan]file.txt[reset]
   [color=light-green]ls[reset] [color=light-cyan]c*.ba?[reset]
-
-.
-:PROGRAM_LS_UNHANDLED_WILDCARD_PATTERN
-Nieobsługiwany wzorzec maski - '%s'
 
 .
 :PROGRAM_MEM_HELP_LONG
@@ -2500,337 +3798,6 @@ Przykłady:
 .
 :PROGRAM_MEM_UPPER
 %10d KB wolnej pamięci UMB (górnej) w %d blokach (największy %d KB)
-
-.
-:PROGRAM_MORE_HELP_LONG
-Wyświetl plik tekstowy lub rezultat polecenia, jeden ekran na raz.
-
-Składnia:
-  [color=light-cyan]POLECENIE[reset] | [color=light-green]more[reset] [/c] [/e] [/p] [[reset]/s] [/t[color=white]n[reset]] [+[color=white]nnn[reset]]
-  [color=light-green]more[reset] [/c] [/e] [/p] [[reset]/s] [/t[color=white]n[reset]] [+[color=white]nnn[reset]] < [color=light-cyan]PLIK[reset]
-  [color=light-green]more[reset] [/c] [/e] [/p] [[reset]/s] [/t[color=white]n[reset]] [+[color=white]nnn[reset]] [color=light-cyan]WZORZEC[reset] [[color=light-cyan]WZORZEC[reset] ...]
-
-Gdzie:
-  [color=light-cyan]POLECENIE[reset] plecenie, którego rezultat ma być wyświetlony
-  [color=light-cyan]PLIK[reset]      dokładna nazwa pliku do wyświetlenia, opcjonalnie ze ścieżką
-  [color=light-cyan]WZORZEC[reset]   ścieżka do pojedynczego pliku, lub ścieżka z symbolami
-            wieloznaczności (maskami), którymi są asterisk ('*') i znak
-            zapytania ('?')
-  /c        wyczyść ekran przed każdym plikiem
-  /e        tryb rozszerzony, więcej skrótów klawiszowych
-  /p        interpretuj znak NewPage/FormFeed
-  /s        łącz wiele pustych linii w jedną
-  /t[color=white]n[reset]       rozmiar tabulatora, 1-9, domyślnie 8
-  +[color=white]nnn[reset]      ile linii pominąć na początku pierwszego pliku
-
-Uwagi:
-  Używać tylko do plików tekstowych, nie należy używać do plików binarnych.
-  Obsługiwane są następujące klawisze:
-  [color=yellow]Spacja[reset]         pokaż następny ekran.
-  [color=yellow]Enter[reset]          pokaż następną linię.
-  [color=yellow]N[reset] lub [color=yellow]F[reset]        przejdź do kolejnego pliku.
-  [color=yellow]Q[reset], [color=yellow]Esc[reset], [color=yellow]Ctrl+C[reset] przerwij polecenie.
-  Ponadto można użyć [color=yellow]Ctrl+C[reset] do przerwania polecenia czytającego z klawiatury,
-  na przykład jeśli [color=light-green]more[reset] zostało wywołane bez argumentów.
-  Następujące klawisze są dostępne wyłącznie w trybie rozszerzonym:
-  [color=yellow]P[reset] [color=white]nnn[reset]          wyświetl następne [color=white]nnn[reset] linii.
-  [color=yellow]S[reset] [color=white]nnn[reset]          pomiń kolejne [color=white]nnn[reset] linii.
-  [color=yellow]=[reset]              wyświetl aktualny numer linii.
-  Opcja /p wyłącza niektóre niekompatybilne klawisze.
-
-Przykłady:
-  [color=light-cyan]dir /on[reset] | [color=light-green]more[reset]               ; posortowany katalog, po jednym ekranie
-  [color=light-green]more[reset] /t[color=white]4[reset] < [color=light-cyan]A:\CZYTAJTO.TXT[reset]   ; wyświetla plik, tabulator to 4 znaki
-.
-:PROGRAM_MORE_NO_FILE
-Nie znaleziono żadnego pliku.
-.
-:PROGRAM_MORE_END
-[reset][color=brown]--- koniec ---[reset]
-.
-:PROGRAM_MORE_NEW_FILE
-[reset][color=brown]--- plik %s ---[reset]
-.
-:PROGRAM_MORE_NEW_DEVICE
-[reset][color=brown]--- urządzenie %s ---[reset]
-.
-:PROGRAM_MORE_PROMPT_SINGLE
-[reset][color=brown]--- wciśnij SPACJĘ lub ENTER aby wyświetlić więcej ---[reset]
-.
-:PROGRAM_MORE_PROMPT_PERCENT
-[reset][color=brown]--- (%d%%) wciśnij SPACJĘ lub ENTER aby wyświetlić więcej ---[reset]
-.
-:PROGRAM_MORE_PROMPT_MULTI
-[reset][color=brown]--- wciśnij SPACJĘ lub ENTER aby wyświetlić więcej, N pokazuje kolejny plik ---[reset]
-.
-:PROGRAM_MORE_PROMPT_SHORT
-[reset][color=brown]--- więcej ---[reset]
-.
-:PROGRAM_MORE_PROMPT_SHORT_PERCENT
-[reset][color=brown]--- (%d%%) więcej ---[reset]
-.
-:PROGRAM_MORE_PROMPT_LINE
-[reset][color=brown]--- linia %u ---[reset]
-.
-:PROGRAM_MORE_OPEN_ERROR
-[reset][color=light-red]--- nie można otworzyć %s ---[reset]
-.
-:PROGRAM_MORE_TERMINATE
-[reset][color=brown](przerwano)[reset]
-.
-:PROGRAM_MORE_NEXT_FILE
-[reset][color=brown](kolejny plik)[reset]
-.
-:PROGRAM_MORE_SKIPPED
-[reset][color=brown](pominięta zawartość)[reset]
-.
-:PROGRAM_MORE_HOW_MANY_LINES
-[reset][color=brown]ile linii?[reset]
-.
-:PROGRAM_MOUNT_HELP
-Montuj fizyczny katalog lub dysk.
-
-.
-:PROGRAM_MOUNT_HELP_LONG
-Montuj katalog z systemu gospodarza pod literę dysku.
-
-Składnia:
-  [color=light-green]mount[reset] [color=white]DYSK[reset] [color=light-cyan]KATALOG[reset] [-t TYP] [-usecd #] [-freesize ROZMIAR] [-label ETYKIETA]
-  [color=light-green]mount[reset] -listcd / -cd  (wyświetla wykryte napędy CD-ROM i ich numery)
-  [color=light-green]mount[reset] -u [color=white]DYSK[reset]        (odmontowuje dysk)
-
-Gdzie:
-  [color=white]DYSK[reset]      litera, pod którą katalog zostanie zamontowany: A, C, D, ...
-  [color=light-cyan]KATALOG[reset]   katalog systemu gospodarza do zamontowania
-  TYP       typ katalogu do zamontowania: dir, floppy, cdrom lub overlay
-  ROZMIAR   ile wolnego miejsca raportować programom (kilobajty dla dyskietek,
-            megabajty dla pozostałych dysków)
-  ETYKIETA  etykieta utworzonego dysku
-
-Uwagi:
-  Parametr '-t overlay' przekierowuje operacje zapisu do innego katalogu.
-  Parametr '-usecd ID' daje dostęp do fizycznego napędu CD-ROM, jest to
-  potrzebne do obsługi ścieżek dźwiękowych (tylko w systemach Windows oraz
-  Linux). Listę fizycznych napędów można wyświetlić poleceniem 'mount -cd'.
-  Dodatkowe opcje są opisane (po angielsku) w podręczniku (README, chapter 4).
-
-Przykłady:
-  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]~/dosgames[reset]
-  [color=light-green]mount[reset] [color=white]D[reset] [color=light-cyan]"/media/USERNAME/Game CD"[reset] -t cdrom -usecd 0
-  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]my_savegame_files[reset] -t overlay
-.
-:PROGRAM_MOUNT_CDROMS_FOUND
-Znalezione napędy CD-ROM: %d
-
-.
-:PROGRAM_MOUNT_ERROR_1
-Katalog '%s' nie istnieje.
-
-.
-:PROGRAM_MOUNT_ERROR_2
-'%s' nie jest katalogiem.
-
-.
-:PROGRAM_MOUNT_ILL_TYPE
-Nieprawidłowy typ '%s'.
-
-.
-:PROGRAM_MOUNT_ALREADY_MOUNTED
-Dysk %c jest już zamontowany jako '%s'.
-
-.
-:PROGRAM_MOUNT_UMOUNT_NOT_MOUNTED
-Dysk %c nie jest zamontowany.
-
-.
-:PROGRAM_MOUNT_UMOUNT_SUCCESS
-Dysk %c został pomyślnie odmontowany.
-
-.
-:PROGRAM_MOUNT_UMOUNT_NO_VIRTUAL
-Dyski wirtualne nie mogą zostać odmontowane.
-
-.
-:PROGRAM_MOUNT_DRIVEID_ERROR
-'%c' nie jest prawidłowym identyfikatorem dysku.
-
-.
-:PROGRAM_MOUNT_WARNING_WIN
-[color=light-red]Montowanie dysku C:\ nie jest zalecane. Proszę następnym razem zamontować (pod)katalog.[reset]
-
-.
-:PROGRAM_MOUNT_WARNING_OTHER
-[color=light-red]Montowanie katalogu / nie jest zalecane. Proszę następnym razem zamontować (pod)katalog.[reset]
-
-.
-:PROGRAM_MOUNT_NO_OPTION
-Zignorowano nieobsługiwaną opcję '%s".
-
-.
-:PROGRAM_MOUNT_OVERLAY_NO_BASE
-Katalog musi zostać zamontowany, zanim będzie może dodać nakładkę ('overlay').
-
-.
-:PROGRAM_MOUNT_OVERLAY_INCOMPAT_BASE
-Nakładka ('overlay') nie jest kompatybilna z podanym dyskiem.
-
-.
-:PROGRAM_MOUNT_OVERLAY_MIXED_BASE
-Nakładka ('overlay') musi mieć taką samą lokację, jak zamontowany dysk.
-Nie można mieszać ścieżek względnych i bezwzględnych.
-
-.
-:PROGRAM_MOUNT_OVERLAY_SAME_AS_BASE
-Katalog nakładki ('overlay') musi być inny niż katalog dysku.
-
-.
-:PROGRAM_MOUNT_OVERLAY_GENERIC_ERROR
-Błąd montowania nakładki ('overlay').
-
-.
-:PROGRAM_MOUNT_OVERLAY_STATUS
-Nakładka ('overlay') '%s' zamontowana na dysku %c.
-
-.
-:PROGRAM_MOUNT_MOVE_Z_ERROR_1
-Nie można przenieść dysku Z. Dysk %c jest już zamontowany.
-
-.
-:PROGRAM_MOUSECTL_HELP_LONG
-Zarządzaj myszami, fizycznymi i logicznymi.
-
-Składnia:
-  [color=light-green]mousectl[reset] [-all]
-  [color=light-green]mousectl[reset] [color=white]INTERFEJS[reset] -map [color=light-cyan]NAZWA[reset]
-  [color=light-green]mousectl[reset] [color=white]INTERFEJS[reset] [[color=white]INTERFEJS[reset] ...] -map
-  [color=light-green]mousectl[reset] [[color=white]INTERFEJS[reset] ...] -unmap | -on | -off | -reset
-  [color=light-green]mousectl[reset] [[color=white]INTERFEJS[reset] ...] -s | -sx | -sy [czułość]
-  [color=light-green]mousectl[reset] [[color=white]INTERFEJS[reset] ...] -s czułość_x czułość_y
-  [color=light-green]mousectl[reset] [[color=white]INTERFEJS[reset] ...] -r [min_częstotliwość]
-
-Gdzie:
-  [color=white]INTERFEJS[reset]      jeden z: [color=white]DOS[reset], [color=white]PS/2[reset], [color=white]COM1[reset], [color=white]COM2[reset], [color=white]COM3[reset], [color=white]COM4[reset]
-  -map -unmap    mapowanie/odmapowanie myszy, w [color=light-cyan]NAME[reset] można używać '*' lub '?'
-  -s -sx -sy     czułość myszy / dla osi x / dla osi y, od -999 do +999
-  -r             wymuszona minimalna częstotliwość próbkowania
-  -on -off       włącz/wyłącz myszy na danym interfejsie
-  -reset         przywróć ustawienia domyślne
-
-Uwagi:
-  Pominięcie wartości czułości lub częstotliwości przywraca wartość domyślną.
-  Czułość ustawiona w pliku konfiguracyjnym działa jak wartość globalna,
-  ustawienia dla poszczególnych interfejsów działają na jej bazie.
-
-Przykłady:
-  [color=light-green]mousectl[reset] [color=white]DOS[reset] [color=white]COM1[reset] -map    ; prosi o wybór fizycznych myszy dla dwóch graczy
-.
-:PROGRAM_MOUSECTL_SYNTAX_PATTERN
-Nieprawidłowa składnia, w nazwie dozwolone są tylko znaki ASCII.
-
-.
-:PROGRAM_MOUSECTL_SYNTAX_SENSITIVITY
-Nieprawidłowa składnia, czułość musi być w zakresie od -999 do +999.
-
-.
-:PROGRAM_MOUSECTL_SYNTAX_DUPLICATED
-Nieprawidłowa składnia, zduplikowany interfejs.
-
-.
-:PROGRAM_MOUSECTL_SYNTAX_MIN_RATE
-Nieprawidłowa składnia, częstotliwość próbkowania musi być jedną z:
-%s
-
-.
-:PROGRAM_MOUSECTL_MAPPING_NO_MOUSE
-Mapowanie niedostępne w trybie pracy bez użycia myszy ('nomouse').
-
-.
-:PROGRAM_MOUSECTL_MAPPING_BLOCKED_BY_DRIVER
-Mapowanie niedostępne przy obecnym sterowniku myszy w systemie gościa.
-
-.
-:PROGRAM_MOUSECTL_NO_INTERFACES
-Żaden interfejs myszy nie jest dostępny.
-
-.
-:PROGRAM_MOUSECTL_MISSING_INTERFACES
-Interfejs myszy nie jest dostępny.
-
-.
-:PROGRAM_MOUSECTL_NO_PHYSICAL_MICE
-Nie wykryto żadnej fizycznej myszy.
-
-.
-:PROGRAM_MOUSECTL_NO_MATCH
-Nie znaleziono żadnej fizycznej myszy o pasującej nazwie.
-
-.
-:PROGRAM_MOUSECTL_TABLE_HEADER1
-[color=white]Interfejs        Czułość      Próbkowanie (Hz)   Status[reset]
-.
-:PROGRAM_MOUSECTL_TABLE_LAYOUT1
-[color=light-cyan]%-4s[reset]          X:%+.3d Y:%+.3d       %1s %3s          %s
-.
-:PROGRAM_MOUSECTL_TABLE_HEADER2
-[color=white]Interfejs       Nazwa myszy[reset]
-.
-:PROGRAM_MOUSECTL_TABLE_LAYOUT2
-[color=light-cyan]%-4s[reset]            %s
-.
-:PROGRAM_MOUSECTL_TABLE_LAYOUT2_UNMAPPED
-bez mapowania   %s
-.
-:PROGRAM_MOUSECTL_TABLE_STATUS_HOST
-używa wskaźnika systemowego
-.
-:PROGRAM_MOUSECTL_TABLE_STATUS_MAPPED
-mysz fizyczna
-.
-:PROGRAM_MOUSECTL_TABLE_STATUS_DISCONNECTED
-[color=light-red]mysz odłączona[reset]
-.
-:PROGRAM_MOUSECTL_TABLE_STATUS_DISABLED
-wyłączona
-.
-:PROGRAM_MOUSECTL_TABLE_HINT_RATE_COM
-Częstotliwości próbkowania myszy na interfejsach [color=light-cyan]COM[reset] to wyłącznie estymacje.
-.
-:PROGRAM_MOUSECTL_TABLE_HINT_RATE_MIN
-Częstotliwości próbkowania w wymuszoną minimalną wartością są oznaczone '*'.
-.
-:PROGRAM_MOUSECTL_MAP_ADVICE
-Wciśnij [color=white]lewy[reset] przycisk myszy aby zmapować ją do interfejsu.
-Wciśnięcie innego przycisku przerywa mapowanie i przypisuje wskaźnik systemowy
-do wszystkich interfejsów myszy.
-.
-:PROGRAM_MOUSECTL_MAP_CANCEL
-(mapowanie anulowane)
-.
-:PROGRAM_MOUSECTL_MAP_HINT
-Jeśli jakakolwiek fizyczna mysz jest zmapowana, płynna integracja kursora
-myszy jest zawsze wyłączona. Zmapowane myszy zawsze działają w trybie 'raw'.
-.
-:PROGRAM_RESCAN_HELP_LONG
-Sprawdź zmiany na zamontowanych dyskach.
-
-Składnia:
-  [color=light-green]rescan[reset] [color=light-cyan]DYSK[reset]
-  [color=light-green]rescan[reset] [/a]
-
-Gdzie:
-  [color=light-cyan]DYSK[reset]  dysk do sprawdzenia pod kątem zmian
-
-Uwagi:
-  Zmiany dokonane w systemie gospodarza zostaną uwzględnione wewnątrz DOSu.
-  Uruchomienie bez argumentu sprawdzi aktualny dysk.
-  Przełącznik /a powoduje sprawdzenie wszystkich dysków.
-
-Przykłady:
-  [color=light-green]rescan[reset] [color=light-cyan]c:[reset]
-  [color=light-green]rescan[reset] /a
-.
-:PROGRAM_RESCAN_SUCCESS
-Sprawdzono zmiany na dysku.
 
 .
 :SHELL_CMD_MIXER_HELP_LONG
@@ -2940,6 +3907,393 @@ Brakujące polecenie dla kanału [color=light-cyan]%s[reset]
 .
 :SHELL_CMD_MIXER_INVALID_CHANNEL_COMMAND
 Nieprawidłowe polecenie dla kanału [color=light-cyan]%s[reset]: [color=white]%s[reset]
+.
+:PROGRAM_MODE_HELP_LONG
+Ustaw tryb wyświetlania lub powtarzanie klawiszy.
+
+Składnia:
+  [color=light-green]mode[reset] [color=white]KOLUMNYxLINIE[reset]
+  [color=light-green]mode[reset] [color=white]KOLUMNY,LINIE[reset]
+  [color=light-green]mode[reset] rate=[color=white]SZYBKOSĆ[reset] delay=[color=white]CZAS[reset]
+
+Gdzie:
+  [color=white]KOLUMNY[reset]   ilość znaków (kolumn) w linii (40, 80, lub 132)
+  [color=white]LINIE[reset]     ilość linii na ekranie (25, 28, 30, 34, 43, 50, lub 60)
+  [color=white]SZYBKOSĆ[reset]  szybkość powtarzania klawiszy, od [color=white]1[reset] do [color=white]32[reset]
+            (1 = najwolniej, 32 = najszybciej)
+  [color=white]CZAS[reset]      czas do rozpoczęcia powtarzania, od [color=white]1[reset] do [color=white]4[reset]
+            (1 = najkrótszy, 4 = najdłuższy)
+
+Uwagi:
+  - Dozwolone wartości [color=white]KOLUMNYxLINIE[reset] w zależności od karty graficznej:
+      Hercules           80x25
+      CGA, PCjr, Tandy   40x25, 80x25
+      EGA                40x25, 80x25, 80x43
+      SVGA (nie S3)      40x25, 80x25, 80x28, 80x30, 80x34, 80x43, 80x50
+      SVGA (S3)          40x25, wszystkie tryby 80- i 132-kolumnowe
+
+Przykłady:
+  [color=light-green]mode[reset] [color=white]132x50
+  [color=light-green]mode[reset] [color=white]80x43[reset]
+  [color=light-green]mode[reset] rate=[color=white]32[reset] delay=[color=white]1[reset]
+.
+:PROGRAM_MODE_INVALID_DISPLAY_MODE
+Nieprawidłowy tryb wyświetlania: [color=white]%s[reset]
+.
+:PROGRAM_MODE_UNSUPPORTED_DISPLAY_MODE
+Tryb [color=white]%s[reset] nie jest obsługiwany przez obecną kartę graficzną.
+.
+:PROGRAM_MODE_INVALID_TYPEMATIC_RATE
+Nieprawidłowe ustawienie szybkości klawiatury.
+.
+:PROGRAM_MORE_HELP_LONG
+Wyświetl plik tekstowy lub rezultat polecenia, jeden ekran na raz.
+
+Składnia:
+  [color=light-cyan]POLECENIE[reset] | [color=light-green]more[reset] [/c] [/e] [/p] [[reset]/s] [/t[color=white]n[reset]] [+[color=white]nnn[reset]]
+  [color=light-green]more[reset] [/c] [/e] [/p] [[reset]/s] [/t[color=white]n[reset]] [+[color=white]nnn[reset]] < [color=light-cyan]PLIK[reset]
+  [color=light-green]more[reset] [/c] [/e] [/p] [[reset]/s] [/t[color=white]n[reset]] [+[color=white]nnn[reset]] [color=light-cyan]WZORZEC[reset] [[color=light-cyan]WZORZEC[reset] ...]
+
+Gdzie:
+  [color=light-cyan]POLECENIE[reset] plecenie, którego rezultat ma być wyświetlony
+  [color=light-cyan]PLIK[reset]      dokładna nazwa pliku do wyświetlenia, opcjonalnie ze ścieżką
+  [color=light-cyan]WZORZEC[reset]   ścieżka do pojedynczego pliku, lub ścieżka z symbolami
+            wieloznaczności (maskami), którymi są asterisk ('*') i znak
+            zapytania ('?')
+  /c        wyczyść ekran przed każdym plikiem
+  /e        tryb rozszerzony, więcej skrótów klawiszowych
+  /p        interpretuj znak NewPage/FormFeed
+  /s        łącz wiele pustych linii w jedną
+  /t[color=white]n[reset]       rozmiar tabulatora, 1-9, domyślnie 8
+  +[color=white]nnn[reset]      ile linii pominąć na początku pierwszego pliku
+
+Uwagi:
+  Używać tylko do plików tekstowych, nie należy używać do plików binarnych.
+  Obsługiwane są następujące klawisze:
+  [color=yellow]Spacja[reset]         pokaż następny ekran.
+  [color=yellow]Enter[reset]          pokaż następną linię.
+  [color=yellow]N[reset] lub [color=yellow]F[reset]        przejdź do kolejnego pliku.
+  [color=yellow]Q[reset], [color=yellow]Esc[reset], [color=yellow]Ctrl+C[reset] przerwij polecenie.
+  Ponadto można użyć [color=yellow]Ctrl+C[reset] do przerwania polecenia czytającego z klawiatury,
+  na przykład jeśli [color=light-green]more[reset] zostało wywołane bez argumentów.
+  Następujące klawisze są dostępne wyłącznie w trybie rozszerzonym:
+  [color=yellow]P[reset] [color=white]nnn[reset]          wyświetl następne [color=white]nnn[reset] linii.
+  [color=yellow]S[reset] [color=white]nnn[reset]          pomiń kolejne [color=white]nnn[reset] linii.
+  [color=yellow]=[reset]              wyświetl aktualny numer linii.
+  Opcja /p wyłącza niektóre niekompatybilne klawisze.
+
+Przykłady:
+  [color=light-cyan]dir /on[reset] | [color=light-green]more[reset]               ; posortowany katalog, po jednym ekranie
+  [color=light-green]more[reset] /t[color=white]4[reset] < [color=light-cyan]A:\CZYTAJTO.TXT[reset]   ; wyświetla plik, tabulator to 4 znaki
+.
+:PROGRAM_MORE_NO_FILE
+Nie znaleziono żadnego pliku.
+.
+:PROGRAM_MORE_END
+[reset][color=brown]--- koniec ---[reset]
+.
+:PROGRAM_MORE_NEW_FILE
+[reset][color=brown]--- plik %s ---[reset]
+.
+:PROGRAM_MORE_NEW_DEVICE
+[reset][color=brown]--- urządzenie %s ---[reset]
+.
+:PROGRAM_MORE_PROMPT_SINGLE
+[reset][color=brown]--- wciśnij SPACJĘ lub ENTER aby wyświetlić więcej ---[reset]
+.
+:PROGRAM_MORE_PROMPT_PERCENT
+[reset][color=brown]--- (%d%%) wciśnij SPACJĘ lub ENTER aby wyświetlić więcej ---[reset]
+.
+:PROGRAM_MORE_PROMPT_MULTI
+[reset][color=brown]--- wciśnij SPACJĘ lub ENTER aby wyświetlić więcej, N pokazuje kolejny plik ---[reset]
+.
+:PROGRAM_MORE_PROMPT_SHORT
+[reset][color=brown]--- więcej ---[reset]
+.
+:PROGRAM_MORE_PROMPT_SHORT_PERCENT
+[reset][color=brown]--- (%d%%) więcej ---[reset]
+.
+:PROGRAM_MORE_PROMPT_LINE
+[reset][color=brown]--- linia %u ---[reset]
+.
+:PROGRAM_MORE_OPEN_ERROR
+[reset][color=light-red]--- nie można otworzyć %s ---[reset]
+.
+:PROGRAM_MORE_TERMINATE
+[reset][color=brown](przerwano)[reset]
+.
+:PROGRAM_MORE_NEXT_FILE
+[reset][color=brown](kolejny plik)[reset]
+.
+:PROGRAM_MORE_SKIPPED
+[reset][color=brown](pominięta zawartość)[reset]
+.
+:PROGRAM_MORE_HOW_MANY_LINES
+[reset][color=brown]ile linii?[reset]
+.
+:PROGRAM_MOUNT_HELP
+Montuj fizyczny katalog lub dysk.
+
+.
+:PROGRAM_MOUNT_HELP_LONG
+Montuj katalog z systemu gospodarza pod literę dysku.
+
+Składnia:
+  [color=light-green]mount[reset] [color=white]DYSK[reset] [color=light-cyan]KATALOG[reset] [-t TYP] [-ro] [-freesize ROZMIAR] [-label ETYKIETA]
+  [color=light-green]mount[reset] -u [color=white]DYSK[reset]        (odmontowuje dysk)
+
+Gdzie:
+  [color=white]DYSK[reset]      litera, pod którą katalog zostanie zamontowany: A, C, D, ...
+  [color=light-cyan]KATALOG[reset]   katalog systemu gospodarza do zamontowania
+  TYP       typ katalogu do zamontowania: dir, floppy, cdrom lub overlay
+  ROZMIAR   ile wolnego miejsca raportować programom (kilobajty dla dyskietek,
+            megabajty dla pozostałych dysków)
+  ETYKIETA  etykieta utworzonego dysku
+
+Uwagi:
+  Parametr '-t overlay' przekierowuje operacje zapisu do innego katalogu.
+  Parametr '-ro' montuje dysk tylko do odczytu.
+  Dodatkowe opcje są opisane (po angielsku) w podręczniku (README, chapter 4).
+
+Przykłady:
+
+.
+:PROGRAM_MOUNT_HELP_LONG_WIN32
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]C:\grydos[reset]
+  [color=light-green]mount[reset] [color=white]D[reset] [color=light-cyan]D:\ [reset]-t cdrom
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]zapisane_stany_gier[reset] -t overlay
+
+.
+:PROGRAM_MOUNT_HELP_LONG_MACOSX
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]~/grydos[reset]
+  [color=light-green]mount[reset] [color=white]D[reset] [color=light-cyan]"/Volumes/Gra CD"[reset] -t cdrom
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]zapisane_stany_gier[reset] -t overlay
+
+.
+:PROGRAM_MOUNT_HELP_LONG_OTHER
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]~/grydos[reset]
+  [color=light-green]mount[reset] [color=white]D[reset] [color=light-cyan]"/media/UŻYTKOWNIK/Gra CD"[reset] -t cdrom
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]zapisane_stany_gier[reset] -t overlay
+
+.
+:PROGRAM_MOUNT_CDROMS_FOUND
+Znalezione napędy CD-ROM: %d
+
+.
+:PROGRAM_MOUNT_ERROR_1
+Katalog '%s' nie istnieje.
+
+.
+:PROGRAM_MOUNT_ERROR_2
+'%s' nie jest katalogiem.
+
+.
+:PROGRAM_MOUNT_ILL_TYPE
+Nieprawidłowy typ '%s'.
+
+.
+:PROGRAM_MOUNT_ALREADY_MOUNTED
+Dysk %c jest już zamontowany jako '%s'.
+
+.
+:PROGRAM_MOUNT_UMOUNT_NOT_MOUNTED
+Dysk %c nie jest zamontowany.
+
+.
+:PROGRAM_MOUNT_UMOUNT_SUCCESS
+Dysk %c został pomyślnie odmontowany.
+
+.
+:PROGRAM_MOUNT_UMOUNT_NO_VIRTUAL
+Dyski wirtualne nie mogą zostać odmontowane.
+
+.
+:PROGRAM_MOUNT_DRIVEID_ERROR
+'%c' nie jest prawidłowym identyfikatorem dysku.
+
+.
+:PROGRAM_MOUNT_WARNING_WIN
+[color=light-red]Montowanie dysku C:\ nie jest zalecane. Proszę następnym razem zamontować (pod)katalog.[reset]
+
+.
+:PROGRAM_MOUNT_WARNING_OTHER
+[color=light-red]Montowanie katalogu / nie jest zalecane. Proszę następnym razem zamontować (pod)katalog.[reset]
+
+.
+:PROGRAM_MOUNT_NO_OPTION
+Zignorowano nieobsługiwaną opcję '%s".
+
+.
+:PROGRAM_MOUNT_OVERLAY_NO_BASE
+Katalog musi zostać zamontowany, zanim będzie może dodać nakładkę ('overlay').
+
+.
+:PROGRAM_MOUNT_OVERLAY_INCOMPAT_BASE
+Nakładka ('overlay') nie jest kompatybilna z podanym dyskiem.
+
+.
+:PROGRAM_MOUNT_OVERLAY_MIXED_BASE
+Nakładka ('overlay') musi mieć taką samą lokację, jak zamontowany dysk.
+Nie można mieszać ścieżek względnych i bezwzględnych.
+
+.
+:PROGRAM_MOUNT_OVERLAY_SAME_AS_BASE
+Katalog nakładki ('overlay') musi być inny niż katalog dysku.
+
+.
+:PROGRAM_MOUNT_OVERLAY_GENERIC_ERROR
+Błąd montowania nakładki ('overlay').
+
+.
+:PROGRAM_MOUNT_OVERLAY_STATUS
+Nakładka ('overlay') '%s' zamontowana na dysku %c.
+
+.
+:PROGRAM_MOUSECTL_HELP_LONG
+Zarządzaj myszami, fizycznymi i logicznymi.
+
+Składnia:
+  [color=light-green]mousectl[reset] [-all]
+  [color=light-green]mousectl[reset] [color=white]INTERFEJS[reset] -map [color=light-cyan]NAZWA[reset]
+  [color=light-green]mousectl[reset] [color=white]INTERFEJS[reset] [[color=white]INTERFEJS[reset] ...] -map
+  [color=light-green]mousectl[reset] [[color=white]INTERFEJS[reset] ...] -unmap | -on | -off | -reset
+  [color=light-green]mousectl[reset] [[color=white]INTERFEJS[reset] ...] -s | -sx | -sy [czułość]
+  [color=light-green]mousectl[reset] [[color=white]INTERFEJS[reset] ...] -s czułość_x czułość_y
+  [color=light-green]mousectl[reset] [[color=white]INTERFEJS[reset] ...] -r [min_częstotliwość]
+
+Gdzie:
+  [color=white]INTERFEJS[reset]      jeden z: [color=white]DOS[reset], [color=white]PS/2[reset], [color=white]COM1[reset], [color=white]COM2[reset], [color=white]COM3[reset], [color=white]COM4[reset]
+  -map -unmap    mapowanie/odmapowanie myszy, w [color=light-cyan]NAME[reset] można używać '*' lub '?'
+  -s -sx -sy     czułość myszy / dla osi x / dla osi y, od -999 do +999
+  -r             wymuszona minimalna częstotliwość próbkowania
+  -on -off       włącz/wyłącz myszy na danym interfejsie
+  -reset         przywróć ustawienia domyślne
+
+Uwagi:
+  Pominięcie wartości czułości lub częstotliwości przywraca wartość domyślną.
+  Czułość ustawiona w pliku konfiguracyjnym działa jak wartość globalna,
+  ustawienia dla poszczególnych interfejsów działają na jej bazie.
+
+Przykłady:
+  [color=light-green]mousectl[reset] [color=white]DOS[reset] [color=white]COM1[reset] -map    ; prosi o wybór fizycznych myszy dla dwóch graczy
+.
+:PROGRAM_MOUSECTL_SYNTAX_PATTERN
+Nieprawidłowa składnia, w nazwie dozwolone są tylko znaki ASCII.
+
+.
+:PROGRAM_MOUSECTL_SYNTAX_SENSITIVITY
+Nieprawidłowa składnia, czułość musi być w zakresie od -999 do +999.
+
+.
+:PROGRAM_MOUSECTL_SYNTAX_DUPLICATED
+Nieprawidłowa składnia, zduplikowany interfejs.
+
+.
+:PROGRAM_MOUSECTL_SYNTAX_MIN_RATE
+Nieprawidłowa składnia, częstotliwość próbkowania musi być jedną z:
+%s
+
+.
+:PROGRAM_MOUSECTL_MAPPING_NO_MOUSE
+Mapowanie niedostępne w trybie pracy bez użycia myszy ('nomouse').
+
+.
+:PROGRAM_MOUSECTL_MAPPING_BLOCKED_BY_DRIVER
+Mapowanie niedostępne przy obecnym sterowniku myszy w systemie gościa.
+
+.
+:PROGRAM_MOUSECTL_MANYMOUSE_NOT_BUILT
+Ta kompilacja nie obsługuje mapowania fizycznych myszy.
+
+.
+:PROGRAM_MOUSECTL_MANYMOUSE_RAW_INPUT
+Mapowanie fizycznych myszy jest niedostępne z powodu włączonego ustawienia
+'mouse_raw_input'.
+
+.
+:PROGRAM_MOUSECTL_NO_INTERFACES
+Żaden interfejs myszy nie jest dostępny.
+
+.
+:PROGRAM_MOUSECTL_MISSING_INTERFACES
+Interfejs myszy nie jest dostępny.
+
+.
+:PROGRAM_MOUSECTL_NO_PHYSICAL_MICE
+Nie wykryto żadnej fizycznej myszy.
+
+.
+:PROGRAM_MOUSECTL_NO_MATCH
+Nie znaleziono żadnej fizycznej myszy o pasującej nazwie.
+
+.
+:PROGRAM_MOUSECTL_TABLE_HEADER1
+[color=white]Interfejs        Czułość      Próbkowanie (Hz)   Status[reset]
+.
+:PROGRAM_MOUSECTL_TABLE_LAYOUT1
+[color=light-cyan]%-4s[reset]          X:%+.3d Y:%+.3d       %1s %3s          %s
+.
+:PROGRAM_MOUSECTL_TABLE_HEADER2
+[color=white]Interfejs       Nazwa myszy[reset]
+.
+:PROGRAM_MOUSECTL_TABLE_LAYOUT2
+[color=light-cyan]%-4s[reset]            %s
+.
+:PROGRAM_MOUSECTL_TABLE_LAYOUT2_UNMAPPED
+bez mapowania   %s
+.
+:PROGRAM_MOUSECTL_TABLE_STATUS_HOST
+używa wskaźnika systemowego
+.
+:PROGRAM_MOUSECTL_TABLE_STATUS_MAPPED
+mysz fizyczna
+.
+:PROGRAM_MOUSECTL_TABLE_STATUS_DISCONNECTED
+[color=light-red]mysz odłączona[reset]
+.
+:PROGRAM_MOUSECTL_TABLE_STATUS_DISABLED
+wyłączona
+.
+:PROGRAM_MOUSECTL_TABLE_HINT_RATE_COM
+Częstotliwości próbkowania myszy na interfejsach [color=light-cyan]COM[reset] to wyłącznie estymacje.
+.
+:PROGRAM_MOUSECTL_TABLE_HINT_RATE_MIN
+Częstotliwości próbkowania w wymuszoną minimalną wartością są oznaczone '*'.
+.
+:PROGRAM_MOUSECTL_MAP_ADVICE
+Wciśnij [color=white]lewy[reset] przycisk myszy aby zmapować ją do interfejsu.
+Wciśnięcie innego przycisku przerywa mapowanie i przypisuje wskaźnik systemowy
+do wszystkich interfejsów myszy.
+.
+:PROGRAM_MOUSECTL_MAP_CANCEL
+(mapowanie anulowane)
+.
+:PROGRAM_MOUSECTL_MAP_HINT
+Jeśli jakakolwiek fizyczna mysz jest zmapowana, płynna integracja kursora
+myszy jest zawsze wyłączona. Zmapowane myszy zawsze działają w trybie 'raw'.
+.
+:PROGRAM_RESCAN_HELP_LONG
+Sprawdź zmiany na zamontowanych dyskach.
+
+Składnia:
+  [color=light-green]rescan[reset] [color=light-cyan]DYSK[reset]
+  [color=light-green]rescan[reset] [/a]
+
+Gdzie:
+  [color=light-cyan]DYSK[reset]  dysk do sprawdzenia pod kątem zmian
+
+Uwagi:
+  Zmiany dokonane w systemie gospodarza zostaną uwzględnione wewnątrz DOSu.
+  Uruchomienie bez argumentu sprawdzi aktualny dysk.
+  Przełącznik /a powoduje sprawdzenie wszystkich dysków.
+
+Przykłady:
+  [color=light-green]rescan[reset] [color=light-cyan]c:[reset]
+  [color=light-green]rescan[reset] /a
+.
+:PROGRAM_RESCAN_SUCCESS
+Sprawdzono zmiany na dysku.
+
 .
 :PROGRAM_SERIAL_HELP_LONG
 Zarządzaj portami szeregowymi.
@@ -3311,6 +4665,10 @@ Zmienna środowiskowa '%s' nie została ustawiona.
 Niewystarczająca ilość miejsca w środowisku.
 
 .
+:SHELL_CMD_SET_OPTION_P_UNSUPPORTED
+Opcja /P nie jest obsługiwana; użyj polecenia CHOICE.
+
+.
 :SHELL_CMD_IF_EXIST_MISSING_FILENAME
 IF EXIST: Brakuje nazwy pliku.
 
@@ -3420,7 +4778,7 @@ Polecenia można użyć jedynie na lokalnych dyskach.
 :SHELL_STARTUP_CGA
 ║ DOSBox wspiera tryb obrazu kompozytowego CGA.                      ║
 ║ Wciśnij [color=light-red]F12[color=white], aby włączyć lub wyłączyć tryb kompozytowy obrazu.     ║
-║ [color=light-red]%s+F11[color=white] zmienia barwę; [color=light-red]%s+%s+F11[color=white] zmienia model CGA.%s             ║
+║ [color=light-red]F10[color=white] wybiera ustawienie do zmiany; [color=light-red](%s+)F11[color=white] zmienia je.            ║
 ║                                                                    ║
 
 .
@@ -3443,7 +4801,7 @@ Polecenia można użyć jedynie na lokalnych dyskach.
 
 .
 :SHELL_STARTUP_END
-║ [color=brown]https://dosbox-staging.github.io[color=white]                                   ║
+║ [color=brown]https://www.dosbox-staging.org[color=white]                                     ║
 ╚════════════════════════════════════════════════════════════════════╝[reset]
 
 

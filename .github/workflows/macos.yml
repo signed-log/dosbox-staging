@@ -1,6 +1,23 @@
 name: macOS builds
 
-on: [push, pull_request]
+on:
+  push:
+    paths-ignore:
+      - '.clang-format'
+      - '.mdl-styles'
+      - '*.md'
+      - 'docs/**'
+      - 'licenses/**'
+      - 'website/**'
+
+  pull_request:
+    paths-ignore:
+      - '.clang-format'
+      - '.mdl-styles'
+      - '*.md'
+      - 'docs/**'
+      - 'licenses/**'
+      - 'website/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,6 +36,7 @@ jobs:
             host: macos-13
             arch: x86_64
             needs_deps: true
+            run_tests: true
             build_flags: -Denable_debugger=normal
             brew_path: /usr/local/homebrew
             max_warnings: 80
@@ -27,9 +45,10 @@ jobs:
             host: macos-14
             arch: arm64
             needs_deps: true
+            run_tests: false # the shell_cmds_tests hang on arm64
             build_flags: -Dbuildtype=debug
             brew_path: /opt/homebrew
-            max_warnings: 60
+            max_warnings: 0
 
     steps:
       - name: Checkout repository
@@ -50,7 +69,7 @@ jobs:
 
       - name: Cache subprojects
         id:   cache-subprojects
-        uses: actions/cache@v4.0.0
+        uses: actions/cache@v4
         with:
           path: subprojects.tar
           key: subprojects-${{ hashFiles('subprojects/*.wrap') }}-1
@@ -119,12 +138,11 @@ jobs:
       - name: Install C++ compiler and libraries
         if:   matrix.runner.needs_deps
         run: |
-          pip3 install meson setuptools
-          brew install librsvg tree libpng ninja opusfile speexdsp
+          brew install librsvg tree libpng ninja opusfile speexdsp meson python-setuptools
 
       - name: Cache subprojects
         id: cache-subprojects
-        uses: actions/cache@v4.0.0
+        uses: actions/cache@v4
         with:
           path: subprojects.tar
           key:  subprojects-${{ hashFiles('subprojects/*.wrap') }}-1
@@ -143,9 +161,7 @@ jobs:
       - name: Inject version string
         run: |
           set -x
-          git fetch --prune --unshallow
-          git fetch --all --tags --force
-          export VERSION=$(git describe --abbrev=5)
+          VERSION=$(./scripts/get-version.sh version-and-hash)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Setup and build release
@@ -156,22 +172,23 @@ jobs:
             ${{ matrix.runner.build_flags }} \
             -Ddefault_library=static \
             -Dwrap_mode=forcefallback \
-            -Dtry_static_libs=sdl2,sdl2_net \
             -Duse_zlib_ng=sse2,ssse3,neon \
             build
           meson compile -C build
 
       - name: Upload binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dosbox-${{ matrix.runner.arch }}
           path: build/dosbox
+          overwrite: true
 
       - name: Upload resources
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Resources
           path: Resources
+          overwrite: true
 
   publish_universal_build:
     name: Publish universal build
@@ -186,16 +203,14 @@ jobs:
       - name: Inject version string
         run: |
           set -x
-          git fetch --prune --unshallow
-          git fetch --all --tags --force
-          export VERSION=$(git describe --abbrev=5)
+          VERSION=$(./scripts/get-version.sh version-and-hash)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Install brew depedencies
         run: HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 brew install --overwrite librsvg
 
       - name: Download binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Package
         run: |
@@ -216,42 +231,12 @@ jobs:
           hdiutil create \
               -volname "DOSBox Staging" \
               -srcfolder dist \
-              -ov -format UDZO "dosbox-staging-macOS-${{ env.VERSION }}.dmg"
+              -ov -format UDZO "dosbox-staging-macOS-universal-${{ env.VERSION }}.dmg"
 
       - name: Upload disk image
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # GitHub automatically zips the artifacts, and there's no option
         # to skip it or upload a file only.
         with:
-          name: dosbox-staging-macOS-universal
-          path: dosbox-staging-macOS-${{ env.VERSION }}.dmg
-
-  # This job exists only to publish an artifact with version info when building
-  # from main branch, so snapshot build version will be visible on:
-  # https://dosbox-staging.github.io/downloads/devel/
-  #
-  publish_additional_artifacts:
-    name: Publish additional artifacts
-    needs: build_macos_release
-    runs-on: macos-14
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: false
-
-      - name: Generate changelog
-        run: |
-          set +x
-          git fetch --unshallow
-          git fetch --all --tags --force
-          VERSION=$(git describe --abbrev=4)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          NEWEST_TAG=$(git describe --abbrev=0)
-          git log "$NEWEST_TAG..HEAD" > changelog-$VERSION.txt
-      - uses: actions/upload-artifact@v3
-        with:
-          # Keep exactly this artifact name; it's being used to propagate
-          # version info via GitHub REST API
-          name: changelog-${{ env.VERSION }}.txt
-          path: changelog-${{ env.VERSION }}.txt
+          name: dosbox-staging-macOS-universal-${{ env.VERSION }}
+          path: dosbox-staging-macOS-universal-${{ env.VERSION }}.dmg

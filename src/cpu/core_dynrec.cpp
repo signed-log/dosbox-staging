@@ -21,11 +21,14 @@
 #if (C_DYNREC)
 
 #include <cassert>
+// simde needs std::isnan
+#include <cmath>
 #include <cstdarg>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+
 #include <type_traits>
 
 #if defined (WIN32)
@@ -49,6 +52,7 @@
 #include "inout.h"
 #include "lazyflags.h"
 #include "mem.h"
+#include "mmx.h"
 #include "paging.h"
 #include "pic.h"
 #include "regs.h"
@@ -113,7 +117,7 @@ enum BlockReturn {
 	BR_OpcodeFull,
 #endif
 	BR_Iret,
-	BR_CallBack,
+	BR_Callback,
 	BR_SMCBlock
 };
 
@@ -175,6 +179,8 @@ static_assert(offsetof(core_dynrec_t, readdata) % sizeof(uint32_t) == 0,
 #elif C_TARGETCPU == PPC64LE
 #include "core_dynrec/risc_ppc64le.h"
 #endif
+
+#include "simde/x86/mmx.h"
 
 #if !defined(WORDS_BIGENDIAN)
 #define gen_add_LE gen_add
@@ -240,14 +246,16 @@ Bits CPU_Core_Dynrec_Run() noexcept
 
 		CodePageHandler *chandler = nullptr;
 		// see if the current page is present and contains code
-		if (GCC_UNLIKELY(MakeCodePage(ip_point,chandler))) {
+		if (MakeCodePage(ip_point, chandler)) {
 			// page not present, throw the exception
 			CPU_Exception(cpu.exception.which,cpu.exception.error);
 			continue;
 		}
 
 		// page doesn't contain code or is special
-		if (GCC_UNLIKELY(!chandler)) return CPU_Core_Normal_Run();
+		if (!chandler) {
+			return CPU_Core_Normal_Run();
+		}
 
 		// find correct Dynamic Block to run
 		CacheBlock *block = chandler->FindCacheBlock(ip_point & 4095);
@@ -314,7 +322,7 @@ run_block:
 #endif
 			return CBRET_NONE;
 
-		case BR_CallBack:
+		case BR_Callback:
 			// the callback code is executed in dosbox.conf, return the callback number
 			FillFlags();
 			return core_dynrec.callback;

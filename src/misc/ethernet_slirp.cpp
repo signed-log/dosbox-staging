@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -197,7 +197,7 @@ bool SlirpEthernetConnection::Initialize(Section *dosbox_config)
 	inet_pton(AF_INET6, "fec0::3", &config.vnameserver6);
 
 	/* DHCPv4, BOOTP, TFTP */
-	config.vhostname = CANONICAL_PROJECT_NAME;
+	config.vhostname = DOSBOX_PROJECT_NAME;
 	config.vdnssearch = nullptr;
 	config.vdomainname = nullptr;
 	config.tftp_server_name = nullptr;

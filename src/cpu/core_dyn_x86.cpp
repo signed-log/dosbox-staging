@@ -114,7 +114,7 @@ enum BlockReturn {
 	BR_Link1,BR_Link2,
 	BR_Opcode,
 	BR_Iret,
-	BR_CallBack,
+	BR_Callback,
 	BR_SMCBlock
 };
 
@@ -330,7 +330,7 @@ restart_core:
 #endif
 #endif
 	CodePageHandler * chandler=nullptr;
-	if (GCC_UNLIKELY(MakeCodePage(ip_point,chandler))) {
+	if (MakeCodePage(ip_point, chandler)) {
 		CPU_Exception(cpu.exception.which,cpu.exception.error);
 		goto restart_core;
 	}
@@ -394,7 +394,7 @@ run_block:
 #endif
 #endif
 		return CBRET_NONE;
-	case BR_CallBack:
+	case BR_Callback:
 		return core_dyn.callback;
 	case BR_SMCBlock:
 		// LOG_MSG("selfmodification of running block at %x:%x",

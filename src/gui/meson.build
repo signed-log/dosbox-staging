@@ -1,9 +1,11 @@
 libgui_sources = files(
+    'clipboard.cpp',
     'render.cpp',
     'render_scalers.cpp',
     'sdl_mapper.cpp',
     'sdlmain.cpp',
     'shader_manager.cpp',
+    'titlebar.cpp',
 )
 
 libgui = static_library(

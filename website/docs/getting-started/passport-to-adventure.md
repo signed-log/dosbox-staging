@@ -1,17 +1,18 @@
 # Passport to Adventure
 
-Okay, so what we'll set up next is not a single game, but a collection called
-**Passport to Adventure** which contains playable demos of three classic
-LucasArts point-and-click adventure games:
-[Indiana Jones and the Last Crusade](https://www.mobygames.com/game/534/indiana-jones-and-the-last-crusade-the-graphic-adventure/),
-[The Secret of Monkey Island](https://www.mobygames.com/game/616/the-secret-of-monkey-island/),
-and [Loom](https://www.mobygames.com/game/176/loom/). These were the
-blockbusters of the adventure gaming genre back in the day, and they still
-offer countless hours of fun if you like puzzle-solving and well-written,
-intriguing storylines.
+Okay, so what we'll set up next is not a single game but a collection called
+**Passport to Adventure**, which contains playable demos of three classic
+LucasArts point-and-click adventure games: [Indiana Jones and the Last
+Crusade][indy3-moby], [The Secret of Monkey Island][monkey1-moby], and
+[Loom][loom-moby]. These were the blockbusters of the adventure gaming genre
+back in the day, and they still offer countless hours of fun if you like
+puzzle-solving and well-written, intriguing storylines.
 
 But before we begin, let's discuss something fundamental to DOSBox Staging!
 
+[indy3-moby]: https://www.mobygames.com/game/534/indiana-jones-and-the-last-crusade-the-graphic-adventure/
+[monkey1-moby]: https://www.mobygames.com/game/616/the-secret-of-monkey-island/
+[loom-moby]: https://www.mobygames.com/game/176/loom/
 
 ## Primary configuration
 
@@ -23,9 +24,9 @@ with their default values and a short description for each.
 
 For example, this is the start of the description of the `viewport` setting:
 
-    Set the viewport size (maximum drawable area). The video output is always
-    contained within the viewport while taking the configured aspect ratio into
-    account (see 'aspect'). Possible values:
+    Set the viewport size ('fit' by default). This is the maximum drawable area;
+    the video output is always contained within the viewport while taking the
+    configured aspect ratio into account (see 'aspect'). Possible values:
       fit:          Fit the viewport into the available window/screen (default).
                     There might be padding (black areas) around the image with
                     'integer_scaling' enabled.
@@ -33,6 +34,8 @@ For example, this is the start of the description of the `viewport` setting:
                     (e.g., 960x720). The specified size must not be larger than
                     the desktop. If it's larger than the window size, it's
                     scaled to fit within the window.
+      N%:           Similar to 'WxH' but the size is specified as a percentage
+                    of the desktop size.
       ...
 
 Here are the locations of `dosbox-staging.conf` on each platform:
@@ -59,41 +62,35 @@ If you know the exact name of a configuration setting, you can display its
 explanatory text using the built-in `config` command. The invocation is
 `config -h <setting_name>`. 
 
-However, if the description is longer than what can fit into a single screen,
-this is not too fruitful as the `config` command will effectively only display
-the last page. In such cases, we can "pipe" the output of the `config` command
-through the `more` command that will paginate the preceding command's output.
-For example, this is how to display the description of the `viewport` setting
-which is rather long:
+Let's see what `config -h viewport` gives us!
 
-    config -h viewport | more
+![Displaying the description of a config setting using the 'config' command](https://www.dosbox-staging.org/static/images/getting-started/config-help.png){ loading=lazy style="margin: 0.9rem 0;" }
 
-The `|` is called the "pipe" character---how fitting! You can type it by
-pressing ++shift+backslash++, which is located above the ++enter++ key on the
-standard US keyboard.
+That's quite a handy online help system, isn't it? As the bottom line
+indicates, you can press ++space++ to go to the next page, ++enter++ to
+advance to the next line, or ++q++ to quit the help viewer. The help viewer
+will also automatically quit once we've reached the end of the output.
 
-This is how the output of the command looks like:
+You can run `config -h <section_name>`, too, to get the names of all available
+settings in a given config section. For example, this is the result of `config
+-h render`:
 
-![Displaying the description of a config setting using the 'config' command](https://archive.org/download/dosbox-staging-getting-started-guide-assets/config-help.png){ loading=lazy style="margin: 0.9rem 0;" }
+![Output of the 'config -h render' command](https://www.dosbox-staging.org/static/images/getting-started/config-render.png){ loading=lazy }
 
-When piping the output through `more`, you can press ++space++ to go to the
-next page, ++enter++ to advance to the next line, or ++q++ to quit the viewer,
-as the bottom line indicates. The viewer will also automatically quit once
-we've reached the end of the output.
 
-It is highly recommended to look up the descriptions of the various settings
-as you encounter them in this guide. That's a good way to get gradually
-acquainted with the available options.
+It is highly recommended that you look up the descriptions of the various
+settings as you encounter them in this guide. That's a good way to get
+gradually acquainted with the available options.
 
 
 ## Layered configurations
 
 In our Prince of Persia example, we created a `dosbox.conf` configuration file
-in the game's folder, then we started DOSBox Staging from that folder. In such
-a scenario, DOSBox loads the _primary configuration_ first, then
-applies the _local_ `dosbox.conf` _configuration_ found in the folder it was started
-from (the game's folder). Because of this loading order, you can override
-any primary config setting in your local config.
+in the game's folder, and then we started DOSBox Staging from that folder. In
+such a scenario, DOSBox loads the _primary configuration_ first, then applies
+the _local_ `dosbox.conf` _configuration_ found in the folder from which it
+was started from (the game's folder). Because of this loading order, you can
+override any primary config setting in your local config.
 
 This *layered configuration* approach is very useful; you can apply broad,
 general settings in your primary configuration that will apply to all games,
@@ -113,7 +110,7 @@ game.
 
     It's best not to change the primary configuration while you're still a
     beginner. Even more experienced DOSBox users are generally better off
-    changing the primary configuration very sparingly as those settings will
+    changing the primary configuration very sparingly, as those settings will
     affect all games.
 
     A few things that you might want to consider setting globally in the
@@ -130,16 +127,18 @@ folder in `DOS Games` next to `Prince of Persia` and name it `Passport to
 Adventure`. Create the `drives` subfolder in it and the `c` subfolder in the
 `drives` folder.
 
-Download the [ZIP archive](https://archive.org/download/PassportToAdventure/PassportToAdventuredemo1990lucasartsadventureCompilation.zip)
-from the [Passport of Adventure](https://archive.org/details/PassportToAdventure) item at the
-Internet Archive, then extract its contents into the `c` subfolder.
+Download the [ZIP archive][passport] from the [Passport of Adventure][passport-item]
+item at the Internet Archive, then extract its contents into the `c` subfolder.
+
+[passport]: https://archive.org/download/PassportToAdventure/PassportToAdventuredemo1990lucasartsadventureCompilation.zip
+[passport-item]: https://archive.org/details/PassportToAdventure
 
 Below is the folder structure you should end up with. As explained before,
-we'll create one subfolder within `DOS Games` for each game, then each game
+we'll create one subfolder within `DOS Games` for each game; then each game
 folder will contain its own local `dosbox.conf` configuration specific to that
 game, along with its own "emulated C drive" in the `drives/c` subfolder.
 
-![Passport to Adventure folder structure](https://archive.org/download/dosbox-staging-getting-started-guide-assets/passport-tree.png){ .skip-lightbox style="width: 13.25rem; margin: 0.9rem max(calc((50% - 13.25rem/2) * 0.85), 0rem);" }
+![Passport to Adventure folder structure](images/passport-to-adventure-dirtree1.png){ .skip-lightbox style="width: 14.75rem; margin: 0.3rem max(calc((50% - 14.75rem/2) * 0.85), 0rem);" }
 
 
 ## Examining text files
@@ -150,9 +149,17 @@ But there's also a `README.TXT`, so let's check that one out first!
 
 We can try displaying its contents with the `type README.TXT` command
 (remember, use tab-completion), but we'll only see the end of the file that
-way because it's longer than a single page. Good thing we've just learned
-about the `more` command, so let's put it to good use by executing the
-following:
+way because it's longer than a single page. The `type` command prints out the
+entire contents of the file, which will cause the screen to scroll, so we'll
+effectively only see the last page. Yep, that's DOS for you!
+
+Fortunately, there is a way to fix this: we can "pipe" the output of the `type` command
+through the `more` command that will paginate the preceding command's output,
+just like the `config` command does. The `|` is called the "pipe" character---how fitting! You can
+type it by pressing ++shift+backslash++, which is located above the ++enter++
+key on the standard US keyboard.
+
+Okay, so let's try it! 
 
     type README.TXT | more
 
@@ -176,7 +183,7 @@ If you're playing the game in windowed mode, you'll need to click on the
 DOSBox Staging window first to "capture" the mouse so you can move the
 crosshair-shaped in-game cursor.
 
-To "release" the "captured" mouse cursor, middle-click on your mouse, or press
+To "release" the "captured" mouse cursor, middle-click on your mouse or press
 the ++ctrl+f10++ shortcut (++cmd+f10++ on macOS). The title bar of the DOSBox
 Staging window informs you about the current mouse capture state.
 
@@ -195,7 +202,7 @@ screen to read the general instructions, then start a game demo by clicking on
 one of the three game icons on the left. Pressing ++f1++ during the game
 displays further game-specific help; make sure you read them if you actually
 want to play these demos. They're worth playing even if you intend to play the
-full games later as the demos contain slightly different scenes, puzzles, and
+full games later, as the demos contain slightly different scenes, puzzles, and
 dialogues, plus some fun easter-eggs.
 
 For people who really don't like to read: ++f5++ brings up the save/load/quit
@@ -210,8 +217,8 @@ options next!
 <div class="image-grid" markdown>
 
 <figure markdown>
-  <a class="glightbox" href="https://archive.org/download/dosbox-staging-v0.81.0-indy3/indy3-title.png" >
-    ![Indiana Jones and the Last Crusade -- Title screen](https://archive.org/download/dosbox-staging-v0.81.0-indy3/indy3-title-small.jpg){ loading=lazy .skip-lightbox }
+  <a class="glightbox" href="https://www.dosbox-staging.org/static/images/getting-started/indy3-title.png" >
+    ![Indiana Jones and the Last Crusade -- Title screen](https://www.dosbox-staging.org/static/images/getting-started/indy3-title-small.jpg){ loading=lazy .skip-lightbox }
   </a>
 
   <figcaption markdown>
@@ -220,8 +227,8 @@ options next!
 </figure>
 
 <figure markdown>
-  <a class="glightbox" href="https://archive.org/download/dosbox-staging-v0.81.0-indy3/indy3-start.png" >
-    ![Indiana Jones and the Last Crusade -- Opening scene](https://archive.org/download/dosbox-staging-v0.81.0-indy3/indy3-start-small.jpg){ loading=lazy .skip-lightbox }
+  <a class="glightbox" href="https://www.dosbox-staging.org/static/images/getting-started/indy3-start.png" >
+    ![Indiana Jones and the Last Crusade -- Opening scene](https://www.dosbox-staging.org/static/images/getting-started/indy3-start-small.jpg){ loading=lazy .skip-lightbox }
   </a>
 
   <figcaption markdown>
@@ -283,7 +290,7 @@ chorus = normal
 !!! note
 
     Prince of Persia can also auto-detect our Sound Blaster 16, but most games
-    are not this clever. As we'll see in our later game examples, usually we
+    are not this clever. As we'll see in our later game examples, usually, we
     need to manually configure the audio devices using the game's setup
     utility.
 
@@ -300,7 +307,7 @@ chorus = normal
 
     - **AdLib** was an early sound card predating Sound Blasters that featured
         the same OPL chip. Perfect AdLib compatibility was one of the Sound
-        Blasters' main selling points, therefore in games that support both
+        Blasters' main selling points; therefore, in games that support both
         AdLib and Sound Blaster for synthesised sound, both options will
         usually yield the exact same result.
 
@@ -315,7 +322,7 @@ chorus = normal
         synthesised approximations of the same instruments.
 
     All in all, the terms **OPL**, **AdLib**, and **FM** are used
-    interchangeably in practice, and usually they refer to the exact same
+    interchangeably in practice, and usually, they refer to the exact same
     thing.
 
 
@@ -401,10 +408,12 @@ Tandy Corporation was an IBM PC clone manufacturer in the 1980s; they produced
 the Tandy line of home computers that were mostly compatible with standard PCs
 but also offered improved sound and graphics capabilities. Developers had to
 specifically support the Tandy to take advantage of these features. There are
-relatively few such games, but they are worth seeking out as they provide
-a better experience, especially in the sound department. The
-[Games with enhanced Tandy & PCjr graphics and sound](https://github.com/dosbox-staging/dosbox-staging/wiki/Games-with-enhanced-Tandy-&-PCjr-graphics-and-sound)
-page on our wiki should help you find these pre-1990 Tandy specials.
+relatively few such games, but they are worth seeking out as they provide a
+better experience, especially in the sound department. The [Games with
+enhanced Tandy & PCjr graphics and sound][wiki-tandy] page on our wiki should
+help you find these pre-1990 Tandy specials.
+
+[wiki-tandy]: https://github.com/dosbox-staging/dosbox-staging/wiki/Games-with-enhanced-Tandy-&-PCjr-graphics-and-sound
 
 DOSBox can emulate a Tandy machine---we only need to instruct it to do so in
 our config:
@@ -417,8 +426,8 @@ machine = tandy
 Emulating the Tandy will cause the standard DOS font to be a bit different;
 this is normal, so don't be alarmed by it.
 
-After a restart, we're finally hearing different synthesised music which
-sounds definitely better than the PC speaker rendition, but not as good as the
+After a restart, we're finally hearing different synthesised music, which
+sounds definitely better than the PC speaker rendition but not as good as the
 OPL music. Interestingly, the Tandy music plays a little bit faster than the
 other sound options.
 
@@ -470,7 +479,7 @@ crossfeed = on
 ```
 
 Naturally, you can combine crossfeed with chorus and reverb. You can also set
-`crossfeed` to `light`, `normal`, or `strong` according to your preference, or
+`crossfeed` to `light`, `normal`, or `strong` according to your preference or
 specify a custom crossfeed amount as a percentage from 0% (no crossfeed) to
 100% (collapse the stereo image to mono):
 
@@ -488,7 +497,7 @@ LucasArts catalogue and this collection of game demos, feature EGA graphics.
 The most commonly used EGA screen mode in games is 320&times;200 with a fixed
 16-colour palette.
 
-EGA monitors had visible "fat" scanlines and the pixels were a bit round,
+EGA monitors had visible "fat" scanlines, and the pixels were a bit round,
 whereas later VGA monitors displayed EGA graphics without strong scanlines,
 and the pixels appeared as little sharp rectangles. It's as if EGA monitors
 had a "built-in filter" that smoothed the image somewhat while adding a subtle
@@ -513,9 +522,8 @@ to emulate a double-scanning VGA card in all screen modes with the
 glshader = crt-auto-machine
 ```
 
-Technically, this setting instructs DOSBox Staging to always emulate a CRT
-monitor appropriate for the configured `machine` type which is VGA by
-default.
+Technically, this setting instructs DOSBox Staging to emulate a CRT monitor
+appropriate for the configured `machine` type, which is VGA by default.
 
 The below screenshots illustrate the difference between the "true EGA" and
 "EGA as displayed on VGA" look:
@@ -524,8 +532,8 @@ The below screenshots illustrate the difference between the "true EGA" and
 <div class="image-grid" markdown>
 
 <figure markdown>
-  <a class="glightbox" href="https://archive.org/download/dosbox-staging-v0.81.0-indy3/indy3-ingame-vga.png" >
-    ![Indiana Jones and the Last Crusade -- EGA as displayed on VGA monitors](https://archive.org/download/dosbox-staging-v0.81.0-indy3/indy3-ingame-vga-small.jpg){ loading=lazy .skip-lightbox }
+  <a class="glightbox" href="https://www.dosbox-staging.org/static/images/getting-started/indy3-ingame-vga.png" >
+    ![Indiana Jones and the Last Crusade -- EGA as displayed on VGA monitors](https://www.dosbox-staging.org/static/images/getting-started/indy3-ingame-vga-small.jpg){ loading=lazy .skip-lightbox }
   </a>
 
   <figcaption markdown>
@@ -534,8 +542,8 @@ The below screenshots illustrate the difference between the "true EGA" and
 </figure>
 
 <figure markdown>
-  <a class="glightbox" href="https://archive.org/download/dosbox-staging-v0.81.0-indy3/indy3-ingame-ega.jpg" >
-    ![Indiana Jones and the Last Crusade -- "True EGA" emulation](https://archive.org/download/dosbox-staging-v0.81.0-indy3/indy3-ingame-ega-small.jpg){ loading=lazy .skip-lightbox }
+  <a class="glightbox" href="https://www.dosbox-staging.org/static/images/getting-started/indy3-ingame-ega.jpg" >
+    ![Indiana Jones and the Last Crusade -- "True EGA" emulation](https://www.dosbox-staging.org/static/images/getting-started/indy3-ingame-ega-small.jpg){ loading=lazy .skip-lightbox }
   </a>
 
   <figcaption markdown>
@@ -548,8 +556,8 @@ The below screenshots illustrate the difference between the "true EGA" and
 <div class="image-grid" markdown>
 
 <figure markdown>
-  <a class="glightbox" href="https://archive.org/download/dosbox-staging-v0.81.0-monkey-island/monkey-ingame-vga.jpg" >
-    ![The Secret of Monkey Island -- EGA as displayed on VGA monitors](https://archive.org/download/dosbox-staging-v0.81.0-monkey-island/monkey-ingame-vga-small.jpeg){ loading=lazy .skip-lightbox }
+  <a class="glightbox" href="https://www.dosbox-staging.org/static/images/getting-started/monkey-ingame-vga.jpg" >
+    ![The Secret of Monkey Island -- EGA as displayed on VGA monitors](https://www.dosbox-staging.org/static/images/getting-started/monkey-ingame-vga-small.jpeg){ loading=lazy .skip-lightbox }
   </a>
 
   <figcaption markdown>
@@ -558,8 +566,8 @@ The below screenshots illustrate the difference between the "true EGA" and
 </figure>
 
 <figure markdown>
-  <a class="glightbox" href="https://archive.org/download/dosbox-staging-v0.81.0-monkey-island/monkey-ingame-ega.jpg" >
-    ![The Secret of Monkey Island -- "True EGA" emulation](https://archive.org/download/dosbox-staging-v0.81.0-monkey-island/monkey-ingame-ega-small.jpg){ loading=lazy .skip-lightbox }
+  <a class="glightbox" href="https://www.dosbox-staging.org/static/images/getting-started/monkey-ingame-ega.jpg" >
+    ![The Secret of Monkey Island -- "True EGA" emulation](https://www.dosbox-staging.org/static/images/getting-started/monkey-ingame-ega-small.jpg){ loading=lazy .skip-lightbox }
   </a>
 
   <figcaption markdown>
@@ -572,8 +580,8 @@ The below screenshots illustrate the difference between the "true EGA" and
 <div class="image-grid" markdown>
 
 <figure markdown>
-  <a class="glightbox" href="https://archive.org/download/dosbox-staging-v0.81.0-loom/loom-ingame-vga.jpg" >
-    ![Loom -- EGA as displayed on VGA monitors](https://archive.org/download/dosbox-staging-v0.81.0-loom/loom-ingame-vga-small.jpg){ loading=lazy .skip-lightbox }
+  <a class="glightbox" href="https://www.dosbox-staging.org/static/images/getting-started/loom-ingame-vga.jpg" >
+    ![Loom -- EGA as displayed on VGA monitors](https://www.dosbox-staging.org/static/images/getting-started/loom-ingame-vga-small.jpg){ loading=lazy .skip-lightbox }
   </a>
 
   <figcaption markdown>
@@ -582,8 +590,8 @@ The below screenshots illustrate the difference between the "true EGA" and
 </figure>
 
 <figure markdown>
-  <a class="glightbox" href="https://archive.org/download/dosbox-staging-v0.81.0-loom/loom-ingame-ega.jpg" >
-    ![Loom -- "True EGA" emulation](https://archive.org/download/dosbox-staging-v0.81.0-loom/loom-ingame-ega-small.jpg){ loading=lazy .skip-lightbox }
+  <a class="glightbox" href="https://www.dosbox-staging.org/static/images/getting-started/loom-ingame-ega.jpg" >
+    ![Loom -- "True EGA" emulation](https://www.dosbox-staging.org/static/images/getting-started/loom-ingame-ega-small.jpg){ loading=lazy .skip-lightbox }
   </a>
 
   <figcaption markdown>
@@ -594,26 +602,27 @@ The below screenshots illustrate the difference between the "true EGA" and
 </div>
 
 
-!!! note "On recolouring the classics"
+!!! info "On recolouring the classics"
 
-    Some adventure games that originally supported EGA graphics only also got
-    later VGA remakes. While many of these VGA versions are competent, they
-    rarely reach the artistic genius of the EGA originals, plus often they
-    don't have the exact same gameplay either. This is especially true for the
-    three classic LucasArts games included in this demo collection. You can
-    check out the comparison and analysis of the EGA versus VGA versions of
-    **Indiana Jones and the Last Crusade** and **Loom**
+    Some adventure games that originally supported EGA graphics only got later
+    VGA remakes. While many of these VGA versions are competent, they rarely
+    reach the artistic genius of the EGA originals, plus often they don't have
+    the exact same gameplay either. This is especially true for the three
+    classic LucasArts games included in this demo collection. Check out the
+    comparison and analysis of the EGA versus VGA versions of **Indiana Jones
+    and the Last Crusade** and **Loom**
     [here](https://www.superrune.com/tutorials/lucasfilm_ega.php).
 
     In [another article](https://www.arcadeattack.co.uk/brian-moriarty/),
     Brian Moriatry, the creator of **Loom**, shares his opinion about the VGA
-    remake of the game (he calls it "an abomination", so apparently he's quite
-    unimpressed...)
+    remake of the game (he calls it "an abomination", so apparently, he's quite
+    unimpressed...) Note that about one-third of the original game's dialogue
+    had been cut from the VGA remake.
 
-    In any case, the point here is it would be a mistake to outright dismiss
-    the original EGA experiences, thinking they are "inferior" somehow. Even
+    In any case, the point here is it would be a mistake to dismiss
+    the original EGA games outright, thinking they are "inferior" somehow. Even
     if you might prefer the VGA remakes in the end, you should at least give
-    the EGA originals a chance.
+    the EGA versions a chance to experience the creators' original vision.
 
 
 ## Authentic image size
@@ -643,6 +652,8 @@ The rationale behind the "magic 89% value" is explained in detail in the last
 ## CPU sensitive games
 
 Certain older games, such as these three demos, are sensitive to CPU speed.
+
+
 This can manifest in different ways:
 
 - The game may run too fast or may generally act weird if the emulated CPU is
@@ -655,20 +666,20 @@ This game falls into the second category. Note we're talking about the speed
 of the *emulated CPU* here, not the speed of the physical CPU in your
 computer!
 
-DOSBox defaults to emulating 3000 CPU instructions, or *cycles*, per
+DOSBox defaults to emulating 3000 CPU instructions, or *CPU cycles*, per
 millisecond. For the more technically inclined among you, this corresponds to
 ~3 MIPS (Million Instructions Per Second). When running in windowed mode, the
 text in the title bar informs you about the current cycles value, e.g.:
 
 ```
-DOSBOX - 3000 cycles/ms
+DOSBox Staging - 3000 cycles/ms - to capture the mouse press...
 ```
 
 Let's see what happens if we double the emulated CPU speed!
 
 ```ini
 [cpu]
-cycles = 6000
+cpu_cycles = 6000
 ```
 
 Now we're greeted by an error when trying to start the game:
@@ -680,9 +691,18 @@ run-time error R6003
 C:\>
 ```
 
+These problems happen because the game's creators did not anticipate the
+massive advancements in consumer CPU technology that started at the beginning
+of the 1990s (CPU power roughly doubling every three years). This is not too
+surprising as this is a 1990 release. Later DOS games tended to be more
+resilient to wildly varying CPU speeds as more programmers became aware of the
+issue, but many games from the 1980s and the early 90s are affected.
+
 We will discuss the CPU speed settings in more detail
 [in the next chapter](beneath-a-steel-sky.md#adjusting-the-emulated-cpu-speed),
 but it was worth mentioning this interesting quirk here.
+
+
 
 
 ## Final configuration

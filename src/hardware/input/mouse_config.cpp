@@ -1,4 +1,6 @@
 /*
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *
  *  Copyright (C) 2022-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -52,33 +54,6 @@ constexpr auto model_com_msm_str          = "msm";
 constexpr auto model_com_2button_msm_str  = "2button+msm";
 constexpr auto model_com_3button_msm_str  = "3button+msm";
 constexpr auto model_com_wheel_msm_str    = "wheel+msm";
-
-static const char *list_capture_types[] = {
-	capture_type_seamless_str,
-	capture_type_onclick_str,
-	capture_type_onstart_str,
-	capture_type_nomouse_str,
-	nullptr
-};
-
-static const char* list_models_ps2[] = {
-	model_ps2_standard_str,
-        model_ps2_intellimouse_str,
-        model_ps2_explorer_str,
-        model_ps2_nomouse_str,
-        nullptr
-};
-
-static const char *list_models_com[] = {
-	model_com_2button_str,
-	model_com_3button_str,
-	model_com_wheel_str,
-	model_com_msm_str,
-	model_com_2button_msm_str,
-	model_com_3button_msm_str,
-	model_com_wheel_msm_str,
-	nullptr
-};
 
 static const std::vector<uint16_t> list_rates = {
         // Commented out values are probably not interesting
@@ -187,6 +162,17 @@ static void SetSensitivity(const std::string_view sensitivity_str)
 	const auto& user_default = mouse_predefined.sensitivity_user_default;
 	const auto default_value = coeff * user_default;
 
+	auto set_mouse_sensitivity_setting = [](const int value) {
+		set_section_property_value("mouse",
+		                           "mouse_sensitivity",
+		                           format_str("%d", value));
+	};
+	auto set_mouse_sensitivity_settings = [](const int val_x, const int val_y) {
+		set_section_property_value("mouse",
+		                           "mouse_sensitivity",
+		                           format_str("%d %d", val_x, val_y));
+	};
+
 	// Split input string into values
 	auto values_str = split(sensitivity_str, " \t,;");
 	if (values_str.size() > 2) {
@@ -194,6 +180,8 @@ static void SetSensitivity(const std::string_view sensitivity_str)
 		            user_default);
 		mouse_config.sensitivity_coeff_x = default_value;
 		mouse_config.sensitivity_coeff_y = default_value;
+
+		set_mouse_sensitivity_setting(user_default);
 		return;
 	}
 
@@ -201,6 +189,8 @@ static void SetSensitivity(const std::string_view sensitivity_str)
 	if (values_str.empty()) {
 		mouse_config.sensitivity_coeff_x = default_value;
 		mouse_config.sensitivity_coeff_y = default_value;
+
+		set_mouse_sensitivity_setting(user_default);
 		return;
 	}
 
@@ -210,18 +200,22 @@ static void SetSensitivity(const std::string_view sensitivity_str)
 	bool out_of_range   = false;
 	const int value_min = -mouse_predefined.sensitivity_user_max;
 	const int value_max = mouse_predefined.sensitivity_user_max;
+
 	for (auto& value_str : values_str) {
 		// Remove trailing '%' signs, if present
-		if (ends_with(value_str, "%")) {
+		if (value_str.ends_with('%')) {
 			value_str.pop_back();
 		}
 
 		const auto value = parse_int(value_str);
 		if (!value) {
 			LOG_WARNING("MOUSE: Invalid 'mouse_sensitivity' setting: '%s', using '%d'",
-			            value_str.c_str(), user_default);
+			            value_str.c_str(),
+			            user_default);
 			mouse_config.sensitivity_coeff_x = default_value;
 			mouse_config.sensitivity_coeff_y = default_value;
+
+			set_mouse_sensitivity_setting(user_default);
 			return;
 		}
 
@@ -240,13 +234,18 @@ static void SetSensitivity(const std::string_view sensitivity_str)
 
 	// Set the actual values
 	assert(values_int.size() == 1 || values_int.size() == 2);
-	const auto value_float_0 = static_cast<float>(values_int[0]);
+	const auto value_float_0         = static_cast<float>(values_int[0]);
 	mouse_config.sensitivity_coeff_x = coeff * value_float_0;
+
 	if (values_int.size() == 2) {
 		const auto value_float_1 = static_cast<float>(values_int[1]);
 		mouse_config.sensitivity_coeff_y = coeff * value_float_1;
+
+		set_mouse_sensitivity_settings(values_int[0], values_int[1]);
 	} else {
 		mouse_config.sensitivity_coeff_y = mouse_config.sensitivity_coeff_x;
+
+		set_mouse_sensitivity_setting(values_int[0]);
 	}
 
 	return;
@@ -335,7 +334,10 @@ static void config_init(Section_prop &secprop)
 	prop_str = secprop.Add_string("mouse_capture", always,
 	                              capture_type_onclick_str);
 	assert(prop_str);
-	prop_str->Set_values(list_capture_types);
+	prop_str->Set_values({capture_type_seamless_str,
+	                      capture_type_onclick_str,
+	                      capture_type_onstart_str,
+	                      capture_type_nomouse_str});
 	prop_str->Set_help(
 	        "Set the mouse capture behaviour:\n"
 	        "  onclick:   Capture the mouse when clicking any mouse button in the window\n"
@@ -406,7 +408,10 @@ static void config_init(Section_prop &secprop)
 	                              only_at_start,
 	                              model_ps2_explorer_str);
 	assert(prop_str);
-	prop_str->Set_values(list_models_ps2);
+	prop_str->Set_values({model_ps2_standard_str,
+	                      model_ps2_intellimouse_str,
+	                      model_ps2_explorer_str,
+	                      model_ps2_nomouse_str});
 	prop_str->Set_help(
 	        "PS/2 AUX port mouse model:\n"
 	        "  standard:      3 buttons, standard PS/2 mouse.\n"
@@ -418,7 +423,13 @@ static void config_init(Section_prop &secprop)
 	                              only_at_start,
 	                              model_com_wheel_msm_str);
 	assert(prop_str);
-	prop_str->Set_values(list_models_com);
+	prop_str->Set_values({model_com_2button_str,
+	                      model_com_3button_str,
+	                      model_com_wheel_str,
+	                      model_com_msm_str,
+	                      model_com_2button_msm_str,
+	                      model_com_3button_msm_str,
+	                      model_com_wheel_msm_str});
 	prop_str->Set_help(
 	        "COM (serial) port default mouse model:\n"
 	        "  2button:      2 buttons, Microsoft mouse.\n"
@@ -445,7 +456,7 @@ static void config_init(Section_prop &secprop)
 	                    "Note: Requires PS/2 mouse to be enabled.");
 }
 
-void MOUSE_AddConfigSection(const config_ptr_t& conf)
+void MOUSE_AddConfigSection(const ConfigPtr& conf)
 {
 	assert(conf);
 

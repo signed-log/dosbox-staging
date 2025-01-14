@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -61,7 +61,7 @@
 
 std::string GetPrimaryConfigName()
 {
-	return CANONICAL_PROJECT_NAME ".conf";
+	return DOSBOX_PROJECT_NAME ".conf";
 }
 
 std_fs::path GetPrimaryConfigPath()
@@ -204,7 +204,7 @@ void InitConfigDir()
 {
 	if (cached_config_dir.empty()) {
 		// Check if a portable layout exists
-		const auto portable_conf_path = GetExecutablePath() /
+		const auto portable_conf_path = get_executable_path() /
 		                                GetPrimaryConfigName();
 
 		std::error_code ec = {};
@@ -644,76 +644,94 @@ std::string cfstr_to_string(CFStringRef source)
 }
 #endif
 
-[[maybe_unused]] std::string get_language_from_os()
+#if defined(LINUX)
+
+#include <fcntl.h>
+
+int get_num_physical_cpus()
 {
-	// Lamda helper to extract the language from macOS locale
-#if C_COREFOUNDATION
-	auto get_lang_from_macos = []() {
-		const auto lc_array = CFLocaleCopyPreferredLanguages();
-		const auto locale_ref = CFArrayGetValueAtIndex(lc_array, 0);
-		const auto lc_cfstr = reinterpret_cast<CFStringRef>(locale_ref);
-		auto lang = cfstr_to_string(lc_cfstr);
-		clear_language_if_default(lang);
-		return lang;
-	};
-#endif
+	constexpr int MaxCpus  = 128;
+	bool core_ids[MaxCpus] = {};
+	int num_cores          = 0;
 
-// Lambda helper to extract the language from Windows locale
-#if defined(WIN32)
-	auto get_lang_from_windows = []() -> std::string {
-		std::string lang = {};
-		wchar_t w_buf[LOCALE_NAME_MAX_LENGTH];
-		if (!GetUserDefaultLocaleName(w_buf, LOCALE_NAME_MAX_LENGTH))
-			return lang;
+	for (int i = 0; i < MaxCpus; ++i) {
+		std::string path = "/sys/devices/system/cpu/cpu" +
+		                   std::to_string(i) + "/topology/core_id";
+		int fd = open(path.c_str(), O_RDONLY);
 
-		// Convert the wide-character string into a normal buffer
-		char buf[LOCALE_NAME_MAX_LENGTH];
-		wcstombs(buf, w_buf, LOCALE_NAME_MAX_LENGTH);
-
-		lang = buf;
-		clear_language_if_default(lang);
-		return lang;
-	};
-#endif
-
-	// Lamda helper to extract the language from POSIX systems
-	auto get_lang_from_posix = []() {
-		std::string lang   = {};
-		const auto envlang = setlocale(LC_ALL, "");
-		if (envlang) {
-			lang = envlang;
-			clear_language_if_default(lang);
+		if (fd != -1) {
+			char core_id_str[6] = {};
+			if (read(fd, core_id_str, 5) > 0) {
+				int core_id = atoi(core_id_str);
+				if (core_id >= 0 && core_id < MaxCpus &&
+				    !core_ids[core_id]) {
+					core_ids[core_id] = true;
+					++num_cores;
+				}
+			}
+			close(fd);
 		}
-		return lang;
-	};
-
-	std::string lang = {};
-
-#if C_COREFOUNDATION
-	lang = get_lang_from_macos();
-	if (!lang.empty()) {
-		LOG_DEBUG("LANG: Got language '%s' from macOS locale", lang.c_str());
-		return lang;
-	}
-#endif
-
-#if defined(WIN32)
-	lang = get_lang_from_windows();
-	if (!lang.empty()) {
-		LOG_DEBUG("LANG: Got language '%s' from Windows locale", lang.c_str());
-		return lang;
-	}
-#endif
-
-	lang = get_lang_from_posix();
-	if (!lang.empty()) {
-		LOG_DEBUG("LANG: Got language '%s' from POSIX locale", lang.c_str());
-		return lang;
 	}
 
-	assert(lang.empty());
-	return lang;
+	return std::max(num_cores, 1);
 }
+
+#elif defined(MACOSX)
+
+#include <sys/sysctl.h>
+
+int get_num_physical_cpus()
+{
+	int num_cpus = 0;
+	size_t size  = sizeof(num_cpus);
+	sysctlbyname("hw.physicalcpu", &num_cpus, &size, nullptr, 0);
+	return std::max(num_cpus, 1);
+}
+
+#elif defined(WIN32)
+
+#include <Windows.h>
+
+int get_num_physical_cpus()
+{
+	// Size of the buffer as input, gets modified on function call to size of return data
+	DWORD buffer_size = 100 * 1024;
+	uint8_t* cpu_info = (uint8_t*)malloc(buffer_size);
+	if (!GetLogicalProcessorInformationEx(RelationProcessorCore,
+	                                      (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)cpu_info,
+	                                      &buffer_size)) {
+		return 1;
+	}
+
+	// Return value is a variably sized struct and requires type-punning to read
+	// Whoever made this API was probably on substances that are illegal in many countries
+	DWORD bytes_read = 0;
+	int num_entries  = 0;
+	while (bytes_read < buffer_size) {
+		PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX info =
+		        (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)(cpu_info +
+		                                                   bytes_read);
+		bytes_read += info->Size;
+		++num_entries;
+	}
+	free(cpu_info);
+
+	// There should be one entry per core so all we care about is the number of entries we got back
+	return std::max(num_entries, 1);
+}
+
+#else
+
+#include <SDL.h>
+
+int get_num_physical_cpus()
+{
+	// Some other OS, fall back to SDL
+	// This will actually be logical CPUs but oh well
+	return SDL_GetCPUCount();
+}
+
+#endif
 
 // ***************************************************************************
 // Local time support

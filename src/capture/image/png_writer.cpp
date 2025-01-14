@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2023-2023  The DOSBox Staging Team
+ *  Copyright (C) 2023-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,7 @@
 #include "checks.h"
 #include "string_utils.h"
 #include "support.h"
+#include "version.h"
 
 #include <zlib.h>
 
@@ -206,7 +207,7 @@ void PngWriter::WritePngInfo(const uint16_t width, const uint16_t height,
 
 	char software_keyword[] = "Software";
 	static_assert(sizeof(software_keyword) < 80, "libpng limit");
-	char software_value[] = CANONICAL_PROJECT_NAME " " VERSION;
+	char software_value[] = DOSBOX_PROJECT_NAME " " DOSBOX_VERSION;
 
 	texts[0].compression = PNG_TEXT_COMPRESSION_NONE;
 	texts[0].key         = static_cast<png_charp>(software_keyword);
@@ -228,7 +229,7 @@ void PngWriter::WritePngInfo(const uint16_t width, const uint16_t height,
 
 	texts[1].compression = PNG_TEXT_COMPRESSION_NONE;
 	texts[1].key         = static_cast<png_charp>(source_keyword);
-	texts[1].text        = const_cast<png_charp>(source_value.data());
+	texts[1].text        = const_cast<png_charp>(source_value.c_str());
 	texts[1].text_length = source_value.size();
 
 	++num_text;

@@ -25,9 +25,13 @@ reference.
 Update a given translation by editing the corresponding `*.lng` file with a text
 editor and saving it with UTF-8 encoding and Unix line endings.
 
-Suitable editors are often called ASCII editors, code editors, etc. - Microsoft Word
+Suitable editors are often called ASCII editors, code editors, etc.---Microsoft Word
 is not suitable, but Notepad (Windows), Notepad++ (Windows), TextMate (macOS),
 or Kate (Linux) will do.
+
+Please don't use tab characters---configure your editor to expand tabs to
+spaces. If you use tabs, there is a danger that the alignment of indented
+multi-line text will appear wrong.
 
 Tools exist (often called diff tools) that can help you to compare two `en.lng`
 files generated from different versions of DOSBox, they make it easy to figure out
@@ -61,10 +65,9 @@ to learn more about it, here are a few links:
 
 For example `CONFIG_FULLSCREEN`.
 
-Do not exceed 79 characters on a line, or commands such as `config -h fullscreen`
+Do not exceed 80 characters on a line, or commands such as `config -h fullscreen`
 won't be able to display the help properly, and might wrap the text or display blank
-lines. The limit might be increased to 80 characters in the future, but
-the implementation is not there yet.
+lines.
 
 ### Command or program help
 
@@ -93,6 +96,13 @@ can describe the whole geographic region, like on real MS-DOS.
 
 After translating the country names, check them by running DOSBox with
 `--list-countries` command line argument.
+
+### Keyboard layout names
+
+For example `KEYBOARD_LAYOUT_NAME_US` or `KEYBOARD_LAYOUT_NAME_PL214`.
+
+After translating, check them by running DOSBox with `--list-layouts` command line
+argument, also check the `keyb /list` internal command output.
 
 # Scripts
 
