@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -23,13 +23,14 @@
 #define DOSBOX_MAPPER_H
 
 #include "dosbox.h"
+#include "version.h"
 
 #include <string>
 #include <vector>
 
 #include <SDL.h>
 
-#define MAPPERFILE "mapper-sdl2-" VERSION ".map"
+#define MAPPERFILE "mapper-sdl2-" DOSBOX_VERSION ".map"
 
 constexpr uint32_t MMOD1 = 0x1;
 #define MMOD1_NAME "Ctrl"
@@ -81,5 +82,22 @@ void MAPPER_AutoType(std::vector<std::string> &sequence,
                      const uint32_t wait_ms,
                      const uint32_t pacing_ms);
 void MAPPER_CheckEvent(SDL_Event *event);
+
+// Screen fits ~89 characters total without clipping. Allocate a few more bytes
+// for good measure.
+constexpr int MaxBindNameLength = 100;
+
+/**
+ * Handle a game controller being connected or disconnected by reinitializing
+ * binds. Caller is responsible for any user interface updates, e.g. updating
+ * the mapper UI buttons to reflect joystick binds being added / removed.
+ *
+ * @param event A pointer to an SDL_JoyDeviceEvent whose type must be one of:
+ * - SDL_CONTROLLERDEVICEADDED
+ * - SDL_CONTROLLERDEVICEREMOVED
+ * - SDL_JOYDEVICEADDED
+ * - SDL_JOYDEVICEREMOVED
+ */
+void MAPPER_HandleJoyDeviceEvent(SDL_JoyDeviceEvent* event);
 
 #endif

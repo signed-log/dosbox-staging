@@ -669,19 +669,21 @@ static void MPU401_Event(io_val_t)
 		for (uint8_t i = 0; i < 8; ++i) {
 			if (mpu.state.amask & (1 << i)) {
 				auto &counter = mpu.playbuf[i].counter;
-				switch (counter) {
-				case 0: counter = 0xff; break;
-				case 1: UpdateTrack(i); break;
-				default: --counter; break;
+				if (counter) {
+					--counter;
+				}
+				if (!counter) {
+					UpdateTrack(i);
 				}
 			}
 		}
 		if (mpu.state.conductor) {
 			auto &counter = mpu.condbuf.counter;
-			switch (counter) {
-			case 0: counter = 0xff; break;
-			case 1: UpdateConductor(); break;
-			default: --counter; break;
+			if (counter) {
+				--counter;
+			}
+			if (!counter) {
+				UpdateConductor();
 			}
 		}
 	}
@@ -844,18 +846,38 @@ public:
 	}
 };
 
-static std::unique_ptr<MPU401> mpu401 = {};
+static std::unique_ptr<MPU401> mpu401 = nullptr;
 
-void MPU401_Destroy(Section * /*sec*/)
+static Section_prop* get_midi_section()
+{
+	assert(control);
+
+	auto sec = static_cast<Section_prop*>(control->GetSection("midi"));
+	assert(sec);
+
+	return sec;
+}
+
+void mpu401_destroy([[maybe_unused]] Section* sec)
 {
 	mpu401 = {};
 }
-void MPU401_Init(Section* sec)
+
+void MPU401_Destroy()
 {
-	assert(sec);
+	mpu401_destroy(get_midi_section());
+}
 
-	mpu401 = std::make_unique<MPU401>(sec);
+void mpu401_init([[maybe_unused]] Section* sec)
+{
+	mpu401 = std::make_unique<MPU401>(get_midi_section());
 
-	constexpr auto changeable_at_runtime = true;
-	sec->AddDestroyFunction(&MPU401_Destroy, changeable_at_runtime);
+	constexpr auto ChangeableAtRuntime = true;
+
+	get_midi_section()->AddDestroyFunction(&mpu401_destroy, ChangeableAtRuntime);
+}
+
+void MPU401_Init()
+{
+	mpu401_init(get_midi_section());
 }

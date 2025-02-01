@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2023-2023  The DOSBox Staging Team
+ *  Copyright (C) 2023-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -47,9 +47,9 @@ static struct {
 	bool path_initialised = false;
 
 	struct {
-		CaptureState audio = {};
-		CaptureState midi  = {};
-		CaptureState video = {};
+		std::atomic<CaptureState> audio = {};
+		std::atomic<CaptureState> midi  = {};
+		std::atomic<CaptureState> video = {};
 	} state = {};
 
 	struct {
@@ -61,6 +61,16 @@ static struct {
 		int32_t image              = 1;
 		int32_t serial_log         = 1;
 	} next_index = {};
+
+	void reset()
+	{
+		path.clear();
+		path_initialised = false;
+		state.audio = CaptureState::Off;
+		state.midi = CaptureState::Off;
+		state.video = CaptureState::Off;
+		next_index = {};
+	}
 } capture = {};
 
 static std::unique_ptr<ImageCapturer> image_capturer = {};
@@ -203,7 +213,7 @@ static std::optional<int32_t> find_highest_capture_index(const CaptureType type)
 		auto stem = entry.path().stem().string();
 		lowcase(stem);
 
-		if (starts_with(stem, filename_start)) {
+		if (stem.starts_with(filename_start)) {
 			auto index_str = strip_prefix(stem, filename_start);
 
 			// Strip "-raw" or "-rendered" postfix if it's there
@@ -357,6 +367,7 @@ void CAPTURE_StartVideoCapture()
 	switch (capture.state.video) {
 	case CaptureState::Off:
 		capture.state.video = CaptureState::Pending;
+		GFX_NotifyVideoCaptureStatus(true);
 		break;
 	case CaptureState::Pending:
 	case CaptureState::InProgress:
@@ -376,10 +387,12 @@ void CAPTURE_StopVideoCapture()
 		// completeness only
 		LOG_MSG("CAPTURE: Cancelling pending video output capture");
 		capture.state.video = CaptureState::Off;
+		GFX_NotifyVideoCaptureStatus(false);
 		break;
 	case CaptureState::InProgress:
 		capture_video_finalise();
 		capture.state.video = CaptureState::Off;
+		GFX_NotifyVideoCaptureStatus(false);
 		LOG_MSG("CAPTURE: Stopped capturing video output");
 	}
 }
@@ -574,7 +587,7 @@ static void capture_destroy(Section* /*sec*/)
 		capture.state.video = CaptureState::Off;
 	}
 
-	capture = {};
+	capture.reset();
 }
 
 static void capture_init(Section* sec)
@@ -614,8 +627,8 @@ static void init_key_mappings()
 	                  "Rec. Audio");
 
 	MAPPER_AddHandler(handle_capture_midi_event,
-	                  SDL_SCANCODE_UNKNOWN,
-	                  0,
+	                  SDL_SCANCODE_F6,
+	                  PRIMARY_MOD | MMOD2,
 	                  "caprawmidi",
 	                  "Rec. MIDI");
 
@@ -688,7 +701,7 @@ static void init_capture_dosbox_settings(Section_prop& secprop)
 	assert(str_prop);
 }
 
-void CAPTURE_AddConfigSection(const config_ptr_t& conf)
+void CAPTURE_AddConfigSection(const ConfigPtr& conf)
 {
 	assert(conf);
 

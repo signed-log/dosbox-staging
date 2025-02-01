@@ -11,6 +11,15 @@ _Feel free to include additional details, but please respect the reviewer's time
 _Related issues can be listed here (remove the section if not applicable.)_
 
 
+# Release notes
+
+_If this is a user-facing change that should be mentioned in the release notes, please provide a draft of the notes here._
+
+_It doesn't have to be perfect; the person writing the release notes will expand this if needed._
+
+_(Remove the section if no notes are needed.)_
+
+
 # Manual testing
 
 _Please describe the tests that you ran to verify your changes._
@@ -20,6 +29,14 @@ _Provide clear instructions so the reviewers can reproduce and verify your resul
 _Include relevant details for your test configuration, operating system, etc._
 
 _Ideally, you would also test your changes with a [sanitizer build](https://github.com/dosbox-staging/dosbox-staging/blob/main/BUILD.md#make-a-sanitizer-build) and confirm no issues were found._
+
+_Non-trivial changes **must be** tested on all three OSes we support. If you can't test on a particular OS, ask the team or contributors for help._
+
+The change has been manually tested on:
+
+- [ ] Windows
+- [ ] macOS
+- [ ] Linux
 
 
 # Checklist
@@ -34,8 +51,10 @@ I have:
 - [ ] split my work into well-defined, bisectable commits, and I [named my commits well](https://github.com/dosbox-staging/dosbox-staging/blob/main/CONTRIBUTING.md#commit-messages).
 - [ ] applied the appropriate labels (bug, enhancement, refactoring, documentation, etc.)
 - [ ] [checked](https://github.com/dosbox-staging/dosbox-staging/blob/main/scripts/compile_commits.sh) that all my commits can be built.
+- [ ] my change has been manually tested on Windows, macOS, and Linux.
 - [ ] confirmed that my code does not cause performance regressions (e.g., by running the Quake benchmark).
 - [ ] added unit tests where applicable to prove the correctness of my code and to avoid future regressions.
+- [ ] provided the release notes draft (for significant user-facing changes).
 - [ ] made corresponding changes to the documentation or the website according to the [documentation guidelines](https://github.com/dosbox-staging/dosbox-staging/blob/main/DOCUMENTATION.md).
 - [ ] [locally verified](https://github.com/dosbox-staging/dosbox-staging/blob/main/DOCUMENTATION.md#previewing-documentation-changes-locally) my website or documentation changes.
 

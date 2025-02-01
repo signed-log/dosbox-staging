@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2020  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -22,173 +22,42 @@
 #ifndef DOSBOX_MIDI_COREMIDI_H
 #define DOSBOX_MIDI_COREMIDI_H
 
-#include "midi_handler.h"
+#include "midi_device.h"
 
 #if C_COREMIDI
 
 #include <CoreMIDI/MIDIServices.h>
-#include <sstream>
 #include <string>
 
-#include "programs.h"
-#include "string_utils.h"
-
-class MidiHandler_coremidi final : public MidiHandler {
-private:
-	MIDIPortRef m_port;
-	MIDIClientRef m_client;
-	MIDIEndpointRef m_endpoint;
-	MIDIPacket *m_pCurPacket;
-
+class MidiDeviceCoreMidi final : public MidiDevice {
 public:
-	MidiHandler_coremidi()
-	        : MidiHandler(),
-	          m_port(0),
-	          m_client(0),
-	          m_endpoint(0),
-	          m_pCurPacket(nullptr)
-	{}
+	// Throws `std::runtime_error` if the MIDI device cannot be initialiased
+	MidiDeviceCoreMidi(const char* conf);
 
-	std::string_view GetName() const override
+	~MidiDeviceCoreMidi() override;
+
+	std::string GetName() const override
 	{
-		return "coremidi";
+		return MidiDeviceName::CoreMidi;
 	}
 
-	MidiDeviceType GetDeviceType() const override
+	Type GetType() const override
 	{
-		return MidiDeviceType::External;
+		return MidiDevice::Type::External;
 	}
 
-	bool Open(const char *conf) override
-	{
-		// Get the MIDIEndPoint
-		m_endpoint = 0;
-		Bitu numDests = MIDIGetNumberOfDestinations();
-		Bitu destId = numDests;
-		if(conf && *conf) {
-			std::string strconf(conf);
-			std::istringstream configmidi(strconf);
-			configmidi >> destId;
-			if (configmidi.fail() && numDests) {
-				lowcase(strconf);
-				for(Bitu i = 0; i<numDests; i++) {
-					MIDIEndpointRef dummy = MIDIGetDestination(i);
-					if (!dummy) continue;
-					CFStringRef midiname = nullptr;
-					if (MIDIObjectGetStringProperty(dummy,kMIDIPropertyDisplayName,&midiname) == noErr) {
-						const char* s = CFStringGetCStringPtr(midiname,kCFStringEncodingMacRoman);
-						if (s) {
-							std::string devname(s);
-							lowcase(devname);
-							if (devname.find(strconf) != std::string::npos) { 
-								destId = i;
-								break;
-							}
-						}
-					}
-				}
-			}
-		}
-		if (destId >= numDests) destId = 0;
-		if (destId < numDests)
-		{
-			m_endpoint = MIDIGetDestination(destId);
-		}
+	void SendMidiMessage(const MidiMessage& msg) override;
 
-		// Create a MIDI client and port
-		MIDIClientCreate(CFSTR("MyClient"), nullptr, nullptr, &m_client);
+	void SendSysExMessage(uint8_t* sysex, size_t len) override;
 
-		if (!m_client)
-		{
-			LOG_MSG("MIDI:COREMIDI: No client created.");
-			return false;
-		}
-
-		MIDIOutputPortCreate(m_client, CFSTR("MyOutPort"), &m_port);
-
-		if (!m_port)
-		{
-			LOG_MSG("MIDI:COREMIDI: No port created.");
-			return false;
-		}
-
-		
-		return true;
-	}
-
-	void Close() override
-	{
-		if (m_port && m_client) {
-			Reset();
-		}
-
-		// Dispose the port
-		MIDIPortDispose(m_port);
-
-		// Dispose the client
-		MIDIClientDispose(m_client);
-
-		// Dispose the endpoint
-		// Not, as it is for Endpoints created by us
-		//		MIDIEndpointDispose(m_endpoint);
-	}
-
-	void PlayMsg(const MidiMessage& msg) override
-	{
-		// Acquire a MIDIPacketList
-		Byte packetBuf[128];
-		MIDIPacketList* packetList = (MIDIPacketList*)packetBuf;
-		m_pCurPacket               = MIDIPacketListInit(packetList);
-
-		const auto len = MIDI_message_len_by_status[msg.status()];
-
-		// Add msg to the MIDIPacketList
-		MIDIPacketListAdd(packetList,
-		                  (ByteCount)sizeof(packetBuf),
-		                  m_pCurPacket,
-		                  (MIDITimeStamp)0,
-		                  len,
-		                  msg.data.data());
-
-		// Send the MIDIPacketList
-		MIDISend(m_port, m_endpoint, packetList);
-	}
-
-	void PlaySysex(uint8_t *sysex, size_t len) override
-	{
-		// Acquire a MIDIPacketList
-		Byte packetBuf[MIDI_SYSEX_SIZE * 4];
-		MIDIPacketList *packetList = (MIDIPacketList *)packetBuf;
-		m_pCurPacket = MIDIPacketListInit(packetList);
-		
-		// Add msg to the MIDIPacketList
-		MIDIPacketListAdd(packetList, (ByteCount)sizeof(packetBuf), m_pCurPacket, (MIDITimeStamp)0, len, sysex);
-		
-		// Send the MIDIPacketList
-		MIDISend(m_port,m_endpoint,packetList);
-	}
-
-	MIDI_RC ListAll(Program *caller) override
-	{
-		Bitu numDests = MIDIGetNumberOfDestinations();
-		for(Bitu i = 0; i < numDests; i++){
-			MIDIEndpointRef dest = MIDIGetDestination(i);
-			if (!dest) continue;
-			CFStringRef midiname = nullptr;
-			if(MIDIObjectGetStringProperty(dest, kMIDIPropertyDisplayName, &midiname) == noErr) {
-				const char * s = CFStringGetCStringPtr(midiname, kCFStringEncodingMacRoman);
-				if (s) {
-					caller->WriteOut("  %02d - %s\n", i, s);
-				}
-			}
-			//This is for EndPoints created by us.
-			//MIDIEndpointDispose(dest);
-		}
-		return MIDI_RC::OK;
-	}
+private:
+	MIDIPortRef m_port         = {};
+	MIDIClientRef m_client     = {};
+	MIDIEndpointRef m_endpoint = {};
+	MIDIPacket* m_pCurPacket   = {};
 };
 
-MidiHandler_coremidi Midi_coremidi;
+void COREMIDI_ListDevices(MidiDeviceCoreMidi* device, Program* caller);
 
 #endif // C_COREMIDI
 

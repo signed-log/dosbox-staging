@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -25,10 +25,11 @@
 
 #include "../ints/int10.h"
 #include "callback.h"
+#include "clipboard.h"
 #include "file_reader.h"
 #include "keyboard.h"
 #include "regs.h"
-#include "string_utils.h"
+#include "unicode.h"
 
 [[nodiscard]] static std::vector<std::string> get_completions(std::string_view command);
 static void run_binary_executable(std::string_view fullname, std::string_view args);
@@ -77,12 +78,8 @@ void DOS_Shell::ShowPrompt()
 void DOS_Shell::InputCommand(char* line)
 {
 	std::string command = ReadCommand();
-	trim(command);
-	std::string utf8_command = {};
-	dos_to_utf8(command, utf8_command);
-	if (!utf8_command.empty() && (utf8_history.empty() || utf8_command != utf8_history.back())) {
-		utf8_history.emplace_back(std::move(utf8_command));
-	}
+
+	history->Append(command, get_utf8_code_page());
 
 	const auto* const dos_section = dynamic_cast<Section_prop*>(
 	        control->GetSection("dos"));
@@ -108,13 +105,15 @@ void DOS_Shell::InputCommand(char* line)
 
 std::string DOS_Shell::ReadCommand()
 {
-	std::vector<std::string> history_clone = {};
-	history_clone.reserve(utf8_history.size() + 1);
-	for (const std::string &utf8_str : utf8_history) {
-		std::string dos_str = {};
-		utf8_to_dos(utf8_str, dos_str, UnicodeFallback::Simple);
-		history_clone.emplace_back(std::move(dos_str));
-	}
+	std::vector<std::string> history_clone = history->GetCommands(
+	        get_utf8_code_page());
+	const auto last_command = [&history_clone]() -> std::string {
+		if (history_clone.empty()) {
+			return "";
+		}
+		return history_clone.back();
+	}();
+
 	history_clone.emplace_back("");
 	auto history_index = history_clone.size() - 1;
 
@@ -152,24 +151,20 @@ std::string DOS_Shell::ReadCommand()
 		}
 
 		constexpr decltype(data) ExtendedKey = 0x00;
-		constexpr decltype(data) Escape      = 0x1B;
+		constexpr decltype(data) ControlV    = 0x16;
+		constexpr decltype(data) Escape      = 0x1b;
+
 		switch (data) {
 		case ExtendedKey: {
 			DOS_ReadFile(input_handle, &data, &byte_count);
 			switch (static_cast<ScanCode>(data)) {
 			case ScanCode::F3: {
-				if (utf8_history.empty()) {
-					break;
-				}
-
-				std::string last_command = {};
-				utf8_to_dos(utf8_history.back(), last_command, UnicodeFallback::Simple);
 				if (last_command.size() <= command.size()) {
 					break;
 				}
 
-				last_command = last_command.substr(command.size());
-				command += last_command;
+				const auto suffix = last_command.substr(command.size());
+				command += suffix;
 				cursor_position = command.size();
 				break;
 			}
@@ -271,6 +266,44 @@ std::string DOS_Shell::ReadCommand()
 		case '\n': break;
 		case '\r': prompt.Newline(); return command;
 
+		case ControlV:
+			if (CLIPBOARD_HasText()) {
+				auto clipboard = CLIPBOARD_PasteText();
+				// Extract the first non-empty line
+				const auto lines = split(clipboard, "\n\r");
+				clipboard.clear();
+				for (const auto& line : lines) {
+					if (!line.empty()) {
+						clipboard = line;
+						break;
+					}
+				}
+				// Get the content up to the first control
+				// character
+				for (auto it = clipboard.begin();
+				     it != clipboard.end();
+				     ++it) {
+					if (is_extended_printable_ascii(*it)) {
+						continue;
+					}
+					const auto length = it - clipboard.begin();
+					clipboard = clipboard.substr(0, length);
+					break;
+				}
+				// Check if content is suitable for pasting
+				if (clipboard.empty()) {
+					break;
+				}
+				if (command.size() + clipboard.size() >
+				    CommandPrompt::MaxCommandSize()) {
+					break;
+				}
+				// Paste the clipboard content
+				command.insert(cursor_position, clipboard);
+				cursor_position += clipboard.size();
+			}
+			break;
+
 		case Escape:
 			command += "\\";
 			prompt.Update(command, cursor_position);
@@ -363,9 +396,9 @@ std::string DOS_Shell::SubstituteEnvironmentVariables(std::string_view command)
 		}
 		closing_percent += 1;
 
-		const std::string env_key(command.substr(1, closing_percent - 1));
-		if (std::string env_val = {}; GetEnvStr(env_key.c_str(), env_val)) {
-			expanded += env_val.substr(env_key.length() + sizeof('='));
+		if (const auto env_val = psp->GetEnvironmentValue(
+		            command.substr(1, closing_percent - 1))) {
+			expanded += *env_val;
 
 			command = command.substr(closing_percent + 1);
 		} else {
@@ -475,13 +508,19 @@ bool DOS_Shell::ExecuteProgram(std::string_view name, std::string_view args)
 	auto extension = fullname.substr(fullname.size() - extension_size);
 
 	if (iequals(extension, ".BAT")) {
+		const auto current_echo = batchfiles.empty()
+		                             ? echo
+		                             : batchfiles.top().Echo();
 		if (!batchfiles.empty() && !call) {
 			batchfiles.pop();
 		}
 
-		auto reader = FileReader::GetFileReader(fullname);
-		if (reader) {
-			batchfiles.emplace(*this, std::move(*reader), name, args, echo);
+		if (auto reader = FileReader::GetFileReader(fullname)) {
+			batchfiles.emplace(*psp,
+			                   std::move(reader),
+			                   name,
+			                   args,
+			                   current_echo);
 		} else {
 			WriteOut("Could not open %s", fullname.c_str());
 		}
@@ -502,13 +541,9 @@ std::string DOS_Shell::Which(const std::string_view name) const
 	static constexpr auto extensions = {"", ".COM", ".EXE", ".BAT"};
 
 	std::vector<std::string> prefixes = {""};
-	std::string path_environment;
-	const auto have_path_env = GetEnvStr("PATH", path_environment);
-	const auto path_equals   = path_environment.find_first_of('=');
 
-	if (have_path_env && path_equals != std::string::npos) {
-		path_environment = path_environment.substr(path_equals + 1);
-		auto path_directories = split_with_empties(path_environment, ';');
+	if (const auto path = psp->GetEnvironmentValue("PATH")) {
+		auto path_directories = split_with_empties(*path, ';');
 
 		remove_empties(path_directories);
 
@@ -623,128 +658,7 @@ static void run_binary_executable(const std::string_view fullname,
 	reg_sp += 0x200;
 }
 
-bool DOS_Shell::GetEnvStr(const char* entry, std::string& result) const
+bool DOS_Shell::SetEnv(std::string_view entry, std::string_view new_string)
 {
-	/* Walk through the internal environment and see for a match */
-	PhysPt env_read = PhysicalMake(psp->GetEnvironment(), 0);
-
-	char env_string[1024 + 1];
-	result.erase();
-	if (!entry[0]) {
-		return false;
-	}
-	const auto entry_length = strlen(entry);
-	do {
-		MEM_StrCopy(env_read, env_string, 1024);
-		if (!env_string[0]) {
-			return false;
-		}
-		env_read += (PhysPt)(safe_strlen(env_string) + 1);
-		char* equal = strchr(env_string, '=');
-		if (!equal) {
-			continue;
-		}
-		/* replace the = with \0 to get the length */
-		*equal = 0;
-		if (strlen(env_string) != entry_length) {
-			continue;
-		}
-		if (strcasecmp(entry, env_string) != 0) {
-			continue;
-		}
-		/* restore the = to get the original result */
-		*equal = '=';
-		result = env_string;
-		return true;
-	} while (1);
-	return false;
-}
-
-bool DOS_Shell::GetEnvNum(Bitu num, std::string& result) const
-{
-	char env_string[1024 + 1];
-	PhysPt env_read = PhysicalMake(psp->GetEnvironment(), 0);
-	do {
-		MEM_StrCopy(env_read, env_string, 1024);
-		if (!env_string[0]) {
-			break;
-		}
-		if (!num) {
-			result = env_string;
-			return true;
-		}
-		env_read += (PhysPt)(safe_strlen(env_string) + 1);
-		num--;
-	} while (1);
-	return false;
-}
-
-Bitu DOS_Shell::GetEnvCount() const
-{
-	PhysPt env_read = PhysicalMake(psp->GetEnvironment(), 0);
-	Bitu num        = 0;
-	while (mem_readb(env_read) != 0) {
-		for (; mem_readb(env_read); env_read++) {
-		};
-		env_read++;
-		num++;
-	}
-	return num;
-}
-
-bool DOS_Shell::SetEnv(const char* entry, const char* new_string)
-{
-	PhysPt env_read = PhysicalMake(psp->GetEnvironment(), 0);
-
-	// Get size of environment.
-	DOS_MCB mcb(psp->GetEnvironment() - 1);
-	uint16_t envsize = mcb.GetSize() * 16;
-
-	PhysPt env_write          = env_read;
-	PhysPt env_write_start    = env_read;
-	char env_string[1024 + 1] = {0};
-	const auto entry_length = strlen(entry);
-	do {
-		MEM_StrCopy(env_read, env_string, 1024);
-		if (!env_string[0]) {
-			break;
-		}
-		env_read += (PhysPt)(safe_strlen(env_string) + 1);
-		if (!strchr(env_string, '=')) {
-			continue; /* Remove corrupt entry? */
-		}
-		if ((strncasecmp(entry, env_string, entry_length) == 0) &&
-		    env_string[entry_length] == '=') {
-			continue;
-		}
-		MEM_BlockWrite(env_write,
-		               env_string,
-		               (Bitu)(safe_strlen(env_string) + 1));
-		env_write += (PhysPt)(safe_strlen(env_string) + 1);
-	} while (1);
-	/* TODO Maybe save the program name sometime. not really needed though */
-	/* Save the new entry */
-
-	// ensure room
-	if (envsize <= (env_write - env_write_start) + strlen(entry) + 1 +
-	                       strlen(new_string) + 2) {
-		return false;
-	}
-
-	if (new_string[0]) {
-		std::string bigentry(entry);
-		for (std::string::iterator it = bigentry.begin();
-		     it != bigentry.end();
-		     ++it) {
-			*it = toupper(*it);
-		}
-		snprintf(env_string, 1024 + 1, "%s=%s", bigentry.c_str(), new_string);
-		MEM_BlockWrite(env_write,
-		               env_string,
-		               (Bitu)(safe_strlen(env_string) + 1));
-		env_write += (PhysPt)(safe_strlen(env_string) + 1);
-	}
-	/* Clear out the final piece of the environment */
-	mem_writeb(env_write, 0);
-	return true;
+	return psp->SetEnvironmentValue(entry, new_string);
 }

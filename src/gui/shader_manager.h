@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2023-2023  The DOSBox Staging Team
+ *  Copyright (C) 2023-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,9 +30,9 @@
 // forward references
 class Fraction;
 
-constexpr auto NoneShaderName     = "none";
-constexpr auto FallbackShaderName = NoneShaderName;
+constexpr auto BilinearShaderName = "interpolation/bilinear";
 constexpr auto SharpShaderName    = "interpolation/sharp";
+constexpr auto FallbackShaderName = BilinearShaderName;
 
 constexpr auto AutoGraphicsStandardShaderName = "crt-auto";
 constexpr auto AutoMachineShaderName          = "crt-auto-machine";
@@ -60,6 +60,13 @@ enum class ShaderMode {
 	// providing a more authentic out-of-the-box experience (authentic as in
 	// "how people experienced the game at the time of release", and
 	// prioritising the most probable developer intent.)
+	//
+	// For CGA and EGA modes that reprogram the 18-bit DAC palette on VGA
+	// adapters, a double-scanned VGA shader is selected. This is authentic as
+	// these games require a VGA adapter, therefore they were designed with
+	// double scanning in mind. In other words, no one could have experienced
+	// them on single scanning CGA and EGA monitors without special hardware
+	// hacks.
 	//
 	AutoGraphicsStandard,
 
@@ -96,12 +103,25 @@ enum class ShaderMode {
 	AutoArcadeSharp
 };
 
+enum TextureFilterMode {
+	// Nearest-neighbour interpolation
+	Nearest,
+
+	// Bilinear interpolation
+	Linear
+};
+
+// The default setttings are important; these are the settings we get if the
+// shader doesn't override them via custom pragmas.
 struct ShaderSettings {
-	bool use_npot_texture        = false;
-	bool use_srgb_texture        = false;
-	bool use_srgb_framebuffer    = false;
+	bool use_npot_texture     = false;
+	bool use_srgb_texture     = false;
+	bool use_srgb_framebuffer = false;
+
 	bool force_single_scan       = false;
 	bool force_no_pixel_doubling = false;
+
+	TextureFilterMode texture_filter_mode = TextureFilterMode::Linear;
 };
 
 struct ShaderInfo {

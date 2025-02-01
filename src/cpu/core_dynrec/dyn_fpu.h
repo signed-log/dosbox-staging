@@ -41,16 +41,15 @@ static void FPU_FNSTCW(PhysPt addr){
 static void FPU_FFREE(Bitu st) {
 	fpu.tags[st] = TAG_Empty;
 #if !C_FPU_X86
-	fpu.use_regs_memcpy[st] = false;
-#endif
+	fpu.regs_memcpy[st].reset();
+	#endif
 }
 
-#if C_FPU_X86
-#include "../../fpu/fpu_instructions_x86.h"
-#else
-#include "../../fpu/fpu_instructions.h"
-#endif
-
+	#if C_FPU_X86
+		#include "../../fpu/fpu_instructions_x86.h"
+	#else
+		#include "../../fpu/fpu_instructions.h"
+	#endif
 
 static inline void dyn_fpu_top() {
 	gen_mov_word_to_reg(FC_OP2,(void*)(&TOP),true);
@@ -101,7 +100,7 @@ static void dyn_eatree() {
 }
 
 static void dyn_fpu_esc0(){
-	dyn_get_modrm(); 
+	dyn_get_modrm();
 //	if (decode.modrm.val >= 0xc0) {
 	if (decode.modrm.mod == 3) { 
 		dyn_fpu_top();

@@ -1,10 +1,13 @@
 libmidi_sources = [
     'midi.cpp',
     'midi_alsa.cpp',
+    'midi_coreaudio.cpp',
+    'midi_coremidi.cpp',
     'midi_fluidsynth.cpp',
-    'midi_mt32.cpp',
     'midi_lasynth_model.cpp',
-    'midi_oss.cpp',
+    'midi_mt32.cpp',
+    'midi_win32.cpp',
+    'midi_soundcanvas.cpp',
 ]
 
 libmidi = static_library(
@@ -12,16 +15,16 @@ libmidi = static_library(
     libmidi_sources,
     include_directories: incdir,
     dependencies: [
-        sdl2_dep,
-        fluid_dep,
-        mt32emu_dep,
         alsa_dep,
         coreaudio_dep,
         coremidi_dep,
-        winmm_dep,
+        fluid_dep,
         ghc_dep,
         libiir_dep,
         libloguru_dep,
+        mt32emu_dep,
+        sdl2_dep,
+        winmm_dep,
     ],
     cpp_args: warnings,
 )

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -217,7 +217,7 @@ static inline void InitPageCheckPresence(PhysPt lin_addr,bool writing,X86PageEnt
 		PAGING_PageFault(lin_addr,table_addr,
 			(writing?0x02:0x00) | (((cpu.cpl&cpu.mpl)==0)?0x00:0x04));
 		table.set(phys_readd(table_addr));
-		if (GCC_UNLIKELY(!table.p)) {
+		if (!table.p) {
 			E_Exit("Pagefault didn't correct table");
 		}
 	}
@@ -228,7 +228,7 @@ static inline void InitPageCheckPresence(PhysPt lin_addr,bool writing,X86PageEnt
 		PAGING_PageFault(lin_addr,entry_addr,
 			(writing?0x02:0x00) | (((cpu.cpl&cpu.mpl)==0)?0x00:0x04));
 		entry.set(phys_readd(entry_addr));
-		if (GCC_UNLIKELY(!entry.p)) {
+		if (!entry.p) {
 			E_Exit("Pagefault didn't correct page");
 		}
 	}
@@ -267,7 +267,8 @@ static inline bool InitPage_CheckUseraccess(uint32_t u1,uint32_t u2) {
 		return ((u1)==0) && ((u2)==0);
 	case ArchitectureType::Intel486OldSlow:
 	case ArchitectureType::Intel486NewSlow:
-	case ArchitectureType::PentiumSlow:
+	case ArchitectureType::Pentium:
+	case ArchitectureType::PentiumMmx:
 		return ((u1)==0) || ((u2)==0);
 	}
 }
@@ -416,7 +417,8 @@ public:
 					case ArchitectureType::Intel386Slow:
 					case ArchitectureType::Intel486OldSlow:
 					case ArchitectureType::Intel486NewSlow:
-					case ArchitectureType::PentiumSlow:
+					case ArchitectureType::Pentium:
+					case ArchitectureType::PentiumMmx:
 						priv_check=1;
 						break;
 					}
@@ -434,7 +436,8 @@ public:
 					case ArchitectureType::Intel386Slow:
 					case ArchitectureType::Intel486OldSlow:
 					case ArchitectureType::Intel486NewSlow:
-					case ArchitectureType::PentiumSlow:
+					case ArchitectureType::Pentium:
+					case ArchitectureType::PentiumMmx:
 						priv_check=2;
 						break;
 					}
@@ -992,10 +995,11 @@ void PAGING_Enable(bool enabled) {
 	if (paging.enabled==enabled) return;
 	paging.enabled=enabled;
 	if (enabled) {
-		if (GCC_UNLIKELY(cpudecoder==CPU_Core_Simple_Run)) {
-//			LOG_MSG("CPU core simple won't run this game,switching to normal");
-			cpudecoder=CPU_Core_Normal_Run;
-			CPU_CycleLeft+=CPU_Cycles;
+		if (cpudecoder == CPU_Core_Simple_Run) {
+			// LOG_MSG("CPU core simple won't
+			// run this game,switching to normal");
+			cpudecoder = CPU_Core_Normal_Run;
+			CPU_CycleLeft += CPU_Cycles;
 			CPU_Cycles=0;
 		}
 //		LOG(LOG_PAGING,LOG_NORMAL)("Enabled");
