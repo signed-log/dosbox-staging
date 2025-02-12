@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -69,18 +69,16 @@
 //   postfixes is highly recommended in such cases to remove ambiguity.
 //
 
-#define REDUCE_JOYSTICK_POLLING
-
 enum class RenderingBackend {
 	Texture,
 	OpenGl
 };
 
 typedef enum {
-	GFX_CallBackReset,
-	GFX_CallBackStop,
-	GFX_CallBackRedraw
-} GFX_CallBackFunctions_t;
+	GFX_CallbackReset,
+	GFX_CallbackStop,
+	GFX_CallbackRedraw
+} GFX_CallbackFunctions_t;
 
 enum class IntegerScalingMode {
 	Off,
@@ -167,15 +165,16 @@ struct VideoMode {
 	// EGA modes and most sub-400-line (S)VGA & VESA modes)
 	bool is_double_scanned_mode = false;
 
-	// True for all (S)VGA and VESA modes, and for 200-line EGA modes on VGA
-	// that reprogram the default canonical 16-colour CGA palette BIOS to
-	// custom 18-bit VGA colours.
+	// True for all (S)VGA and VESA modes, and for EGA modes on emulated VGA
+	// adapters that reprogram the default canonical 16-colour CGA palette
+	// to custom 18-bit VGA DAC colours.
 	//
 	// Useful for differentiating "true EGA" modes used for backwards
 	// compatibility on VGA (i.e., to run EGA games) from "repurposed" EGA
-	// modes (typical for demos and ports of Amiga action/platformer games;
-	// many of these use the planar 320x200 16-colour EGA mode to achieve
-	// faster smooth-scrolling, but with custom 18-bit VGA colours).
+	// modes (typical used in demos and ports of Amiga action/platformer
+	// games; many of these use the planar 320x200 16-colour EGA mode to
+	// achieve faster smooth-scrolling, but with custom 18-bit VGA DAC
+	// colours).
 	bool has_vga_colors = false;
 
 	constexpr bool operator==(const VideoMode& that) const
@@ -353,7 +352,7 @@ struct ImageInfo {
 
 enum class InterpolationMode { Bilinear, NearestNeighbour };
 
-typedef void (*GFX_CallBack_t)(GFX_CallBackFunctions_t function);
+typedef void (*GFX_Callback_t)(GFX_CallbackFunctions_t function);
 
 constexpr uint8_t GFX_CAN_8      = 1 << 0;
 constexpr uint8_t GFX_CAN_15     = 1 << 1;
@@ -382,14 +381,14 @@ void GFX_SetShader(const ShaderInfo& shader_info, const std::string& shader_sour
 void GFX_SetIntegerScalingMode(const IntegerScalingMode mode);
 IntegerScalingMode GFX_GetIntegerScalingMode();
 
-InterpolationMode GFX_GetInterpolationMode();
+InterpolationMode GFX_GetTextureInterpolationMode();
 
 struct VideoMode;
 class Fraction;
 
 uint8_t GFX_SetSize(const int render_width_px, const int render_height_px,
                     const Fraction& render_pixel_aspect_ratio, const uint8_t flags,
-                    const VideoMode& video_mode, GFX_CallBack_t callback);
+                    const VideoMode& video_mode, GFX_Callback_t callback);
 
 void GFX_ResetScreen(void);
 void GFX_RequestExit(const bool requested);
@@ -401,16 +400,25 @@ void GFX_EndUpdate( const uint16_t *changedLines );
 void GFX_LosingFocus();
 void GFX_RegenerateWindow(Section *sec);
 
+void GFX_RefreshTitle();
+void GFX_RefreshAnimatedTitle();
+void GFX_NotifyBooting();
+void GFX_NotifyAudioCaptureStatus(const bool is_capturing);
+void GFX_NotifyVideoCaptureStatus(const bool is_capturing);
+void GFX_NotifyAudioMutedStatus(const bool is_muted);
+void GFX_NotifyProgramName(const std::string& segment_name,
+                           const std::string& canonical_name);
+void GFX_NotifyCyclesChanged();
+
 enum class MouseHint {
-    None,                    // no hint to display
-    NoMouse,                 // no mouse mode
-    CapturedHotkey,          // mouse captured, use hotkey to release
-    CapturedHotkeyMiddle,    // mouse captured, use hotkey or middle-click to release
-    ReleasedHotkey,          // mouse released, use hotkey to capture
-    ReleasedHotkeyMiddle,    // mouse released, use hotkey or middle-click to capture
-    ReleasedHotkeyAnyButton, // mouse released, use hotkey or any click to capture
-    SeamlessHotkey,          // seamless mouse, use hotkey to capture
-    SeamlessHotkeyMiddle,    // seamless mouse, use hotkey or middle-click to capture
+	None,                    // no hint to display
+	CapturedHotkey,          // captured, hotkey to release
+	CapturedHotkeyMiddle,    // captured, hotkey or middle-click release
+	ReleasedHotkey,          // released, hotkey to capture
+	ReleasedHotkeyMiddle,    // released, hotkey or middle-click to capture
+	ReleasedHotkeyAnyButton, // released, hotkey or any click to capture
+	SeamlessHotkey,          // seamless, hotkey to capture
+	SeamlessHotkeyMiddle,    // seamless, hotkey or middle-click to capture
 };
 
 void GFX_CenterMouse();
@@ -422,9 +430,7 @@ void GFX_SetMouseRawInput(const bool requested_raw_input);
 // Detects the presence of a desktop environment or window manager
 bool GFX_HaveDesktopEnvironment();
 
-#if defined(REDUCE_JOYSTICK_POLLING)
 void MAPPER_UpdateJoysticks(void);
-#endif
 
 DosBox::Rect GFX_CalcDrawRectInPixels(const DosBox::Rect& canvas_size_px,
                                       const DosBox::Rect& render_size_px,

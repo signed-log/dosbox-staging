@@ -28,8 +28,6 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#pragma use_srgb_texture
-#pragma use_srgb_framebuffer
 #pragma force_single_scan
 #pragma force_no_pixel_doubling
 
@@ -83,9 +81,6 @@ vec3 getadvinterp2xtexel(vec2 coord)
 void main()
 {
 	vec2 coord = v_texCoord;
-#if defined(OPENGLNB)
-	gl_FragColor = vec4(getadvinterp2xtexel(coord), 1.0);
-#else
 	coord -= 0.5;
 	vec3 c0 = getadvinterp2xtexel(coord);
 	vec3 c1 = getadvinterp2xtexel(coord + vec2(1.0, 0.0));
@@ -94,6 +89,5 @@ void main()
 
 	coord = fract(max(coord, 0.0));
 	gl_FragColor = vec4(mix(mix(c0, c1, coord.x), mix(c2, c3, coord.x), coord.y), 1.0);
-#endif
 }
 #endif

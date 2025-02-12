@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: LGPL-2.1-or-later
  *
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *  Copyright (C) 2008-2010  Ralf Grillenberger <h-a-l-9000@users.sourceforge.net>
  *  Copyright (C) 2004-2008  Dean Beeler <canadacow@users.sourceforge.net>
  *  Copyright (C) 2001-2004  Peter Grehan <grehan@iprg.nokia.com>
@@ -1336,7 +1336,7 @@ int bx_ne2k_c::rx_frame(const void *buf, unsigned io_len)
     startptr = & BX_NE2K_THIS s.mem[BX_NE2K_THIS s.page_start * 256u -
 				 BX_NE2K_MEMSTART];
     memcpy(startptr, (const void *)(pktbuf + endbytes - 4u),
-	   (size_t)(io_len - endbytes + 8u));
+	   io_len - endbytes + 8u);
     BX_NE2K_THIS s.curr_page = nextpage;
   }
 

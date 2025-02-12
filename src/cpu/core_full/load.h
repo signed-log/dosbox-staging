@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -542,15 +542,12 @@ l_M_Ed:
 		CPU_SW_Interrupt_NoIOPLCheck(1,GetIP());
 		continue;
 	case D_RDTSC: {
-		if (CPU_ArchitectureType<ArchitectureType::PentiumSlow)
-			goto illegalopcode;
-	        int64_t tsc = (int64_t)(PIC_FullIndex() *
-	                              static_cast<double>(
-	                                      CPU_CycleAutoAdjust ? 70000 : CPU_CycleMax));
-	        reg_edx = (uint32_t)(tsc >> 32);
-		reg_eax = (uint32_t)(tsc & 0xffffffff);
-		break;
-	}
+	        if (CPU_ArchitectureType < ArchitectureType::Pentium) {
+		        goto illegalopcode;
+	        }
+	        CPU_ReadTSC();
+	        break;
+        }
 	default:
 		LOG(LOG_CPU, LOG_ERROR)("LOAD:Unhandled code %d opcode %X", inst.code.load, static_cast<uint32_t>(inst.entry));
 		goto illegalopcode;

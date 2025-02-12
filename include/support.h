@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -46,6 +46,10 @@
 
 #include "std_filesystem.h"
 
+// TODO This is a rather horrible dumping ground of everything... Next time
+// you add something to it, break it up into separate files (e.g.,
+// `date_helpers.h`, `file_helpers.h`, `alignment_helpers.h`, etc.)
+
 #ifdef _MSC_VER
 #define strcasecmp(a, b)     _stricmp(a, b)
 #define strncasecmp(a, b, n) _strnicmp(a, b, n)
@@ -65,6 +69,26 @@ constexpr uint16_t dos_pagesize = 4096;
 // is in-range of a char and returns it as such.
 char int_to_char(int val);
 
+// A change in one of these 2 commits changed the behavior of toupper() on Windows with MSVC
+// d225c9a619fc69de19a68da473dcfa244862582d - Probably this giant commit
+// 0b1f510683b36d46440a781f8e151b7f942a9f23 - This one won't compile so I can't rule it out
+
+// I found some documentation that states toupper() can change behavior based on locale
+// However, the debugger depends on this specific behavior
+// It passes in values larger than an 8 bit char can hold and needs those to stay intact
+
+// Not even sure if this is defined behavior (might be one of those janky C functions that casts int to char)
+// There are several other instances of toupper() throughout the code that should be looked at
+// This is a workaround for the specific case of the debugger for now
+// We may choose to remove this code later or use it elsewhere where only ascii letters should be considered
+constexpr int ascii_to_upper(int c)
+{
+	if (c >= 'a' && c <= 'z') {
+		return c - 'a' + 'A';
+	}
+	return c;
+}
+
 constexpr bool char_is_negative([[maybe_unused]] char c)
 {
 #if (CHAR_MIN < 0) // char is signed
@@ -81,6 +105,8 @@ uint8_t drive_index(char drive);
 
 // Convert index (0..26) to a drive letter (uppercase).
 char drive_letter(uint8_t index);
+
+char get_drive_letter_from_path(const char* path);
 
 /*
  *  Converts a string to a finite number (such as float or double).
@@ -157,7 +183,7 @@ constexpr cast_t check_cast(const check_t in)
 }
 
 template <typename T>
-std::function<T()> CreateRandomizer(const T min_value, const T max_value);
+std::function<T()> create_randomizer(const T min_value, const T max_value);
 
 // Include a message in assert, similar to static_assert:
 #define assertm(exp, msg) assert(((void)msg, exp))
@@ -191,8 +217,11 @@ constexpr size_t strnlen(const char* str, const size_t max_len)
 
 // Scans the provided command-line string for the '/'flag and removes it from
 // the string, returning if the flag was found and removed.
-bool ScanCMDBool(char* cmd, const char* flag);
-char* ScanCMDRemain(char* cmd);
+bool scan_and_remove_cmdline_switch(char* cmd, const char* flag);
+
+// Scans the command line for a remaining switch and reports it if found,
+// otherwise returns 0.
+char* scan_remaining_cmdline_switch(char* cmd);
 
 bool is_executable_filename(const std::string& filename) noexcept;
 
@@ -240,26 +269,29 @@ int64_t stdio_size_bytes(FILE* f);
 int64_t stdio_size_kb(FILE* f);
 int64_t stdio_num_sectors(FILE* f);
 
-const std_fs::path& GetExecutablePath();
-std_fs::path GetResourcePath(const std_fs::path& name);
-std_fs::path GetResourcePath(const std_fs::path& subdir, const std_fs::path& name);
+const std_fs::path& get_executable_path();
+std_fs::path get_resource_path(const std_fs::path& name);
+std_fs::path get_resource_path(const std_fs::path& subdir, const std_fs::path& name);
 
-std::map<std_fs::path, std::vector<std_fs::path>> GetFilesInResource(
-        const std_fs::path& res_name, const std::string_view files_ext);
+std::map<std_fs::path, std::vector<std_fs::path>> get_files_in_resource(
+        const std_fs::path& res_name, const std::string_view files_ext,
+        const bool only_regular_files);
 
 enum class ResourceImportance { Mandatory, Optional };
 
-std::vector<uint8_t> LoadResourceBlob(const std_fs::path& subdir,
-                                      const std_fs::path& name,
-                                      const ResourceImportance importance);
-std::vector<uint8_t> LoadResourceBlob(const std_fs::path& name,
-                                      const ResourceImportance importance);
+std::vector<uint8_t> load_resource_blob(const std_fs::path& subdir,
+                                        const std_fs::path& name,
+                                        const ResourceImportance importance);
 
-std::vector<std::string> GetResourceLines(const std_fs::path& subdir,
-                                          const std_fs::path& name,
-                                          const ResourceImportance importance);
-std::vector<std::string> GetResourceLines(const std_fs::path& name,
-                                          const ResourceImportance importance);
+std::vector<uint8_t> load_resource_blob(const std_fs::path& name,
+                                        const ResourceImportance importance);
+
+std::vector<std::string> get_resource_lines(const std_fs::path& subdir,
+                                            const std_fs::path& name,
+                                            const ResourceImportance importance);
+
+std::vector<std::string> get_resource_lines(const std_fs::path& name,
+                                            const ResourceImportance importance);
 
 bool path_exists(const std_fs::path& path);
 

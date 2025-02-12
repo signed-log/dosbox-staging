@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2023-2023  The DOSBox Staging Team
+ *  Copyright (C) 2023-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -28,19 +28,22 @@
 #include "inout.h"
 #include "support.h"
 
-enum class DMA_DIRECTION { READ, WRITE };
+enum class DmaDirection {
+	Read,
+	Write,
+};
 
-enum DMAEvent {
-	DMA_REACHED_TC,
-	DMA_MASKED,
-	DMA_UNMASKED,
+enum class DmaEvent {
+	ReachedTerminalCount,
+	IsMasked,
+	IsUnmasked,
 };
 
 class Section;
 using DMA_ReservationCallback = std::function<void(Section*)>;
 
 class DmaChannel;
-using DMA_Callback = std::function<void(const DmaChannel* chan, DMAEvent event)>;
+using DMA_Callback = std::function<void(const DmaChannel* chan, DmaEvent event)>;
 
 class DmaChannel {
 public:
@@ -67,7 +70,7 @@ public:
 	DmaChannel(uint8_t num, bool dma16);
 	~DmaChannel();
 
-	void DoCallback(DMAEvent event) const;
+	void DoCallback(DmaEvent event) const;
 	void SetMask(bool _mask);
 	void RegisterCallback(const DMA_Callback cb);
 	void ReachedTerminalCount();
@@ -76,6 +79,7 @@ public:
 	void ClearRequest();
 	size_t Read(size_t words, uint8_t* const dest_buffer);
 	size_t Write(size_t words, uint8_t* const src_buffer);
+	void LogDetails() const;
 
 	// Reset the channel back to defaults, without callbacks or reservations.
 	void Reset();
@@ -83,17 +87,17 @@ public:
 	// Reserves the channel for the owner. If a subsequent reservation is
 	// made then the previously held reservation callback is run to
 	// cleanup/remove that reserver (see the EvictReserver call below).
-	void ReserveFor(const std::string_view new_owner,
+	void ReserveFor(const std::string& new_owner,
 	                const DMA_ReservationCallback new_cb);
 
 private:
 	void EvictReserver();
 	bool HasReservation() const;
-	size_t ReadOrWrite(DMA_DIRECTION direction, size_t words,
+	size_t ReadOrWrite(DmaDirection direction, size_t words,
 	                   uint8_t* const buffer);
 
 	DMA_ReservationCallback reservation_callback = {};
-	std::string_view reservation_owner           = {};
+	std::string reservation_owner                = {};
 };
 
 class DmaController {

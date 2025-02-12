@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2022-2023  The DOSBox Staging Team
+ *  Copyright (C) 2022-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -19,11 +19,15 @@
 
 #include "bios.h"
 
+#include "bitops.h"
 #include "callback.h"
+#include "control.h"
 #include "cpu.h"
 #include "dosbox.h"
+#include "dos_memory.h"
 #include "hardware.h"
 #include "inout.h"
+#include "int10.h"
 #include "joystick.h"
 #include "math_utils.h"
 #include "mem.h"
@@ -102,7 +106,7 @@ static bool Tandy_InitializeSB() {
 	uint16_t sbport;
 	uint8_t sbirq;
 	uint8_t sbdma;
-	if (SB_Get_Address(sbport, sbirq, sbdma)) {
+	if (SB_GetAddress(sbport, sbirq, sbdma)) {
 		tandy_sb.port = sbport;
 		tandy_sb.irq = sbirq;
 		tandy_sb.dma = sbdma;
@@ -117,7 +121,7 @@ static bool Tandy_InitializeSB() {
 static bool Tandy_InitializeTS() {
 	/* see if Tandy DAC module available and at what port/IRQ/DMA */
 	Bitu tsport, tsirq, tsdma;
-	if (TS_Get_Address(tsport, tsirq, tsdma)) {
+	if (TANDYSOUND_GetAddress(tsport, tsirq, tsdma)) {
 		tandy_dac.port=(uint16_t)(tsport&0xffff);
 		tandy_dac.irq =(uint8_t)(tsirq&0xff);
 		tandy_dac.dma =(uint8_t)(tsdma&0xff);
@@ -1008,23 +1012,71 @@ static Bitu Default_IRQ_Handler()
 	return CBRET_NONE;
 }
 
-static Bitu Reboot_Handler(void) {
-	// switch to text mode, notify user (let's hope INT10 still works)
-	reg_ax = 0;
-	CALLBACK_RunRealInt(0x10);
-	reg_ah = 0xe;
-	reg_bx = 0;
+static Bitu reboot_handler()
+{
+	LOG_MSG("BIOS: Reboot requested");
 
-	constexpr char text[] = "\n\n   Reboot requested, quitting now.";
-	for (const auto c : text) {
-		reg_al = static_cast<uint8_t>(c);
-		CALLBACK_RunRealInt(0x10);
+	// Line number for text display
+	constexpr uint8_t text_row = 2;
+
+	// Switch to text mode
+	reg_ah = 0x00;
+	reg_al = 0x02; // 80x25
+	CALLBACK_RunRealInt(0x10);
+	const auto screen_width = INT10_GetTextColumns();
+
+	// Disable the blinking cursor
+	reg_ah = 0x01;
+	reg_ch = bit::literals::b5; // bit 5 = disable cursor
+	reg_cl = 0;
+	CALLBACK_RunRealInt(0x10);
+
+	// Prepare the text to display
+	std::vector<std::string> conunter_text = {};
+	conunter_text.push_back(MSG_Get("BIOS_REBOOTING_1"));
+	conunter_text.push_back(MSG_Get("BIOS_REBOOTING_2"));
+	conunter_text.push_back(MSG_Get("BIOS_REBOOTING_3"));
+	size_t max_length = 0;
+	for (auto& entry : conunter_text) {
+		max_length = std::max(max_length, entry.length());
 	}
-	LOG_MSG("BIOS: Reboot requested, quitting");
-	const auto start = PIC_FullIndex();
-	while ((PIC_FullIndex() - start) < 3000.0)
-		CALLBACK_Idle();
-	throw 1;
+	for (auto& entry : conunter_text) {
+		entry.resize(max_length, ' ');
+	}
+	// We want the text mostly centered, but we don't want to change the
+	// start column if the plural grammar form is longer/shorter than
+	// the singular one
+	const uint8_t start_column = (screen_width - max_length) / 2;
+
+	// Display the text/counter
+	while (!conunter_text.empty()) {
+
+		// Set cursor position to center the text output
+		reg_ah = 0x02;
+		reg_dh = text_row;
+		reg_dl = start_column;
+		reg_bh = 0; // page
+		CALLBACK_RunRealInt(0x10);
+
+		// Display the counter text, remove it from the list
+		reg_ah = 0x0e;
+		reg_bl = 0x00; // page
+		for (const auto c : conunter_text.back()) {
+			reg_al = static_cast<uint8_t>(c);
+			CALLBACK_RunRealInt(0x10);
+		}
+		conunter_text.pop_back();
+
+		// Wait one second
+		constexpr auto delay_ms = 1000.0;
+		const auto start = PIC_FullIndex();
+		while ((PIC_FullIndex() - start) < delay_ms) {
+			CALLBACK_Idle();
+		}
+	}
+
+	// Restart
+	restart_dosbox();
 	return CBRET_NONE;
 }
 
@@ -1179,9 +1231,12 @@ void BIOS_SetupDisks(void);
 class BIOS final : public Module_base{
 private:
 	CALLBACK_HandlerObject callback[11];
+	void AddMessages();
 public:
 	BIOS(Section* configuration) : Module_base(configuration)
 	{
+		AddMessages();
+
 		/* Clear the Bios Data Area (0x400-0x5ff, 0x600- is accounted to DOS) */
 		for (uint16_t i=0;i<0x200;i++) real_writeb(0x40,i,0);
 
@@ -1211,14 +1266,27 @@ public:
 		/* INT 12 Memory Size default at 640 kb */
 		callback[2].Install(&INT12_Handler,CB_IRET,"Int 12 Memory");
 		callback[2].Set_RealVec(0x12);
-		if (IS_TANDY_ARCH) {
+		if (machine == MCH_TANDY) {
 			/* reduce reported memory size for the Tandy (32k graphics memory
 			   at the end of the conventional 640k) */
-			if (machine==MCH_TANDY) mem_writew(BIOS_MEMORY_SIZE,624);
-			else mem_writew(BIOS_MEMORY_SIZE,640);
-			mem_writew(BIOS_TRUE_MEMORY_SIZE,640);
-		} else mem_writew(BIOS_MEMORY_SIZE,640);
-		
+			mem_writew(BIOS_MEMORY_SIZE, 624);
+			mem_writew(BIOS_TRUE_MEMORY_SIZE, ConventionalMemorySizeKb);
+		} else if (machine == MCH_PCJR) {
+			const Section_prop* section = static_cast<Section_prop*>(control->GetSection("dos"));
+			assert(section);
+			const std::string pcjr_memory_config = section->Get_string("pcjr_memory_config");
+			if (pcjr_memory_config == "expanded") {
+				mem_writew(BIOS_MEMORY_SIZE, ConventionalMemorySizeKb);
+				mem_writew(BIOS_TRUE_MEMORY_SIZE, ConventionalMemorySizeKb);
+			} else {
+				assert(pcjr_memory_config == "standard");
+				mem_writew(BIOS_MEMORY_SIZE, PcjrStandardMemorySizeKb - PcjrVideoMemorySizeKb);
+				mem_writew(BIOS_TRUE_MEMORY_SIZE, PcjrStandardMemorySizeKb);
+			}
+		} else {
+			mem_writew(BIOS_MEMORY_SIZE, ConventionalMemorySizeKb);
+		}
+
 		/* INT 13 Bios Disk Support */
 		BIOS_SetupDisks();
 
@@ -1256,7 +1324,7 @@ public:
 		/* Reboot */
 		// This handler is an exit for more than only reboots, since we
 		// don't handle these cases
-		callback[10].Install(&Reboot_Handler,CB_IRET,"reboot");
+		callback[10].Install(&reboot_handler,CB_IRET,"reboot");
 		
 		// INT 18h: Enter BASIC
 		// Non-IBM BIOS would display "NO ROM BASIC" here
@@ -1430,6 +1498,15 @@ public:
 		shutdown_tandy_sb_dac_callbacks();
 	}
 };
+
+void BIOS::AddMessages()
+{
+	// Some languages have more than one plural form, see:
+	// https://en.wikipedia.org/wiki/Grammatical_number
+	MSG_Add("BIOS_REBOOTING_3", "Rebooting in 3 seconds...");
+	MSG_Add("BIOS_REBOOTING_2", "Rebooting in 2 seconds...");
+	MSG_Add("BIOS_REBOOTING_1", "Rebooting in 1 second...");
+}
 
 // set com port data in bios data area
 // parameter: array of 4 com port base addresses, 0 = none

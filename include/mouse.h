@@ -1,5 +1,7 @@
 /*
- *  Copyright (C) 2022-2023  The DOSBox Staging Team
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ *  Copyright (C) 2022-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,6 +28,7 @@
 #include <string>
 #include <vector>
 
+#include "control.h"
 #include "rect.h"
 
 // ***************************************************************************
@@ -33,7 +36,7 @@
 // ***************************************************************************
 
 void MOUSE_Init(Section *);
-void MOUSE_AddConfigSection(const config_ptr_t &);
+void MOUSE_AddConfigSection(const ConfigPtr &);
 
 // ***************************************************************************
 // Data types
@@ -81,7 +84,7 @@ enum class MouseButtonId : uint8_t {
 // ***************************************************************************
 
 void MOUSE_EventMoved(const float x_rel, const float y_rel,
-                      const int32_t x_abs, const int32_t y_abs);
+                      const float x_abs, const float y_abs);
 void MOUSE_EventMoved(const float x_rel, const float y_rel,
                       const MouseInterfaceId device_id);
 
@@ -89,7 +92,7 @@ void MOUSE_EventButton(const MouseButtonId button_id, const bool pressed);
 void MOUSE_EventButton(const MouseButtonId button_id, const bool pressed,
                        const MouseInterfaceId device_id);
 
-void MOUSE_EventWheel(const int16_t w_rel);
+void MOUSE_EventWheel(const float w_rel);
 void MOUSE_EventWheel(const int16_t w_rel, const MouseInterfaceId device_id);
 
 // Notify that guest OS is being booted, so that certain
@@ -118,8 +121,8 @@ struct MouseScreenParams {
 	DosBox::Rect draw_rect = {};
 
 	// New absolute mouse cursor position in logical units
-	int32_t x_abs = 0;
-	int32_t y_abs = 0;
+	float x_abs = 0;
+	float y_abs = 0;
 
 	// Whether the new mode is fullscreen or windowed
 	bool is_fullscreen = false;
@@ -252,9 +255,16 @@ public:
 
 	static bool IsNoMouseMode();
 	static bool IsMappingBlockedByDriver();
-	
-	static bool CheckInterfaces(const ListIDs &list_ids);
-	static bool PatternToRegex(const std::string &pattern, std::regex &regex);
+
+	using MappingSupport = enum {
+		Supported,            // fully supported
+		NotCompiledIn,        // ManyMouse not included in the build
+		NotAvailableRawInput, // user has to disable 'mouse_raw_input'
+	};
+	static MappingSupport IsMappingSupported();
+
+	static bool CheckInterfaces(const ListIDs& list_ids);
+	static bool PatternToRegex(const std::string& pattern, std::regex& regex);
 
 	// This one is ONLY for interactive mapping in MOUSECTL.COM!
 	bool MapInteractively(const MouseInterfaceId interface_id,

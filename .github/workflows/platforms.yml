@@ -2,6 +2,7 @@ name: Platform builds
 
 on:
   schedule: [cron: '0 14 * * *']
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -34,26 +35,30 @@ jobs:
         include:
           - name: ARMv6 (Raspbian)
             arch: armv6
-            distro: bullseye
-          - name: ARMv7 (Debian “bullseye”)
+            distro: bookworm
+          - name: ARMv7 (Debian “bookworm”)
             arch: armv7
-            distro: bullseye
-          - name: ARM64 (Ubuntu 20.04)
+            distro: bookworm
+          - name: ARM64 (Ubuntu 22.04)
             arch: aarch64
-            distro: ubuntu20.04
-          - name: s390x (Fedora)
+            distro: ubuntu22.04
+          - name: riscv64 (Ubuntu 22.04)
+            arch: riscv64
+            distro: ubuntu22.04   
+          - name: s390x (Debian "bookworm")
             arch: s390x
-            distro: fedora_latest
-          - name: ppc64le (Fedora)
+            distro: bookworm
+          - name: ppc64le (Debian "bookworm")
             arch: ppc64le
-            distro: fedora_latest
+            distro: bookworm
+            
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: false
 
-      - uses: uraimo/run-on-arch-action@master
+      - uses: uraimo/run-on-arch-action@v2.8.1
         name: Build artifact
         id: build
         with:
@@ -82,16 +87,27 @@ jobs:
           # no secrets are present in the container state or logs.
           install: |
             case "${{ matrix.distro }}" in
-              ubuntu*|jessie|stretch|buster|bullseye)
+              ubuntu20.04|jessie|stretch|buster|bullseye)
                 # we only care about issues
                 apt-get -qq update  < /dev/null > /dev/null
                 apt-get -qq install git curl findutils procps tar zstd screenfetch \
                                     < /dev/null > /dev/null
                 apt-get -qq install cmake g++ build-essential ccache libasound2-dev libgtest-dev \
-                                    libopusfile-dev libsdl2-dev python3-setuptools python3-pip zlib1g-dev \
-                                    libspeexdsp-dev \
+                                    libopusfile-dev libsdl2-dev zlib1g-dev libspeexdsp-dev libpng-dev \
+                                    < /dev/null > /dev/null
+                # Meson from Debian repository is too old for DOSBox Staging
+                apt-get -qq install python3-setuptools python3-pip \
                                     < /dev/null > /dev/null
                 pip3 install meson ninja
+                ;;
+              ubuntu22.04|bookworm)
+                # we only care about issues
+                apt-get -qq update  < /dev/null > /dev/null
+                apt-get -qq install git curl findutils procps tar zstd screenfetch \
+                                    < /dev/null > /dev/null
+                apt-get -qq install cmake g++ build-essential ccache meson libasound2-dev libgtest-dev \
+                                    libopusfile-dev libsdl2-dev zlib1g-dev libspeexdsp-dev libpng-dev \
+                                    < /dev/null > /dev/null
                 ;;
               fedora*)
                 dnf -q -y update
@@ -112,6 +128,8 @@ jobs:
 
             # Setup
             #  - use a minimal build because python fetching wraps segfaults under Docker
+            #  - zlib-ng fails to compile for ARM targets, work around by just disabling
+            #    it until a proper fix can be found
             meson setup \
                   -Duse_fluidsynth=false \
                   -Duse_sdl2_net=false \
@@ -119,6 +137,7 @@ jobs:
                   -Duse_mt32emu=false \
                   -Duse_slirp=false \
                   -Duse_alsa=false \
+                  -Duse_zlib_ng=false \
                   build
             # Build
             meson compile -C build

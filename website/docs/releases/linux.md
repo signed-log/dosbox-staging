@@ -5,39 +5,37 @@ hide:
 
 # Linux releases
 
-## Project-released tarball
+## Current stable version
 
-### Current stable version
+<section class="release-downloads" markdown>
 
-[Download DOSBox Staging 0.81.0 (tar.xz)][0_81_0]
+[Download DOSBox Staging 0.82.0 (x86_64)][0_82_0]
 <br>
 <small>
-sha256: 034b08a941a7fd0279a81b10af620999<wbr>c569f7e81b786e7f4b59a0b94e46d399
+sha256: fd491de6e989da2b34be743fd419735b<wbr>efc80e6f507ec15b9b3ea6164624dabf
+
 </small>
 
-Check out the [0.81.0 release notes](release-notes/0.81.0.md) to learn
-about the changes and improvements introduced in this release.
+</section>
 
-Our pre-compiled builds run on most Linux distributions (x86\_64 only
-for now). They depend on the following packages:
 
-### Install dependencies on Fedora
-
-    sudo dnf install SDL2 SDL2_net opusfile
-
-### Install dependencies on Ubuntu and Debian
-
-Ubuntu 18.04 or newer, and Debian 9 or newer is required.
-
-    sudo apt install libsdl2-2.0-0 libsdl2-net-2.0-0 libopusfile0
-
-### Install dependencies on Arch and Manjaro
-
-    sudo pacman -S sdl2 sdl2_net opusfile
-
+Our pre-compiled builds run on most desktop Linux distributions (x86\_64 only for
+now). They only depend on the C/C++, ALSA, and OpenGL system libraries.
 
 Please run the `install-icons.sh` script included with the release to install
 the application icons.
+
+Check out the [0.82.0 release notes](release-notes/0.82.0.md) to learn
+about the changes and improvements introduced in this release.
+
+If you're new to DOSBox Staging, we highly recommend following the
+[Getting started guide](../getting-started/index.md).
+
+
+## Hardware requirements
+
+From the x86 family of processors, a processor with SSSE3 (Supplemental
+Streaming SIMD Extensions 3) is required.
 
 
 ## External repository packages
@@ -83,6 +81,24 @@ Available via [Personal Package Archive](https://launchpad.net/~feignint/+archiv
 
 Available via [Arch User Repository](https://aur.archlinux.org/packages/dosbox-staging).
 
+### NixOS repository package
+
+Available via NixOS or Home Manager. Add the following to your `configuration.nix` file:
+
+For NixOS:
+
+    environment.systemPackages = with pkgs; [
+      dosbox-staging
+    ];
+
+For Home Manager:
+
+    home.packages = with pkgs; [
+      dosbox-staging
+    ];
+
+Then rebuild your system with: `nixos-rebuild switch`
+
 ### Other repository packages
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/dosbox-staging.svg){ width=230 }][other-repos]
@@ -103,6 +119,7 @@ configured to use a specific binary by editing the file
 
 [boxtron-conf]:https://github.com/dreamer/boxtron/wiki/Configuration#dosboxcmd
 
+
 ## RetroPie package
 
 You can easily configure your DOS games on
@@ -110,10 +127,6 @@ You can easily configure your DOS games on
 [RetroPie-Setup](https://github.com/RetroPie/RetroPie-Setup) (select
 **Optional Packages** --> **DOSBox Staging**).
 
-## Hardware requirements
-
-From the x86 family of processors, a processor with SSSE3 (Supplemental
-Streaming SIMD Extensions 3) is required.
 
 ## Development snapshot builds
 
@@ -124,6 +137,24 @@ are designed with developers and testers in mind.
 
 
 ## Older releases
+
+- [Download DOSBox Staging 0.81.2 (x86_64)][0_81_2]
+  <br>
+  <small>
+  sha256: c47f1767ae1371666f40e3a4e13272da<wbr>5c5a98c9c6f355b4fb82bac0d3911a68
+  </small>
+
+- [DOSBox Staging 0.81.1 (tar.xz)][0_81_1]
+  <br>
+  <small>
+  sha256: 5aee92774569cf1e39ade3fccff03994<wbr>464d17b396b0ae98360af61e9d37cba7
+  </small>
+
+- [DOSBox Staging 0.81.0 (tar.xz)][0_81_0]
+  <br>
+  <small>
+  sha256: 034b08a941a7fd0279a81b10af620999<wbr>c569f7e81b786e7f4b59a0b94e46d399
+  </small>
 
 - [DOSBox Staging 0.80.1 (tar.xz)][0_80_1]
   <br>
@@ -197,6 +228,9 @@ are designed with developers and testers in mind.
   sha256: 594ba45280af240cb18b3882f7ffa711<wbr>69a697eb362b7d7a76c8ccda2b940e84
   </small>
 
+[0_82_0]: https://github.com/dosbox-staging/dosbox-staging/releases/download/v0.82.0/dosbox-staging-linux-x86_64-v0.82.0.tar.xz
+[0_81_2]: https://github.com/dosbox-staging/dosbox-staging/releases/download/v0.81.2/dosbox-staging-linux-v0.81.2.tar.xz
+[0_81_1]: https://github.com/dosbox-staging/dosbox-staging/releases/download/v0.81.1/dosbox-staging-linux-v0.81.1.tar.xz
 [0_81_0]: https://github.com/dosbox-staging/dosbox-staging/releases/download/v0.81.0/dosbox-staging-linux-v0.81.0.tar.xz
 [0_80_1]: https://github.com/dosbox-staging/dosbox-staging/releases/download/v0.80.1/dosbox-staging-linux-v0.80.1.tar.xz
 [0_80_0]: https://github.com/dosbox-staging/dosbox-staging/releases/download/v0.80.0/dosbox-staging-linux-v0.80.0.tar.xz

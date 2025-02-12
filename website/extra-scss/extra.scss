@@ -425,6 +425,15 @@ small {
   /*------------------------------------------------------------------------*/
   /* Tables                                                                 */
   /*------------------------------------------------------------------------*/
+  .center-table {
+    text-align: center;
+
+    :is(td,th):not([align]) {
+      // Reset alignment for table cells */
+      text-align: initial;
+    }
+  }
+
   table:not([class]) {
     font-size: 0.78rem;
     border: none;
@@ -453,11 +462,13 @@ small {
   figure {
     max-width: 756px;
 
+    margin: 0.5rem auto 1rem auto;
+
     p {
       margin: 0;
     }
     img {
-      margin: auto;
+      margin: 0.5rem auto;
     }
     audio {
       width: 17rem;
@@ -636,6 +647,14 @@ small {
     font-size: .76rem;
   }
 
+  .headerlink {
+    display: none;
+
+    @media screen and (min-width: $min-width-2col) {
+      display: inline;
+    }
+  }
+
   .header {
     margin-top: 1.5rem;
 
@@ -653,14 +672,28 @@ small {
     .blurb {
       width: 100%;
       max-width: 28rem;
-      margin: 2.0rem auto auto auto;
+      margin: 2.5rem auto 2.5rem auto;
       font-size: 1.1rem;
       text-align: center;
       color: #333;
 
+      @media screen and (min-width: $min-width-3col) {
+        margin-bottom: 1.5rem;
+      }
+
       em {
         font-style: normal;
         font-weight: bold;
+      }
+
+      a {
+        border-bottom: 2px solid #999;
+
+        &:hover {
+          color: #222;
+          border-color: #222;
+          border-width: 3px;
+        }
       }
     }
 
@@ -745,23 +778,30 @@ small {
   }
 
   section {
+    margin-top: 2.5rem;
     text-align: center;
-    margin-top: 4.0rem;
 
     & > h1 {
-      margin-bottom: 1.4rem;
+      margin: 0 1.0rem 1.4rem 1.0rem;
       font: 400 1.75rem/1.2 Titillium Web;
       text-align: center;
       color: #333;
-      margin-left: 1.2rem;
     }
     & > p {
-      margin: 0 auto 1.4rem auto;
+      margin: 0 auto 0.7rem auto;
       text-align: center;
       font-size: 0.95rem;
       line-height: 1.55rem;
       max-width: 34rem;
       color: #333;
+    }
+
+    @media screen and (min-width: $min-width-2col) {
+      margin-top: 3.5rem;
+
+      & > p {
+        margin-bottom: 1.4rem;
+      }
     }
   }
 
@@ -837,6 +877,12 @@ small {
         flex-basis: calc((100% - (1.2rem * 2)) / 3);
       }
 
+      margin-bottom: 0;
+
+      &:last-child {
+        margin-bottom: 0.8rem;
+      }
+
       img {
         max-width: 100%;
         aspect-ratio: 4/3;
@@ -847,6 +893,14 @@ small {
       figcaption {
         color: rgba(0,0,0, 0.50);
         font-style: normal;
+
+        p {
+          margin: 0;
+
+          @media screen and (min-width: 30rem) {
+            margin-bottom: 0.8rem;
+          }
+        }
       }
     }
   }
@@ -855,10 +909,14 @@ small {
     h2 {
       width: 100%;
       margin: 0;
-      padding: 1.4rem 0;
+      padding: 1.4rem 0 0.4rem 0;
       text-align: center;
       font: 600 1.4rem/1.2 Titillium Web;
       color: rgba(0,0,0, 0.66);
+
+      @media screen and (min-width: $min-width-2col) {
+        padding-bottom: 1.0rem;
+      }
     }
 
     // Adjust scroll offset for headlines of level 1-3
@@ -890,7 +948,7 @@ small {
 
     .arcade {
       background: #444;
-      padding-bottom: 3.5rem;
+      padding-bottom: 2.0rem;
 
       @media screen and (min-width: $min-width-3col) {
         margin-bottom: -2.4rem;
@@ -940,8 +998,8 @@ small {
       gap: 1.8rem;
 
       .logo img {
-        width: 14rem;
-        margin-top: 1.9rem;
+        width: 14.5rem;
+        margin-top: 2.1rem;
         max-width: none;
       }
     }
@@ -959,4 +1017,36 @@ small {
 .about-logo {
   padding: 0 1rem 1rem 1rem;
   filter: drop-shadow(#00000052 0.2rem 0.3rem 0.6rem);
+}
+
+/*--------------------------------------------------------------------------*/
+/* Release pages                                                            */
+/*--------------------------------------------------------------------------*/
+
+.md-content {
+  .release-downloads {
+    padding: 0.1rem 1.2rem;
+    background-color: rgba(0, 0, 0, 0.04);
+    border-radius: 0.6em;
+
+    ul {
+      list-style: none;
+      margin-left: 0;
+      padding-left: 0;
+
+      li {
+        margin-left: 0;
+        padding-left: 0;
+
+        &:not(:last-child) {
+          margin-bottom: 1.0em;
+        }
+
+        p {
+          margin: 0;
+          padding: 0;
+        }
+      }
+    }
+  }
 }

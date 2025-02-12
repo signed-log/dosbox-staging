@@ -81,8 +81,7 @@ bool device_COM::Seek(uint32_t *pos, uint32_t type)
 	return true;
 }
 
-bool device_COM::Close() {
-	return false;
+void device_COM::Close() {
 }
 
 uint16_t device_COM::GetInformation()
@@ -94,11 +93,6 @@ device_COM::device_COM(class CSerial* sc) {
 	sclass = sc;
 	SetName(serial_comname[sclass->port_index]);
 }
-
-device_COM::~device_COM() {
-}
-
-
 
 // COM1 - COM4 objects
 CSerial *serialports[SERIAL_MAX_PORTS] = {nullptr};
