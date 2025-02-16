@@ -23,8 +23,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
-#include <list>
 #include <memory>
+#include <regex>
 
 #include "../dos/program_more_output.h"
 #include "../dos/program_setver.h"
@@ -38,13 +38,12 @@
 #include "support.h"
 #include "timer.h"
 
-constexpr int HistoryMaxLineSize = 256;
-constexpr int HistoryMaxNumLines = 500;
-
 callback_number_t call_shellstop = 0;
 /* Larger scope so shell_del autoexec can use it to
  * remove things from the environment */
 DOS_Shell *first_shell = nullptr;
+
+constexpr uint16_t InvalidFileHandle = DOS_FILES;
 
 static Bitu shellstop_handler()
 {
@@ -56,122 +55,182 @@ std::unique_ptr<Program> SHELL_ProgramCreate() {
 }
 
 DOS_Shell::DOS_Shell()
-        : Program(),
-          input_handle(STDIN),
-          echo(true),
-          call(false)
 {
 	AddShellCmdsToHelpList();
 	help_detail = {HELP_Filter::All,
 	               HELP_Category::Misc,
 	               HELP_CmdType::Program,
 	               "COMMAND"};
-}
 
-void DOS_Shell::GetRedirection(char *line,
-                               std::string &in_file,
-                               std::string &out_file,
-                               std::string &pipe_file,
-                               bool *append)
-{
-	char *line_read = line;
-	char *line_write = line;
-	char character = 0;
-	bool quote = false;
-	size_t found = 0;
-	size_t temp_len = 0;
-	std::string redir = "";
-	std::string find_chars = "";
-	std::string *output;
-	*append = false;
-	while ((character = *line_read++)) {
-		if (quote && character != '"') { /* don't parse redirection
-			                            within quotes. Not perfect
-			                            yet. Escaped quotes will
-			                            mess the count up */
-			*line_write++ = character;
-			continue;
-		}
-		if (character == '"') {
-			quote = !quote;
-		} else if (character == '>' || character == '<' || character == '|') {
-			// Overwrite with >, and append with >>
-			if (character == '>' && (*append = (*line_read == '>')))
-				line_read++;
-			// Get the current content of the redirection
-			redir = line_read = ltrim(line_read);
-			// Try to find the characters for string split
-			find_chars = character == '|'
-			                     ? ""
-			                     : (character != '<' ? " |<" : " |>");
-			found = redir.find_first_of(find_chars);
-			// Get the length of the substring before the
-			// characters, or the entire string if not found
-			if (found == std::string::npos) {
-				temp_len = redir.size();
-			} else {
-				temp_len = found;
-			}
-
-			// Ignore trailing ':' character
-			if (temp_len > 0 && redir[temp_len - 1] == ':') {
-				--temp_len;
-			}
-
-			// Assign substring content of length to output parameters
-			output = (character == '>'
-			                  ? &out_file
-			                  : (character == '<' ? &in_file : &pipe_file));
-			*output = redir.substr(0, temp_len);
-			line_read += temp_len;
-			continue;
-		}
-		*line_write++ = character;
+	static std::weak_ptr<ShellHistory> global_shell_history = {};
+	history = global_shell_history.lock();
+	if (!history) {
+		history = std::make_shared<ShellHistory>();
+		global_shell_history = history;
 	}
-	*line_write = 0;
 }
 
-bool get_pipe_status(const char *out_file,
+// This function gets redirection targets from the given shell command line and
+// returns the results as a struct. The results include the redirection targets
+// as well as the processed command line with the targets stripped off.
+//
+// Note that real MS-DOS is quite nuanced in its whitespace handling:
+// - 'echo 1>out.txt' produces a 3-byte file: '1CRLF'
+// - 'echo 1 > out.txt' produces a 4-byte file: '1 CRLF'
+// - 'echo 1 >out.txt ' produces a 5-byte file: '1  CRLF'
+// This behavior is replicated here; see the shell_redirection_tests for more
+// examples.
+//
+std::optional<DOS_Shell::RedirectionResults> DOS_Shell::GetRedirection(
+        const std::string_view line)
+{
+	// Returned results and quick-access references to members.
+	RedirectionResults results = {};
+	auto& [processed_line, in_file, out_file, pipe_target, is_appending] = results;
+
+	// The regex splits the line into quoted and redirection groups
+	static const std::regex re(R"(("[^"]*"\s*)|([<>|]|>>|<<)\s*([^<>| ]+)(\s*))",
+	                           std::regex::optimize);
+	//
+	//    ("[^"]*"\s*)  # Group 1: double-quoted text
+	//    |             # -or-
+	//    (             # Group 2: the redirection tokens, either
+	//        [<>|]     # Single character tokens
+	//        |         # -or-
+	//        >>|<<     # Double character tokens
+	//    )
+	//    \s*           # Whitespace after the redirection token
+	//    ([^<>| ]+)    # Group 3: target file or program name
+	//    (\s*)         # Group 4: the target's tail whitespace
+	//
+	// Named match indexes:
+	enum { Quoted = 1, Token = 2, Target = 3, Tail = 4 };
+
+	// Match iterator (shorthand to avoid visual overload below)
+	auto m = std::cregex_iterator(line.data(), line.data() + line.size(), re);
+	auto m_end = std::cregex_iterator();
+
+	// Tracks the end of the pre-matched portion in the line. This is
+	// stepped forward as we iterate through the matches.
+	size_t pre_match_end = 0;
+
+	while (m != m_end) {
+
+		// Pre-match
+		// ~~~~~~~~~
+		// This is the text that's neither quoted nor a redirection.
+		const auto pre_match_len = m->position() - pre_match_end;
+		const auto pre_match_line = line.substr(pre_match_end, pre_match_len);
+
+		// The pre-matched content shouldn't contain any redirection
+		// tokens. If it does, it would generate a syntax error under
+		// real MS-DOS, so we do the same and bail-out with an empty
+		// std::optional.
+		if (pre_match_line.find_first_of("<>|") != std::string_view::npos) {
+			return {};
+		}
+		// The content is acceptable, so append it and update the end
+		// marker.
+		processed_line.append(pre_match_line);
+		pre_match_end = m->position() + m->length();
+
+		// Group 1 (Quoted)
+		// ~~~~~~~~~~~~~~~~
+		// Append quoted blocks of text as-is to the processed line
+		// without processing.
+		if ((*m)[Quoted].matched) {
+			processed_line.append((*m)[Quoted].str());
+		}
+
+		// Group 2, 3, and 4 (Redirection)
+		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		if ((*m)[Token].matched) {
+			const auto token           = (*m)[Token].str();
+			const auto tail_whitespace = (*m)[Tail].str();
+
+			// Real MS-DOS lets redirection targets be punctuated
+			// with an optional colon. We allow the same and strip
+			// it off if because the actual target doesn't end in it.
+			std::string target = (*m)[Target].str();
+			assert(!target.empty());
+			if (target.back() == ':') {
+				target.pop_back();
+			}
+			// Process the redirection based on token character
+			switch (token[0]) {
+			case '<':
+				in_file      = target;
+				is_appending = (token == "<<");
+				break;
+			case '>':
+				// When multiple outputs are specified without
+				// whitespace such as "echo 1>out1:>out2:",
+				// real MS-DOS replaces the first
+				// output with a space in the command,
+				// effectively becoming 'echo 1 >out2'
+				if (!out_file.empty() && !processed_line.empty() &&
+				    processed_line.back() != ' ') {
+					processed_line.append(" ");
+				}
+				out_file     = target;
+				is_appending = (token == ">>");
+
+				// Real MS-DOS appends the target's tail
+				// whitespace to the command. For example:
+				// 'echo 1>out:  ' becomes 'echo 1  >out'.
+				//             ^^-----------------^^
+				// So we do the same here (see unit tests for
+				// more).
+				processed_line.append(tail_whitespace);
+				break;
+			case '|': pipe_target = target; break;
+			default: assertm(false, "SHELL: Unhandled redirection");
+			}
+		}
+		++m;
+	}
+	// Finally append any trailing non-matched text
+	processed_line.append(line.substr(pre_match_end));
+
+	return results;
+}
+
+static uint16_t get_output_redirection(const char *out_file,
                      const char *pipe_file,
                      char (&pipe_tempfile)[270],
                      const bool append,
                      bool &failed_pipe)
 {
+	constexpr bool fcb = true;
 	FatAttributeFlags fattr = {};
-	uint16_t dummy = 0;
-	uint16_t dummy2 = 0;
-	uint32_t bigdummy = 0;
-	bool status = true;
+	uint16_t file_handle = InvalidFileHandle;
+	bool success = true;
 	/* Create if not exist. Open if exist. Both in read/write mode */
 	if (!pipe_file && append) {
 		if (DOS_GetFileAttr(out_file, &fattr) && fattr.read_only) {
 			DOS_SetError(DOSERR_ACCESS_DENIED);
-			status = false;
-		} else if ((status = DOS_OpenFile(out_file, OPEN_READWRITE, &dummy))) {
-			DOS_SeekFile(1, &bigdummy, DOS_SEEK_END);
+			success = false;
+		} else if ((success = DOS_OpenFile(out_file, OPEN_READWRITE, &file_handle, fcb))) {
+			uint32_t seek_pos = 0;
+			DOS_SeekFile(file_handle, &seek_pos, DOS_SEEK_END, fcb);
 		} else {
 			// Create if not exists.
-			status = DOS_CreateFile(out_file,
+			success = DOS_CreateFile(out_file,
 			                        FatAttributeFlags::Archive,
-			                        &dummy);
+			                        &file_handle, fcb);
 		}
 	} else if (!pipe_file && DOS_GetFileAttr(out_file, &fattr) && fattr.read_only) {
 		DOS_SetError(DOSERR_ACCESS_DENIED);
-		status = false;
+		success = false;
 	} else {
 		if (pipe_file &&
 		    DOS_FindFirst(pipe_tempfile, FatAttributeFlags::NotVolume) &&
 		    !DOS_UnlinkFile(pipe_tempfile)) {
 			failed_pipe = true;
 		}
-		status = DOS_OpenFileExtended(pipe_file && !failed_pipe ? pipe_tempfile
-		                                                        : out_file,
-		                              OPEN_READWRITE,
-		                              FatAttributeFlags::Archive,
-		                              0x12,
-		                              &dummy,
-		                              &dummy2);
-		if (pipe_file && (failed_pipe || !status) &&
+		success = DOS_CreateFile((pipe_file && !failed_pipe) ? pipe_tempfile : out_file,
+		                         FatAttributeFlags::Archive, &file_handle, fcb);
+		if (pipe_file && (failed_pipe || !success) &&
 		    (Drives[0] || Drives[2] || Drives[24]) &&
 		    !strchr(pipe_tempfile, '\\')) {
 			// Insert a drive prefix into the pipe filename path.
@@ -187,61 +246,34 @@ bool get_pipe_status(const char *out_file,
 			    !DOS_UnlinkFile(pipe_tempfile)) {
 				failed_pipe = true;
 			} else {
-				status = DOS_OpenFileExtended(pipe_tempfile,
-				                              OPEN_READWRITE,
-				                              FatAttributeFlags::Archive,
-				                              0x12,
-				                              &dummy,
-				                              &dummy2);
+				if (success) {
+					DOS_CloseFile(file_handle, fcb);
+				}
+				success = DOS_CreateFile(pipe_tempfile, FatAttributeFlags::Archive, &file_handle, fcb);
 			}
 		}
 	}
-	return status;
-}
-
-constexpr uint16_t failed_open = 0xff;
-uint16_t open_stdin_as(const char *name)
-{
-	uint16_t success_open;
-	if (DOS_OpenFile(name, OPEN_READ, &success_open))
-		return success_open;
-	else
-		return failed_open;
-}
-
-uint16_t open_stdout_as(const char *name)
-{
-	uint16_t success_open;
-	if (DOS_OpenFile(name, OPEN_READWRITE, &success_open))
-		return success_open;
-	else
-		return failed_open;
-}
-
-void close_stdin(const bool condition = true)
-{
-	if (condition)
-		DOS_CloseFile(0);
-}
-
-void close_stdout(const bool condition = true)
-{
-	if (condition)
-		DOS_CloseFile(1);
-}
-
-void open_console_device(const bool condition = true)
-{
-	if (condition) {
-		uint16_t dummy;
-		DOS_OpenFile("con", OPEN_READWRITE, &dummy);
+	if (success) {
+		assert(file_handle != InvalidFileHandle);
+		return file_handle;
 	}
+	return InvalidFileHandle;
 }
 
 uint16_t get_tick_random_number() {
 	constexpr uint16_t random_uplimit = 10000;
 	return (uint16_t)(GetTicks() % random_uplimit);
 }
+
+// Yo dawg MSVC-Clang likes to complain about pragmas
+// So here's a pragma so you stop complaining about pragmas
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-pragmas"
+
+// Disable PVS warning 1020 for this function.
+// It's a false positive about needing to call DOS_CloseFile()
+#pragma pvs(push)
+#pragma pvs(disable: 1020)
 
 void DOS_Shell::ParseLine(char *line)
 {
@@ -251,28 +283,28 @@ void DOS_Shell::ParseLine(char *line)
 		line[0] = ' ';
 	line = trim(line);
 
+	constexpr bool fcb = true;
+
 	/* Do redirection and pipe checks */
-	std::string in_file = "";
-	std::string out_file = "";
-	std::string pipe_file = "";
+	const auto old_stdin  = psp->GetFileHandle(STDIN);
+	const auto old_stdout = psp->GetFileHandle(STDOUT);
 
-	uint16_t dummy    = 0;
-	bool append = false;
-	bool normalstdin = false;  /* whether stdin/out are open on start. */
-	bool normalstdout = false; /* Bug: Assumed is they are "con"      */
+	auto input_redirection = InvalidFileHandle;
+	auto output_redirection = InvalidFileHandle;
 
-	GetRedirection(line, in_file, out_file, pipe_file, &append);
-	if (in_file.length() || out_file.length() || pipe_file.length()) {
-		normalstdin = (psp->GetFileHandle(0) != failed_open);
-		normalstdout = (psp->GetFileHandle(1) != failed_open);
+	const auto redirection_results = GetRedirection(line);
+	if (!redirection_results) {
+		SyntaxError();
+		return;
 	}
+
+	const auto& [processed_line, in_file, out_file, pipe_file, append] = *redirection_results;
+	std::strcpy(line, processed_line.c_str());
+
 	if (in_file.length()) {
-		if ((dummy = open_stdin_as(in_file.c_str())) != failed_open) { // Test if
-			// file exists
-			DOS_CloseFile(dummy);
+		if (DOS_OpenFile(in_file.c_str(), OPEN_READ, &input_redirection, fcb)) {
 			LOG_MSG("SHELL: Redirect input from %s", in_file.c_str());
-			close_stdin(normalstdin);
-			open_stdin_as(in_file.c_str()); // Open new stdin
+			assert(input_redirection != InvalidFileHandle);
 		} else {
 			WriteOut(MSG_Get(dos.errorcode == DOSERR_ACCESS_DENIED
 			                         ? "SHELL_ACCESS_DENIED"
@@ -284,25 +316,22 @@ void DOS_Shell::ParseLine(char *line)
 	bool failed_pipe = false;
 	char pipe_tempfile[270]; // Piping requires the use of a temporary file
 	FatAttributeFlags fattr = {};
-	if (pipe_file.length()) {
-		std::string env_temp_path = {};
-		if (!GetEnvStr("TEMP", env_temp_path) &&
-		    !GetEnvStr("TMP", env_temp_path)) {
+	if (!pipe_file.empty()) {
+		auto env_temp_path = psp->GetEnvironmentValue("TEMP");
+		if (!env_temp_path) {
+			env_temp_path = psp->GetEnvironmentValue("TMP");
+		}
+		if (!env_temp_path ||
+		    (!DOS_GetFileAttr(env_temp_path->c_str(), &fattr) ||
+		     !fattr.directory)) {
 			safe_sprintf(pipe_tempfile,
 			             "pipe%d.tmp",
 			             get_tick_random_number());
 		} else {
-			const auto idx   = env_temp_path.find('=');
-			std::string temp = env_temp_path.substr(idx + 1,
-			                                        std::string::npos);
-			if (DOS_GetFileAttr(temp.c_str(), &fattr) && fattr.directory) {
-				safe_sprintf(pipe_tempfile,
-				             "%s\\pipe%d.tmp",
-				             temp.c_str(),
-				             get_tick_random_number());
-			} else
-				safe_sprintf(pipe_tempfile, "pipe%d.tmp",
-				             get_tick_random_number());
+			safe_sprintf(pipe_tempfile,
+			             "%s\\pipe%d.tmp",
+			             env_temp_path->c_str(),
+			             get_tick_random_number());
 		}
 	}
 	if (out_file.length() || pipe_file.length()) {
@@ -311,49 +340,60 @@ void DOS_Shell::ParseLine(char *line)
 			         out_file.c_str());
 		// LOG_MSG("SHELL: Redirecting output to %s",
 		//         pipe_file.length() ? pipe_tempfile : out_file.c_str());
-		close_stdout(normalstdout);
-		open_console_device(!normalstdin && !in_file.length());
-		if (!get_pipe_status(out_file.length() ? out_file.c_str() : nullptr,
-		                     pipe_file.length() ? pipe_file.c_str() : nullptr,
-		                     pipe_tempfile, append, failed_pipe) &&
-		    normalstdout) {
-			// Read only file, open con again
-			open_console_device();
+		output_redirection = get_output_redirection(
+		        out_file.length() ? out_file.c_str() : nullptr,
+		        pipe_file.length() ? pipe_file.c_str() : nullptr,
+		        pipe_tempfile,
+		        append,
+		        failed_pipe);
+		if (output_redirection == InvalidFileHandle) {
 			if (!pipe_file.length()) {
 				WriteOut(MSG_Get(dos.errorcode == DOSERR_ACCESS_DENIED
 				                         ? "SHELL_ACCESS_DENIED"
 				                         : "SHELL_FILE_CREATE_ERROR"),
 				         out_file.length() ? out_file.c_str()
 				                           : "(unnamed)");
-				close_stdout();
-				open_stdout_as("nul");
+				DOS_OpenFile("nul", OPEN_READWRITE, &output_redirection, fcb);
 			}
 		}
-		close_stdin(!normalstdin && !in_file.length());
 	}
+
+	// Replace stdin and stdout with redirection
+	if (input_redirection != InvalidFileHandle) {
+		psp->SetFileHandle(STDIN, input_redirection);
+	}
+	if (output_redirection != InvalidFileHandle) {
+		psp->SetFileHandle(STDOUT, output_redirection);
+	}
+
 	/* Run the actual command */
 	DoCommand(line);
+
 	/* Restore handles */
-	if (in_file.length()) {
-		close_stdin();
-		open_console_device(normalstdin);
+	if (input_redirection != InvalidFileHandle) {
+		psp->SetFileHandle(STDIN, old_stdin);
+		DOS_CloseFile(input_redirection, fcb);
 	}
-	if (out_file.length() || pipe_file.length()) {
-		close_stdout();
-		open_console_device(!normalstdin);
-		open_console_device(normalstdout);
-		close_stdin(!normalstdin);
+	if (output_redirection != InvalidFileHandle) {
+		psp->SetFileHandle(STDOUT, old_stdout);
+		DOS_CloseFile(output_redirection, fcb);
 	}
+
 	if (pipe_file.length()) {
+		uint16_t pipe_handle = InvalidFileHandle;
 		// Test if file can be opened for reading
-		if (!failed_pipe &&
-		    (dummy = open_stdin_as(pipe_tempfile)) != failed_open) {
-			DOS_CloseFile(dummy);
-			close_stdin(normalstdin);
-			open_stdin_as(pipe_tempfile); // Open new stdin
-			ParseLine((char *)pipe_file.c_str());
-			close_stdin();
-			open_console_device(normalstdin);
+		if (!failed_pipe && DOS_OpenFile(pipe_tempfile, OPEN_READ, &pipe_handle, fcb)) {
+			assert(pipe_handle != InvalidFileHandle);
+			psp->SetFileHandle(STDIN, pipe_handle);
+
+			assert(pipe_file.length() < CMD_MAXLINE);
+			char mutable_pipe_file[CMD_MAXLINE];
+			safe_strcpy(mutable_pipe_file, pipe_file.c_str());
+
+			ParseLine(mutable_pipe_file);
+
+			psp->SetFileHandle(STDIN, old_stdin);
+			DOS_CloseFile(pipe_handle, fcb);
 		} else {
 			WriteOut(MSG_Get("SHELL_CMD_FAILED_PIPE"));
 			LOG_MSG("SHELL: Failed to write pipe content to temporary file");
@@ -366,6 +406,10 @@ void DOS_Shell::ParseLine(char *line)
 		}
 	}
 }
+
+#pragma pvs(pop)
+
+#pragma clang diagnostic pop
 
 void DOS_Shell::RunBatchFile()
 {
@@ -427,8 +471,7 @@ void DOS_Shell::Run()
 					         MMOD2_NAME);
 				else
 					WriteOut(MSG_Get("SHELL_STARTUP_CGA"),
-					         MMOD2_NAME, MMOD1_NAME,
-					         MMOD2_NAME, PRIMARY_MOD_PAD);
+					         MMOD2_NAME);
 			}
 			if (machine == MCH_HERC)
 				WriteOut(MSG_Get("SHELL_STARTUP_HERC"));
@@ -456,73 +499,6 @@ void DOS_Shell::SyntaxError()
 	WriteOut(MSG_Get("SHELL_SYNTAX_ERROR"));
 }
 
-static std_fs::path get_shell_history_path()
-{
-	const auto section = static_cast<Section_prop*>(control->GetSection("dos"));
-	if (section) {
-		const auto path = section->Get_path("shell_history_file");
-		if (path) {
-			return path->realpath;
-		}
-	}
-	return {};
-}
-
-void DOS_Shell::ReadShellHistory()
-{
-	const auto history_path = get_shell_history_path();
-	if (history_path.empty()) {
-		return;
-	}
-	std::ifstream history_file(history_path);
-	if (history_file) {
-		std::string line;
-		while (getline(history_file, line)) {
-			trim(line);
-			auto len = line.length();
-			if (len > 0 && len <= HistoryMaxLineSize) {
-				utf8_history.emplace_back(std::move(line));
-			}
-		}
-	}
-}
-
-void DOS_Shell::WriteShellHistory()
-{
-	const auto history_path = get_shell_history_path();
-	if (history_path.empty()) {
-		return;
-	}
-	std::ofstream history_file(history_path);
-	if (!history_file) {
-		LOG_WARNING("SHELL: Unable to update history file: '%s'",
-		            history_path.string().c_str());
-		return;
-	}
-	std::vector<std::string> trimmed_history;
-	trimmed_history.reserve(utf8_history.size());
-	for (std::string str : utf8_history) {
-		trim(str);
-		auto len = str.length();
-		if (len > 0 && len <= HistoryMaxLineSize) {
-			trimmed_history.emplace_back(std::move(str));
-		}
-	}
-	// Remove "exit" from the history if it is the last command entered
-	if (!trimmed_history.empty()) {
-		std::string last = trimmed_history.back();
-		lowcase(last);
-		if (last == "exit") {
-			trimmed_history.pop_back();
-		}
-	}
-	int size = static_cast<int>(trimmed_history.size());
-	int start = std::max(0, size - HistoryMaxNumLines);
-	for (int i = start; i < size; ++i) {
-		history_file << trimmed_history[i] << std::endl;
-	}
-}
-
 extern int64_t ticks_at_program_launch;
 
 // Specify a 'Drive' config object with allowed key and value types
@@ -536,12 +512,13 @@ static std::unique_ptr<Config> specify_drive_config()
 
 	// Define the allowed keys and types
 	constexpr auto on_startup = Property::Changeable::OnlyAtStart;
-	const char *drive_types[] = {"dir", "floppy", "cdrom", "overlay", nullptr};
-	(void)prop->Add_string("type", on_startup, "")->Set_values(drive_types);
-	(void)prop->Add_string("label", on_startup, "");
-	(void)prop->Add_string("path", on_startup, "");
-	(void)prop->Add_string("override_drive", on_startup, "");
-	(void)prop->Add_bool("verbose", on_startup, true);
+	prop->Add_string("type", on_startup, "")
+	        ->Set_values({"dir", "floppy", "cdrom", "overlay"});
+	prop->Add_string("label", on_startup, "");
+	prop->Add_string("path", on_startup, "");
+	prop->Add_string("override_drive", on_startup, "");
+	prop->Add_bool("verbose", on_startup, true);
+	prop->Add_bool("readonly", on_startup, false);
 
 	return conf;
 }
@@ -586,7 +563,9 @@ std::tuple<std::string, std::string, std::string, bool> parse_drive_conf(
 		drive_label.insert(0, " -label ");
 	}
 
-	const auto mount_args = drive_type + drive_label;
+	const auto is_readonly = settings->Get_bool("readonly");
+
+	const auto mount_args = drive_type + drive_label + (is_readonly ? " -ro" : "");
 
 	const std::string path_val = settings->Get_string("path");
 
@@ -748,6 +727,8 @@ void SHELL_Init() {
 
 	MSG_Add("SHELL_CMD_SET_NOT_SET", "Environment variable '%s' not defined.\n");
 	MSG_Add("SHELL_CMD_SET_OUT_OF_SPACE", "Not enough environment space left.\n");
+	MSG_Add("SHELL_CMD_SET_OPTION_P_UNSUPPORTED",
+	        "Option /P is not supported; please use the CHOICE command.\n");
 
 	MSG_Add("SHELL_CMD_IF_EXIST_MISSING_FILENAME", "IF EXIST: Missing filename.\n");
 	MSG_Add("SHELL_CMD_IF_ERRORLEVEL_MISSING_NUMBER", "IF ERRORLEVEL: Missing number.\n");
@@ -819,11 +800,12 @@ void SHELL_Init() {
 	        "║ Press [color=light-red]%s+Pause[color=white] to enter the debugger or start the exe with [color=yellow]DEBUG[color=white]. ║\n"
 	        "║                                                                    ║\n");
 	MSG_Add("SHELL_STARTUP_END",
-	        "║ [color=yellow]https://dosbox-staging.github.io[color=white]                                   ║\n"
+	        "║ [color=yellow]https://www.dosbox-staging.org[color=white]                                     ║\n"
 	        "╚════════════════════════════════════════════════════════════════════╝[reset]\n"
 	        "\n");
 
-	MSG_Add("SHELL_STARTUP_SUB", "[color=light-green]" CANONICAL_PROJECT_NAME " %s[reset]\n");
+	MSG_Add("SHELL_STARTUP_SUB",
+	        "[color=light-green]" DOSBOX_PROJECT_NAME " %s[reset]\n");
 
 	MSG_Add("SHELL_CMD_CHDIR_HELP", "Display or change the current directory.\n");
 	MSG_Add("SHELL_CMD_CHDIR_HELP_LONG",
@@ -1323,28 +1305,27 @@ void SHELL_Init() {
 	        "Cannot move multiple files to a single file.\n");
 	MSG_Add("SHELL_CMD_FOR_HELP",
 	        "Run a specified command for each string in a set.\n");
-	MSG_Add("SHELL_CMD_FOR_HELP_LONG",
-		"Usage:\n"
-		"  [color=light-green]for[reset] [color=white]%VAR[reset] [color=light-cyan]in[reset] [color=white](SET)[reset] [color=light-cyan]do[reset] [color=white]COMMAND[reset]\n"
-		"\n"
-		"Parameters:\n"
-		"  [color=white]%VAR[reset]     single character representing a variable, prefixed by a '%'\n"
-		"  [color=light-cyan]in[reset]       case-insensitive keyword\n"
-		"  [color=white](SET)[reset]    set of strings to replace [color=white]%VAR[reset] instances in [color=white]COMMAND[reset]\n"
-		"  [color=light-cyan]do[reset]       case-insensitive keyword\n"
-		"  [color=white]COMMAND[reset]  command to repeat for each string in [color=white](SET)[reset]\n"
-		"\n"
-		"Notes:\n"
-		"  - In batch files, [color=white]%VAR[reset] must be written as [color=white]%%VAR[reset] (two percent signs) instead.\n"
-		"  - Strings in [color=white](SET)[reset] may be separated by any valid DOS separator.\n"
-		"  - Any string in [color=white](SET)[reset] containing wildcards (* or ?) will expand to\n" 
-		"    the set of matching files in the current directory.\n"
-		"  - Using another [color=light-green]for[reset] command as [color=white]COMMAND[reset] is not permitted.\n"
-		"\n"
-		"Examples:\n"
-		"  [color=light-green]for[reset] [color=white]%C[reset] [color=light-cyan]in[reset] [color=white](ONE TWO)[reset] [color=light-cyan]do[reset] [color=white]MKDIR[reset] [color=white]%C[reset]\n"
-		"  [color=light-green]for[reset] [color=white]%D[reset] [color=light-cyan]in[reset] [color=white](*.TXT)[reset] [color=light-cyan]do[reset] [color=white]ECHO[reset] [color=white]%D[reset]\n"
-	);
+	MSG_AddNoFormatString("SHELL_CMD_FOR_HELP_LONG",
+	        "Usage:\n"
+	        "  [color=light-green]for[reset] [color=white]%VAR[reset] [color=light-cyan]in[reset] [color=white](SET)[reset] [color=light-cyan]do[reset] [color=white]COMMAND[reset]\n"
+	        "\n"
+	        "Parameters:\n"
+	        "  [color=white]%VAR[reset]     single character representing a variable, prefixed by a '%'\n"
+	        "  [color=light-cyan]in[reset]       case-insensitive keyword\n"
+	        "  [color=white](SET)[reset]    set of strings to replace [color=white]%VAR[reset] instances in [color=white]COMMAND[reset]\n"
+	        "  [color=light-cyan]do[reset]       case-insensitive keyword\n"
+	        "  [color=white]COMMAND[reset]  command to repeat for each string in [color=white](SET)[reset]\n"
+	        "\n"
+	        "Notes:\n"
+	        "  - In batch files, [color=white]%VAR[reset] must be written as [color=white]%%VAR[reset] (two percent signs) instead.\n"
+	        "  - Strings in [color=white](SET)[reset] may be separated by any valid DOS separator.\n"
+	        "  - Any string in [color=white](SET)[reset] containing wildcards (* or ?) will expand to\n"
+	        "    the set of matching files in the current directory.\n"
+	        "  - Using another [color=light-green]for[reset] command as [color=white]COMMAND[reset] is not permitted.\n"
+	        "\n"
+	        "Examples:\n"
+	        "  [color=light-green]for[reset] [color=white]%C[reset] [color=light-cyan]in[reset] [color=white](ONE TWO)[reset] [color=light-cyan]do[reset] [color=white]MKDIR[reset] [color=white]%C[reset]\n"
+	        "  [color=light-green]for[reset] [color=white]%D[reset] [color=light-cyan]in[reset] [color=white](*.TXT)[reset] [color=light-cyan]do[reset] [color=white]ECHO[reset] [color=white]%D[reset]\n");
 
 	/* Ensure help categories are loaded into the message vector */
 	HELP_AddMessages();
@@ -1444,19 +1425,7 @@ void SHELL_Init() {
 	// first_shell is only setup here, so may as well invoke
 	// it's constructor directly
 	first_shell = new DOS_Shell;
-
-	// Must check arguments directly as control->SwitchToSecureMode()
-	// will not be called until the first shell is run
-	if (!control->arguments.securemode) {
-		first_shell->ReadShellHistory();
-	}
 	first_shell->Run();
-
-	// Secure mode can be enabled from the shell during runtime.
-	// On exit, we must check this value instead.
-	if (!control->SecureMode()) {
-		first_shell->WriteShellHistory();
-	}
 	delete first_shell;
 	first_shell = nullptr; // Make clear that it shouldn't be used anymore
 }

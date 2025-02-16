@@ -38,7 +38,7 @@ HTTP_TIMEOUT_SEC = 10
 #
 # - If at least one of the PR's labels matches against the filter's
 #   labels, the PR belongs to that category and is removed from the
-#   bucket.
+#   bucket (except if "remove" is False; it defaults to True).
 #
 # - The bucket of remaining items is passed down to the next
 #   filter, and this process is repeated until there are no more filters
@@ -49,6 +49,11 @@ HTTP_TIMEOUT_SEC = 10
 #
 FILTERS = [
     {
+        "category": "game-compatibility",
+        "title":    "game compatibility improvements",
+        "labels":   ["game compatibility"],
+        "remove":   False
+    }, {
         "category": "graphics",
         "title":    "graphics-related changes",
         "labels":   ["video", "voodoo", "shaders"]
@@ -150,7 +155,7 @@ publish
     publish_args.add_argument(
         "-t",
         "--version_tag",
-        help="version tag of the release notes draft (e.g., v0.82.0-alpha)"
+        help="version tag of the release notes draft (e.g., v0.83.0-alpha)"
     )
 
 
@@ -220,10 +225,10 @@ def get_draft_release_id_by_tag(tag):
 
     releases = execute_query(query)
 
-    for edge in releases['data']['repository']['releases']['edges']:
-        item = edge['node']
-        if item['isDraft'] and item['tagName'] == tag:
-            return item['databaseId']
+    for edge in releases["data"]["repository"]["releases"]["edges"]:
+        item = edge["node"]
+        if item["isDraft"] and item["tagName"] == tag:
+            return item["databaseId"]
 
     return None
 
@@ -351,6 +356,7 @@ def filter_category(items, filter_def):
 
         i["title"] = i["title"].strip()
 
+        remove = filter_def["remove"] if "remove" in filter_def else True
         include = False
 
         if "labels" in filter_def:
@@ -359,7 +365,8 @@ def filter_category(items, filter_def):
 
         if include:
             filtered.append(i)
-        else:
+
+        if not include or not remove:
             remaining.append(i)
 
     filtered.sort(key=lambda x: (x["title"].lower()))
@@ -392,11 +399,11 @@ def process_pull_requests_csv(items, csv_fname):
         [filtered, remaining] = filter_category(remaining, filter_def)
 
         for item in filtered:
-            item['category'] = filter_def['category']
+            item["category"] = filter_def["category"]
             result.append(item)
 
     for item in remaining:
-        item['category'] = 'other'
+        item["category"] = "other"
         result.append(item)
 
     write_csv(result, csv_fname)
@@ -406,7 +413,11 @@ def append_category_markdown(markdown, items, category_name):
     markdown = f"{markdown}## Full PR list of {category_name}\n\n"
 
     for i in items:
-        markdown = f"{markdown}  - {i['title']} (#{i['number']})\n"
+        item_md = f"  - {i['title']} (#{i['number']})"
+        if "backport" in i["labels"]:
+            item_md += " _[backport]_"
+
+        markdown += item_md + "\n"
 
     return f"{markdown}\n\n"
 

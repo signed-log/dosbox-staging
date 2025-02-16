@@ -1,26 +1,7 @@
-/* Project name, lower-case and without spaces */
-#define CANONICAL_PROJECT_NAME "dosbox-staging"
-
-// Emulator Semantic Version (MAJOR.MINOR.PATCH), incremented as follows:
-//  - MAJOR version when you make incompatible API changes
-//  - MINOR version when you add functionality in a backwards compatible manner
-//  - PATCH version when you make backwards compatible bug fixes
-// Additional labels for pre-release and build metadata are available as extensions to the MAJOR.MINOR.PATCH format.
-// Ref: https://semver.org/
-
-#define VERSION "0.82.0-alpha"
-
 /* This macro is going to be overriden via CI */
-#define DOSBOX_DETAILED_VERSION "git"
+#define BUILD_GIT_HASH "git"
 
 /* Strings to be returned by virtual drivers, etc. */
-
-// Name of the emulator
-#define DOSBOX_NAME "DOSBox Staging"
-// Development team name
-#define DOSBOX_TEAM "The " DOSBOX_NAME " Team"
-// Copyright string
-#define DOSBOX_COPYRIGHT "(C) " DOSBOX_TEAM
 
 /* Define to 1 to enable internal debugger, requires libcurses */
 #define C_DEBUG 0
@@ -40,30 +21,41 @@
 /* Define to 1 to enable slirp networking support, requires libslirp */
 #define C_SLIRP 1
 
+/* Define to 1 to enable dual-mouse gaming support using ManyMouse library */
+#define C_MANYMOUSE 1
+
 /* Define to 1 when zlib-ng support is provided by the system */
 #define C_SYSTEM_ZLIB_NG 1
 
 /* Enable some heavy debugging options */
 #define C_HEAVY_DEBUG 0
 
-/* The type of cpu this host has */
-#ifdef _M_X64
-#define C_TARGETCPU X86_64
-#else // _M_IX86
-#define C_TARGETCPU X86
-#endif
-//#define C_TARGETCPU X86_64
+/* The type of cpu this host has, if it should use the
+ * x86 dynamic cpu core or the non-x86 recompiling cpu core,
+ * and if it should use the x86 assembly fpu core.
+ * Note that the x86 assembly fpu core requires the Clang toolchain for x64.
+ */
 
-/* Define to 1 to use x86 dynamic cpu core */
-#define C_DYNAMIC_X86 1
+#if defined(_M_X64)
+#  define C_TARGETCPU X86_64
+#  define C_DYNAMIC_X86 1
+#  define C_FPU_X86 1
+#  define C_DYNREC 0
+#elif defined(_M_IX86)
+#  define C_TARGETCPU X86
+#  define C_DYNAMIC_X86 1
+#  define C_FPU_X86 1
+#  define C_DYNREC 0
+#elif defined(_M_ARM64)
+#  define C_TARGETCPU ARMV8LE
+#  define C_DYNAMIC_X86 0
+#  define C_FPU_X86 0
+#  define C_DYNREC 1
+#endif
 
 /* Define to 1 if the target platform needs per-page dynamic core write or
  * execute (W^X) tagging */
 #define C_PER_PAGE_W_OR_X 1
-
-/* Define to 1 to use recompiling cpu core. Can not be used together with the
- * dynamic-x86 core */
-#define C_DYNREC 0
 
 /* Enable memory function inlining in */
 #define C_CORE_INLINE 1
@@ -76,9 +68,6 @@
 
 /* Enable the FPU module, still only for beta testing */
 #define C_FPU 1
-
-/* Define to 1 to use x86 assembly fpu core. Requires Clang toolchain for x64 */
-#define C_FPU_X86 1
 
 /* Define to 1 to use a unaligned memory access */
 #define C_UNALIGNED_MEMORY 1

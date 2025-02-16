@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include <ctime>
 #include <array>
 
+#include "ascii.h"
 #include "bios.h"
 #include "callback.h"
 #include "dos_locale.h"
@@ -45,6 +46,21 @@ DOS_Block dos;
 DOS_InfoBlock dos_infoblock;
 uint16_t countryNo = 0;
 unsigned int result_errorcode = 0;
+
+static bool is_guest_booted = false;
+
+extern void DOS_ClearLaunchedProgramNames();
+
+void DOS_NotifyBooting()
+{
+	is_guest_booted = true;
+	DOS_ClearLaunchedProgramNames();
+}
+
+bool DOS_IsGuestOsBooted()
+{
+	return is_guest_booted;
+}
 
 #define DOS_COPYBUFSIZE 0x10000
 uint8_t dos_copybuf[DOS_COPYBUFSIZE];
@@ -562,7 +578,7 @@ static Bitu DOS_21Handler(void) {
 			uint8_t drive=reg_dl;
 			if (!drive || reg_ah==0x1f) drive = DOS_GetDefaultDrive();
 			else drive--;
-			if (drive < DOS_DRIVES && Drives[drive] && !Drives[drive]->isRemovable()) {
+			if (drive < DOS_DRIVES && Drives[drive] && !Drives[drive]->IsRemovable()) {
 				reg_al = 0x00;
 				SegSet16(ds,dos.tables.dpb);
 				reg_bx = drive*9;
@@ -905,11 +921,14 @@ static Bitu DOS_21Handler(void) {
 		if (result_errorcode)
 			dos.return_code = result_errorcode;
 		break;
-	case 0x4d:					/* Get Return code */
-		reg_al=dos.return_code;/* Officially read from SDA and clear when read */
-		reg_ah=dos.return_mode;
+
+	case 0x4d: // Get return code
+		// Officially read from SDA and clear when read
+		reg_al = dos.return_code;
+		reg_ah = enum_val(dos.return_mode);
 		CALLBACK_SCF(false);
 		break;
+
 	case 0x4e:					/* FINDFIRST Find first matching file */
 		MEM_StrCopy(SegPhys(ds)+reg_dx,name1,DOSNAMEBUF);
 		if (DOS_FindFirst(name1, reg_cl)) {
@@ -936,7 +955,7 @@ static Bitu DOS_21Handler(void) {
 	// case 0x51: Get current PSP, co-located with case 0x62
 	case 0x52: {				/* Get list of lists */
 		uint8_t count=2; // floppy drives always counted
-		while (count<DOS_DRIVES && Drives[count] && !Drives[count]->isRemovable()) count++;
+		while (count<DOS_DRIVES && Drives[count] && !Drives[count]->IsRemovable()) count++;
 		dos_infoblock.SetBlockDevices(count);
 		RealPt addr=dos_infoblock.GetPointer();
 		SegSet16(es,RealSegment(addr));
@@ -1044,14 +1063,11 @@ static Bitu DOS_21Handler(void) {
 		{
 			MEM_StrCopy(SegPhys(ds)+reg_dx,name1,DOSNAMEBUF);
 			uint16_t handle;
-			if (DOS_OpenFile(name1,0,&handle)) {
-				DOS_CloseFile(handle);
+			if (DOS_FileExists(name1)) {
 				DOS_SetError(DOSERR_FILE_ALREADY_EXISTS);
 				reg_ax=dos.errorcode;
 				CALLBACK_SCF(true);
-				break;
-			}
-			if (DOS_CreateFile(name1, reg_cl, &handle)) {
+			} else if (DOS_CreateFile(name1, reg_cl, &handle)) {
 				reg_ax=handle;
 				CALLBACK_SCF(false);
 			} else {
@@ -1061,10 +1077,27 @@ static Bitu DOS_21Handler(void) {
 			break;
 		}
 	case 0x5c:			/* FLOCK File region locking */
-		DOS_SetError(DOSERR_FUNCTION_NUMBER_INVALID);
-		reg_ax = dos.errorcode;
-		CALLBACK_SCF(true);
-		break;
+		{
+			const uint16_t entry = reg_bx;
+			const uint32_t pos = (static_cast<uint32_t>(reg_cx) << 16) | static_cast<uint32_t>(reg_dx);
+			const uint32_t len = (static_cast<uint32_t>(reg_si) << 16) | static_cast<uint32_t>(reg_di);
+			bool success = false;
+			if (reg_al == 0) {
+				success = DOS_LockFile(entry, pos, len);
+			} else if (reg_al == 1) {
+				success = DOS_UnlockFile(entry, pos, len);
+			} else {
+				DOS_SetError(DOSERR_FUNCTION_NUMBER_INVALID);
+			}
+			if (success) {
+				reg_ax = 0;
+				CALLBACK_SCF(false);
+			} else {
+				reg_ax = dos.errorcode;
+				CALLBACK_SCF(true);
+			}
+			break;
+		}
 	case 0x5d:					/* Network Functions */
 		if(reg_al == 0x06) {
 			SegSet16(ds,DOS_SDA_SEG);
@@ -1299,7 +1332,7 @@ static Bitu DOS_27Handler(void) {
 
 static uint16_t DOS_SectorAccess(const bool read)
 {
-	const auto drive = dynamic_cast<fatDrive*>(Drives.at(reg_al));
+	const auto drive = std::dynamic_pointer_cast<fatDrive>(Drives.at(reg_al));
 	assert(drive);
 
 	auto bufferSeg = SegValue(ds);
@@ -1337,7 +1370,7 @@ static uint16_t DOS_SectorAccess(const bool read)
 
 static Bitu DOS_25Handler(void)
 {
-	if (reg_al >= DOS_DRIVES || !Drives[reg_al] || Drives[reg_al]->isRemovable()) {
+	if (reg_al >= DOS_DRIVES || !Drives[reg_al] || Drives[reg_al]->IsRemovable()) {
 		reg_ax = 0x8002;
 		SETFLAGBIT(CF,true);
 	} else if (Drives[reg_al]->GetType() == DosDriveType::Fat) {
@@ -1359,7 +1392,7 @@ static Bitu DOS_25Handler(void)
 }
 static Bitu DOS_26Handler(void) {
 	LOG(LOG_DOSMISC, LOG_NORMAL)("int 26 called: hope for the best!");
-	if (reg_al >= DOS_DRIVES || !Drives[reg_al] || Drives[reg_al]->isRemovable()) {	
+	if (reg_al >= DOS_DRIVES || !Drives[reg_al] || Drives[reg_al]->IsRemovable()) {	
 		reg_ax = 0x8002;
 		SETFLAGBIT(CF,true);
 	} else if (Drives[reg_al]->GetType() == DosDriveType::Fat) {
@@ -1371,9 +1404,6 @@ static Bitu DOS_26Handler(void) {
 	}
     return CBRET_NONE;
 }
-
-constexpr uint8_t code_ctrl_c = 0x03;
-constexpr uint8_t code_esc    = 0x1b;
 
 bool DOS_IsCancelRequest()
 {
@@ -1388,10 +1418,10 @@ bool DOS_IsCancelRequest()
 		DOS_ReadFile(STDIN, &code, &count);
 
 		// Check if user requested to cancel
-		if (shutdown_requested || count == 0 ||
-			code == 'q' || code == 'Q' ||
-		    code == code_ctrl_c || code == code_esc)
+		if (shutdown_requested || count == 0 || code == 'q' ||
+		    code == 'Q' || code == Ascii::CtrlC || code == Ascii::Escape) {
 			return true;
+		}
 	}
 
 	// Return control if no key pressed
@@ -1502,15 +1532,24 @@ public:
 			dos.version.minor = new_version.minor;
 		}
 	}
-	~DOS(){
-		// Clear the driver pointers. The actual objects are managed by
-		// the drive manager class.
-		Drives.fill(nullptr);
+
+	// Shutdown the DOS OS constructs leaving only the BIOS and hardware
+	// layers.
+	~DOS()
+	{
+		// Clear the drive pointers and file objects. The actual drive
+		// objects are managed by the drive manager class. The 'Files'
+		// destructors depend on the DOS API (file flush, close, and
+		// date and time lookup), so it's import to shut these down when
+		// DOS is still available.
+		DOS_ClearDrivesAndFiles();
 
 		// de-init devices, this allows DOSBox to cleanly re-initialize
 		// without throwing an inevitable `DOS: Too many devices added`
 		// exception
 		DOS_ShutDownDevices();
+
+		DOS_FreeTableMemory();
 	}
 };
 

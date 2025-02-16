@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -66,22 +66,26 @@ enum VGAModes {
 	// 320x400, 256x256, etc.) that use mode 13h as a starting point.
 	M_VGA = 1 << 3,
 
-	// 16-colour SVGA & VESA modes
+	// 16-colour planar SVGA & VESA modes
 	M_LIN4 = 1 << 4,
 
-	// 256-colour SVGA & VESA modes (other than mode 13h)
+	// 256-colour planar SVGA & VESA modes (other than mode 13h)
 	M_LIN8 = 1 << 5,
 
-	// 15-bit high colour (32K-colour) VESA modes
+	// 15-bit (5:5:5) high colour (32K-colour) VESA modes
 	M_LIN15 = 1 << 6,
 
-	// 16-bit high colour (65K-colour) VESA modes
+	// 16-bit (5:6:5) high colour (65K-colour) VESA modes
 	M_LIN16 = 1 << 7,
 
-	// 24-bit true colour (16.7M-colour) VESA modes
+	// 24-bit (8:8:8) true colour (16.7M-colour) VESA modes
 	M_LIN24 = 1 << 8,
 
-	// 32-bit true colour (16.7M-colour) VESA modes
+	// 32-bit (8:8:8:8) true colour (16.7M-colour) VESA modes
+	//
+	// Same as 24-bit (8:8:8) as the last 8-bit component is simply unused.
+	// Many graphics cards preferred the 32-bit true colour mode for faster
+	// video memory access due to 32-bit memory alignment.
 	M_LIN32 = 1 << 9,
 
 	// All EGA, VGA, SVGA & VESA text modes
@@ -123,6 +127,10 @@ enum VGAModes {
 
 constexpr auto NumCgaColors = 16;
 constexpr auto NumVgaColors = 256;
+
+constexpr auto NumVgaSequencerRegisters = 0x05;
+constexpr auto NumVgaGraphicsRegisters  = 0x09;
+constexpr auto NumVgaAttributeRegisters = 0x15;
 
 constexpr auto vesa_2_0_modes_start = 0x120;
 
@@ -306,7 +314,7 @@ struct VgaDraw {
 	// Single scanning is forced by the arcade shaders to achieve the
 	// single-scanned 15 kHz CRT look for double-scanned VGA modes, or by
 	// shaders that treat pixels as flat adjacent rectangles (e.g., the
-	// "sharp" shader and the "no-bilinear" output modes; the double-scanned
+	// "sharp" shader and the "no bilinear" output modes; the double-scanned
 	// and force single-scanned output is exactly identical in these cases,
 	// but single scanning is more performant which matter on low-powered
 	// devices).
@@ -374,8 +382,9 @@ struct VgaS3 {
 	uint8_t reg_52 = 0;
 	uint8_t reg_55 = 0;
 	uint8_t reg_58 = 0;
+	uint8_t reg_63 = 0;
 	uint8_t reg_6b = 0; // LFB BIOS scratchpad
-	                    //
+
 	uint8_t ex_hor_overflow = 0;
 	uint8_t ex_ver_overflow = 0;
 
@@ -383,7 +392,7 @@ struct VgaS3 {
 	uint8_t misc_control_2    = 0;
 	uint8_t ext_mem_ctrl      = 0;
 	uint16_t xga_screen_width = 0; // from 640 to 1600
-	                               //
+
 	VGAModes xga_color_mode = {};
 
 	struct clk_t {
@@ -396,7 +405,7 @@ struct VgaS3 {
 	clk_t mclk   = {};
 
 	struct pll_t {
-		// Extended Sequencer Access Rgister SR8 (pp. 124)
+		// Extended Sequencer Access Register SR8 (pp. 124)
 		uint8_t lock = 0;
 
 		// CLKSYN Control 2 Register SR15 (pp. 130)
@@ -596,6 +605,9 @@ union MaximumScanLineRegister {
 union ClockingModeRegister {
 	uint8_t data = 0;
 	// Characters are drawn 8 pixels wide (or 9 if cleared)
+	// This selects between 8-dot and 9-dot fonts, which also switches the
+	// horizontal resolution from 640 pixels to 720 in 80-column modes, and
+	// from 1056 to 1188 in 132-column modes.
 	bit_view<0, 1> is_eight_dot_mode;
 
 	// When this bit and bit 4 are set to 0, the video serializers are
@@ -878,6 +890,7 @@ struct VgaSeq {
 	uint8_t reset = 0;
 
 	ClockingModeRegister clocking_mode = {};
+
 	// Let the user force the clocking mode's 8/9-dot-mode bit high
 	bool wants_vga_8dot_font = false;
 
@@ -1057,9 +1070,11 @@ struct VgaType {
 
 	// Memory for fast (usually 16-colour) rendering,
 	// always twice as big as vmemsize
-	//
 	uint8_t* fastmem  = {};
 	uint32_t vmemsize = 0;
+
+	// How much delay to add to video memory I/O in nanoseconds
+	uint16_t vmem_delay_ns = 0;
 
 #ifdef VGA_KEEP_CHANGES
 	VgaChanges changes = {};
@@ -1086,9 +1101,6 @@ struct VgaType {
 	// that, we stop checking palette changes until the next screen mode
 	// change.
 	bool ega_mode_with_vga_colors = false;
-
-	// Flag to signal that we're in the middle of a mode change.
-	bool mode_change_in_progress = false;
 };
 
 // Hercules & CGA monochrome palette
@@ -1224,7 +1236,7 @@ struct SVGA_Driver {
 
 extern SVGA_Driver svga;
 
-void SVGA_Setup_S3Trio(void);
+void SVGA_Setup_S3Trio();
 void SVGA_Setup_TsengET4K(void);
 void SVGA_Setup_TsengET3K(void);
 void SVGA_Setup_ParadisePVGA1A(void);

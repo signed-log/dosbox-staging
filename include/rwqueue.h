@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,7 +36,6 @@
  *  dequeue methods directly without any thread state management.
  */
 
-#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -51,7 +50,7 @@ private:
 	std::condition_variable has_room  = {};
 	std::condition_variable has_items = {};
 	size_t capacity                   = 0;
-	std::atomic<bool> is_running      = true;
+	bool is_running                   = true;
 	using difference_t = typename std::vector<T>::difference_type;
 
 public:
@@ -62,19 +61,29 @@ public:
 	RWQueue(size_t queue_capacity);
 	void Resize(size_t queue_capacity);
 
+	// non-blocking call
 	bool IsEmpty();
 
 	// non-blocking call
-	bool IsRunning() const;
+	bool IsFull();
+
+	// non-blocking call
+	bool IsRunning();
 
 	// non-blocking call
 	size_t Size();
 
-	// non-blocking calls
+	// non-blocking call
+	void Start();
+
+	// non-blocking call
 	void Stop();
 
 	// non-blocking call
-	size_t MaxCapacity() const;
+	void Clear();
+
+	// non-blocking call
+	size_t MaxCapacity();
 
 	// non-blocking call
 	float GetPercentFull();
@@ -92,6 +101,10 @@ public:
 	// If queuing has stopped prior to enqueing, then this will immediately
 	//  return false and the item will not be queued.
 	bool Enqueue(T&& item);
+
+	// Returns false and does nothing if the queue is at capacity or the queue is not running
+	// Otherwise the item gets moved into the queue and it returns true
+	bool NonblockingEnqueue(T&& item);
 
 	// The method potentially blocks until there is at least a single item
 	// in the queue to dequeue.
@@ -111,30 +124,46 @@ public:
 	// (the operation will be done in chunks, provided pressure on the other
 	// side is relieved).
 
-	// Items are std::move'd out of the source vector into the queue. This
-	// function clear()s the vector such that it's in a defined state on
-	// return (and can be reused). The method potentially blocks until there
-	// is enough capacity in the queue for the new items.
+	// Items are std::move'd out of the source vector and also erased so the
+	// source vector is returned in a defined state. The method potentially
+	// blocks until there is enough capacity in the queue for the source items.
 
-	// If queuing has stopped prior to bulk enqueing, then this will
-	// immediately return false and no items will be queued.
+	// If the queue is stopped then the function unblocks and returns the
+	// quantity enqueued (which can be less than the number requested).
+	size_t BulkEnqueue(std::vector<T>& from_source, const size_t num_requested);
 
-	// If queuing stops in the middle of enqueing prior to completion, then
-	// this will immediately return false. The items queued /before/
-	// stopping will be available in the queue however the items that came
-	// after stopping will not be queued.
-	bool BulkEnqueue(std::vector<T>& from_source, const size_t num_requested);
+	// Bulk enqueue all of the source vector's items
+	size_t BulkEnqueue(std::vector<T>& from_source);
 
-	// The target vector will be resized to accomodate, if needed. The
-	// method potentially blocks until the requested number of items have
-	// been dequeued.
+	// Does nothing if queue is at capacity or queue is not running.
+	// Otherwise, enqueues as many elements as possible until the queue is
+	// at capacity. Moved elements will be erased from the source vector.
+	// Elements not enqueued will be left in the source vector.
+	// Returns the number of elements enqueued.
+	size_t NonblockingBulkEnqueue(std::vector<T>& from_source, const size_t num_requested);
 
-	// If queuing has stopped:
-	//  - Returns true when  one or more item(s) have been dequeued.
-	//  - Returns false when no items can be dequeued.
+	// Bulk enqueue all of the source vector's items
+	size_t NonblockingBulkEnqueue(std::vector<T>& from_source);
+
+	// Deque's the requested number of items into the given container
+	// in-bulk, and returns the quantity dequeued. This potentially blocks
+	// until the requested number of items have been dequeued. Normally all
+	// of the requested items are dequeued, however:
 	//
-	// The vector is always sized to match the number of items returned.
-	bool BulkDequeue(std::vector<T>& into_target, const size_t num_requested);
+	// - If queuing was stopped prior to bulk dequeueing then this
+	//   immediately returns with a value of 0 and no items dequeued.
+	//
+	// - If queuing was stopped in the middle of bulk dequeueing then this
+	//   immediately returns with a value indicating the subset dequeued.
+
+	// The rwqueue takes care of sizing the target vector to accomodate the
+	// number requested. On return, the vector's size matches the number
+	// dequeued.
+	size_t BulkDequeue(std::vector<T>& into_target, const size_t num_requested);
+
+	// The caller is responsible for sizing the target's array to accomodate
+	// the number requested.
+	size_t BulkDequeue(T* const into_target, const size_t num_requested);
 };
 
 #endif

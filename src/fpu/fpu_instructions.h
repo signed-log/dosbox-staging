@@ -41,10 +41,6 @@ static void FPU_FINIT(void) {
 	fpu.tags[6] = TAG_Empty;
 	fpu.tags[7] = TAG_Empty;
 	fpu.tags[8] = TAG_Valid; // is only used by us
-
-	for (auto& use_regs_memcpy : fpu.use_regs_memcpy) {
-		use_regs_memcpy = false;
-	}
 }
 
 static void FPU_FCLEX(void){
@@ -58,7 +54,7 @@ static void FPU_FNOP(void){
 static void FPU_PREP_PUSH(void){
 	TOP = (TOP - 1) &7;
 #if DB_FPU_STACK_CHECK_PUSH > DB_FPU_STACK_CHECK_NONE
-	if (GCC_UNLIKELY(fpu.tags[TOP] != TAG_Empty)) {
+	if (fpu.tags[TOP] != TAG_Empty) {
 #if DB_FPU_STACK_CHECK_PUSH == DB_FPU_STACK_CHECK_EXIT
 		E_Exit("FPU stack overflow");
 #else
@@ -75,7 +71,6 @@ static void FPU_PREP_PUSH(void){
 	}
 #endif
 	fpu.tags[TOP] = TAG_Valid;
-	fpu.use_regs_memcpy[TOP] = false;
 }
 
 static void FPU_PUSH(double in){
@@ -88,7 +83,7 @@ static void FPU_PUSH(double in){
 
 static void FPU_FPOP(void){
 #if DB_FPU_STACK_CHECK_POP > DB_FPU_STACK_CHECK_NONE
-	if (GCC_UNLIKELY(fpu.tags[TOP] == TAG_Empty)) {
+	if (fpu.tags[TOP] == TAG_Empty) {
 #if DB_FPU_STACK_CHECK_POP == DB_FPU_STACK_CHECK_EXIT
 		E_Exit("FPU stack underflow");
 #else
@@ -104,8 +99,7 @@ static void FPU_FPOP(void){
 #endif
 	}
 #endif
-	fpu.tags[TOP]=TAG_Empty;
-	fpu.use_regs_memcpy[TOP] = false;
+	fpu.tags[TOP] = TAG_Empty;
 	//maybe set zero in it as well
 	TOP = ((TOP+1)&7);
 //	LOG(LOG_FPU,LOG_ERROR)("popped from %d  %g off the stack",top,fpu.regs[top].d);
@@ -114,26 +108,26 @@ static void FPU_FPOP(void){
 
 static double FROUND(double in)
 {
+	const auto prec_mode = fpu.cw & PrecisionModeMask;
+
+	// If the fpu is in single precision mode, cast to a float first
+	// to correct any double values that aren't valid single precision
+	// values.
+	if (prec_mode == SinglePrecisionMode) {
+		in = static_cast<float>(in);
+	}
+
 	switch (fpu.round) {
 	case ROUND_Nearest: return std::nearbyint(in);
 	case ROUND_Down: return std::floor(in);
 	case ROUND_Up: return std::ceil(in);
-	case ROUND_Chop: 
-	{
-		switch (fpu.cw & PrecisionModeMask) {
-		// This case properly handles "in" values beyond the precision
-		// of a float, e.g. 5.99999999367, by correctly rounding to 6.0
-		// via the cast, then performing the truncation, instead of
-		// returning 5.0. Quake, for example, does many calculations in
-		// single precision mode.
-		case SinglePrecisionMode:
-			return std::trunc(static_cast<float>(in));
+	case ROUND_Chop: {
 		// This is a fix for rounding to a close integer in extended
 		// precision mode, e.g. 7.999999999999994; an example can be
 		// seen in the Quake options screen size slider. In this case,
 		// what is almost certainly wanted is 8.0, so return the closer
 		// integer instead of chopping to the lower value.
-		case ExtendedPrecisionMode: {
+		if (prec_mode == ExtendedPrecisionMode) {
 			if (const auto lower = std::floor(in);
 			    are_almost_equal_relative(in, lower)) {
 				return lower;
@@ -141,8 +135,6 @@ static double FROUND(double in)
 			           are_almost_equal_relative(upper, in)) {
 				return upper;
 			}
-		}
-		default: break;
 		}
 		return std::trunc(in);
 	}
@@ -232,26 +224,19 @@ static void FPU_FLD_I32(PhysPt addr,Bitu store_to) {
 	fpu.regs[store_to].d = static_cast<Real64>(blah);
 }
 
-static void FPU_FLD_I64(PhysPt addr,Bitu store_to) {
-	constexpr int64_t int53_min = -(1LL << 53);
-	constexpr int64_t int53_max = (1LL << 53) - 1;
+static void FPU_FLD_I64(PhysPt addr, Bitu store_to)
+{
+	const int64_t val = mem_readq(addr);
 
-	FPU_Reg temp_reg;
-	temp_reg.ll = mem_readq(addr);
-
-	fpu.regs[store_to].d = static_cast<Real64>(temp_reg.ll);
 	// This is a fix for vertical bars that appear in some games that
-	// use FILD/FIST as a fast 64-bit integer memcpy, such as Carmageddon,
-	// Motor Mash, and demos like Sunflower and Multikolor.
-
-	// If the value won't fit in the 53-bit mantissa of a double, save the
-	// value into the regs_memcpy register and set the corresponding bool in
-	// use_regs_memcpy to indicate that the integer value should be read out
-	// by the FPU_FST_I64 function instead.
-	if (temp_reg.ll > int53_max || temp_reg.ll < int53_min) {
-		fpu.regs_memcpy[store_to]     = temp_reg.ll;
-		fpu.use_regs_memcpy[store_to] = true;
-	}
+	// use FILD/FIST as a fast 64-bit memcpy, such as Carmageddon,
+	// Motor Mash, and demos like Sunflower and Multikolor. Native x87
+	// registers are 80-bit with a 64-bit mantissa, but a C++
+	// double only has a 53-bit mantissa, so store the full 64-bit
+	// integer value in regs_memcpy to be used by the FPU_FST_I64()
+	// function.
+	fpu.regs[store_to].d      = static_cast<Real64>(val);
+	fpu.regs_memcpy[store_to] = val;
 }
 
 static void FPU_FBLD(PhysPt addr,Bitu store_to) {
@@ -320,20 +305,20 @@ static void FPU_FST_I32(PhysPt addr) {
 
 static void FPU_FST_I64(PhysPt addr)
 {
-	FPU_Reg temp_reg;
-	// If the value was loaded with the FILD/FIST 64-bit memcpy trick,
-	// read the 64-bit integer value instead.
-	if (fpu.use_regs_memcpy[TOP]) {
-		temp_reg.ll = fpu.regs_memcpy[TOP];
-	} else {
-		double val  = FROUND(fpu.regs[TOP].d);
-		temp_reg.ll = (val <= static_cast<double>(INT64_MAX) &&
-		               val >= static_cast<double>(INT64_MIN))
-		                    ? static_cast<int64_t>(val)
-		                    : LONGTYPE(0x8000000000000000);
+	constexpr double MaxInt64Value = 9223372036854775808.0;
+
+	// Handle the 64-bit memcpy trick. See comment in FPU_FLD_I64().
+	auto val_i       = fpu.regs_memcpy[TOP];
+	const auto val_d = fpu.regs[TOP].d;
+
+	if (val_d != static_cast<Real64>(val_i)) {
+		const auto rounded = FROUND(val_d);
+		val_i = (rounded < MaxInt64Value && rounded >= -MaxInt64Value)
+		              ? static_cast<int64_t>(rounded)
+		              : LONGTYPE(0x8000000000000000);
 	}
 
-	mem_writeq(addr, temp_reg.ll);
+	mem_writeq(addr, val_i);
 }
 
 static void FPU_FBST(PhysPt addr) {
@@ -374,7 +359,7 @@ static void FPU_FADD(Bitu op1, Bitu op2){
 }
 
 static void FPU_FSIN(void){
-	fpu.regs[TOP].d = sin(fpu.regs[TOP].d);
+	fpu.regs[TOP].d = std::sin(fpu.regs[TOP].d);
 	FPU_SET_C2(0);
 	//flags and such :)
 	return;
@@ -382,33 +367,33 @@ static void FPU_FSIN(void){
 
 static void FPU_FSINCOS(void){
 	Real64 temp = fpu.regs[TOP].d;
-	fpu.regs[TOP].d = sin(temp);
-	FPU_PUSH(cos(temp));
+	fpu.regs[TOP].d = std::sin(temp);
+	FPU_PUSH(std::cos(temp));
 	FPU_SET_C2(0);
 	//flags and such :)
 	return;
 }
 
 static void FPU_FCOS(void){
-	fpu.regs[TOP].d = cos(fpu.regs[TOP].d);
+	fpu.regs[TOP].d = std::cos(fpu.regs[TOP].d);
 	FPU_SET_C2(0);
 	//flags and such :)
 	return;
 }
 
 static void FPU_FSQRT(void){
-	fpu.regs[TOP].d = sqrt(fpu.regs[TOP].d);
+	fpu.regs[TOP].d = std::sqrt(fpu.regs[TOP].d);
 	//flags and such :)
 	return;
 }
 static void FPU_FPATAN(void){
-	fpu.regs[STV(1)].d = atan2(fpu.regs[STV(1)].d,fpu.regs[TOP].d);
+	fpu.regs[STV(1)].d = std::atan2(fpu.regs[STV(1)].d, fpu.regs[TOP].d);
 	FPU_FPOP();
 	//flags and such :)
 	return;
 }
 static void FPU_FPTAN(void){
-	fpu.regs[TOP].d = tan(fpu.regs[TOP].d);
+	fpu.regs[TOP].d = std::tan(fpu.regs[TOP].d);
 	FPU_PUSH(1.0);
 	FPU_SET_C2(0);
 	//flags and such :)
@@ -446,22 +431,18 @@ static void FPU_FSUBR(Bitu st, Bitu other){
 
 static void FPU_FXCH(Bitu st, Bitu other){
 	const auto tag             = fpu.tags[other];
-	const auto use_reg_memcpy  = fpu.use_regs_memcpy[other];
 	const auto reg             = fpu.regs[other];
 	const auto reg_memcpy      = fpu.regs_memcpy[other];
 	fpu.tags[other]            = fpu.tags[st];
-	fpu.use_regs_memcpy[other] = fpu.use_regs_memcpy[st];
 	fpu.regs[other]            = fpu.regs[st];
 	fpu.regs_memcpy[other]     = fpu.regs_memcpy[st];
 	fpu.tags[st]               = tag;
-	fpu.use_regs_memcpy[st]    = use_reg_memcpy;
 	fpu.regs[st]               = reg;
 	fpu.regs_memcpy[st]        = reg_memcpy;
 }
 
 static void FPU_FST(Bitu st, Bitu other){
 	fpu.tags[other]            = fpu.tags[st];
-	fpu.use_regs_memcpy[other] = fpu.use_regs_memcpy[st];
 	fpu.regs[other]            = fpu.regs[st];
 	fpu.regs_memcpy[other]     = fpu.regs_memcpy[st];
 }
@@ -551,24 +532,24 @@ static void FPU_FXAM(void){
 
 
 static void FPU_F2XM1(void){
-	fpu.regs[TOP].d = pow(2.0,fpu.regs[TOP].d) - 1;
+	fpu.regs[TOP].d = std::pow(2.0, fpu.regs[TOP].d) - 1.0;
 	return;
 }
 
 static void FPU_FYL2X(void){
-	fpu.regs[STV(1)].d*=log(fpu.regs[TOP].d)/log(static_cast<Real64>(2.0));
+	fpu.regs[STV(1)].d *= std::log2(fpu.regs[TOP].d);
 	FPU_FPOP();
 	return;
 }
 
 static void FPU_FYL2XP1(void){
-	fpu.regs[STV(1)].d*=log(fpu.regs[TOP].d+1.0)/log(static_cast<Real64>(2.0));
+	fpu.regs[STV(1)].d *= std::log2(fpu.regs[TOP].d + 1.0);
 	FPU_FPOP();
 	return;
 }
 
 static void FPU_FSCALE(void){
-	fpu.regs[TOP].d *= pow(2.0,static_cast<Real64>(static_cast<int64_t>(fpu.regs[STV(1)].d)));
+	fpu.regs[TOP].d *= std::pow(2.0, std::trunc(fpu.regs[STV(1)].d));
 	//FPU_SET_C1(0);
 	return; //2^x where x is chopped.
 }
@@ -596,7 +577,7 @@ static void FPU_FLDENV(PhysPt addr){
 		tag    = mem_readw(addr+4);
 	} else { 
 		cw     = mem_readd(addr+0);
-		fpu.sw = (uint16_t)mem_readd(addr+4);
+		fpu.sw = static_cast<uint16_t>(mem_readd(addr + 4));
 		tagbig = mem_readd(addr+8);
 		tag    = static_cast<uint16_t>(tagbig);
 	}
@@ -607,9 +588,9 @@ static void FPU_FLDENV(PhysPt addr){
 
 static void FPU_FSAVE(PhysPt addr){
 	FPU_FSTENV(addr);
-	Bitu start = (cpu.code.big?28:14);
-	for(Bitu i = 0;i < 8;i++){
-		FPU_ST80(addr+start,STV(i));
+	PhysPt start = (cpu.code.big ? 28 : 14);
+	for (int i = 0; i < 8; i++) {
+		FPU_ST80(addr + start, STV(i));
 		start += 10;
 	}
 	FPU_FINIT();
@@ -617,9 +598,9 @@ static void FPU_FSAVE(PhysPt addr){
 
 static void FPU_FRSTOR(PhysPt addr){
 	FPU_FLDENV(addr);
-	Bitu start = (cpu.code.big?28:14);
-	for(Bitu i = 0;i < 8;i++){
-		fpu.regs[STV(i)].d = FPU_FLD80(addr+start);
+	PhysPt start = (cpu.code.big ? 28 : 14);
+	for (int i = 0; i < 8; i++) {
+		fpu.regs[STV(i)].d = FPU_FLD80(addr + start);
 		start += 10;
 	}
 }
@@ -632,17 +613,17 @@ static void FPU_FXTRACT(void) {
 	FPU_Reg test = fpu.regs[TOP];
 	int64_t exp80 =  test.ll&LONGTYPE(0x7ff0000000000000);
 	int64_t exp80final = (exp80>>52) - BIAS64;
-	Real64 mant = test.d / (pow(2.0,static_cast<Real64>(exp80final)));
+	Real64 mant = test.d / (std::pow(2.0, static_cast<Real64>(exp80final)));
 	fpu.regs[TOP].d = static_cast<Real64>(exp80final);
 	FPU_PUSH(mant);
 }
 
 static void FPU_FCHS(void){
-	fpu.regs[TOP].d = -1.0*(fpu.regs[TOP].d);
+	fpu.regs[TOP].d = -(fpu.regs[TOP].d);
 }
 
 static void FPU_FABS(void){
-	fpu.regs[TOP].d = fabs(fpu.regs[TOP].d);
+	fpu.regs[TOP].d = std::fabs(fpu.regs[TOP].d);
 }
 
 static void FPU_FTST(void){
@@ -685,8 +666,7 @@ static void FPU_FLDLN2(void){
 static void FPU_FLDZ(void){
 	FPU_PREP_PUSH();
 	fpu.regs[TOP].d = 0.0;
-	fpu.tags[TOP] = TAG_Zero;
-	fpu.use_regs_memcpy[TOP] = false;
+	fpu.tags[TOP]   = TAG_Zero;
 }
 
 

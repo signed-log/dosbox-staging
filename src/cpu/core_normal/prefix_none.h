@@ -433,19 +433,24 @@
 			if (rm >= 0xc0 ) {GetEArb;*earb=*rmrb;}
 			else {
 				if (cpu.pmode) {
-					if (GCC_UNLIKELY((rm==0x05) && (!cpu.code.big))) {
-						Descriptor desc;
-						cpu.gdt.GetDescriptor(SegValue(core.base_val_ds),desc);
-						if ((desc.Type()==DESC_CODE_R_NC_A) || (desc.Type()==DESC_CODE_R_NC_NA)) {
-							CPU_Exception(EXCEPTION_GP,SegValue(core.base_val_ds) & 0xfffc);
-							continue;
-						}
-					}
-				}
-				GetEAa;SaveMb(eaa,*rmrb);
-			}
-			break;
-		}
+			                if ((rm == 0x05) && (!cpu.code.big)) {
+				                Descriptor desc;
+				                cpu.gdt.GetDescriptor(SegValue(core.base_val_ds),
+				                                      desc);
+				                if ((desc.Type() == DESC_CODE_R_NC_A) ||
+				                    (desc.Type() == DESC_CODE_R_NC_NA)) {
+					                CPU_Exception(EXCEPTION_GP,
+					                              SegValue(core.base_val_ds) &
+					                                      0xfffc);
+					                continue;
+				                }
+			                }
+		                }
+		                GetEAa;
+		                SaveMb(eaa, *rmrb);
+	                }
+	                break;
+                }
 	CASE_W(0x89)												/* MOV Ew,Gw */
 		{	
 			GetRMrw;
@@ -1098,7 +1103,7 @@
 			case 0x01:										/* DEC Eb */
 				RMEb(DECB);
 				break;
-			case 0x07:										/* CallBack */
+			case 0x07:										/* Callback */
 				{
 					Bitu cb=Fetchw();
 					FillFlags();SAVEIP;

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -40,43 +40,26 @@ extern callback_number_t call_shellstop;
  * by "external" programs. (config) */
 extern DOS_Shell* first_shell;
 
-class ByteReader {
+class LineReader {
 public:
-	virtual void Reset()                  = 0;
-	virtual std::optional<uint8_t> Read() = 0;
+	virtual void Reset()       = 0;
+	virtual std::optional<std::string> Read() = 0;
 
-	ByteReader()                             = default;
-	ByteReader(const ByteReader&)            = delete;
-	ByteReader& operator=(const ByteReader&) = delete;
-	ByteReader(ByteReader&&)                 = delete;
-	ByteReader& operator=(ByteReader&&)      = delete;
-	virtual ~ByteReader()                    = default;
-};
-
-class HostShell {
-public:
-	virtual bool GetEnvStr(const char* entry, std::string& result) const = 0;
-
-	HostShell()                            = default;
-	HostShell(const HostShell&)            = delete;
-	HostShell& operator=(const HostShell&) = delete;
-	HostShell(HostShell&&)                 = delete;
-	HostShell& operator=(HostShell&&)      = delete;
-	virtual ~HostShell()                   = default;
+	virtual ~LineReader() = default;
 };
 
 class BatchFile {
 public:
-	BatchFile(const HostShell& host, std::unique_ptr<ByteReader> input_reader,
+	BatchFile(const Environment& host, std::unique_ptr<LineReader> input_reader,
 	          std::string_view entered_name, std::string_view cmd_line,
 	          bool echo_on);
 	BatchFile(const BatchFile&)            = delete;
 	BatchFile& operator=(const BatchFile&) = delete;
 	BatchFile(BatchFile&&)                 = delete;
 	BatchFile& operator=(BatchFile&&)      = delete;
-	virtual ~BatchFile()                   = default;
+	~BatchFile()                           = default;
 
-	virtual bool ReadLine(char* line);
+	bool ReadLine(char* line);
 	bool Goto(std::string_view label);
 	void Shift();
 	void SetEcho(bool echo_on);
@@ -84,11 +67,11 @@ public:
 
 private:
 	[[nodiscard]] std::string ExpandedBatchLine(std::string_view line) const;
-	[[nodiscard]] std::string GetLine();
+	[[nodiscard]] std::optional<std::string> GetLine();
 
-	const HostShell& shell;
+	const Environment& shell;
 	CommandLine cmd;
-	std::unique_ptr<ByteReader> reader;
+	std::unique_ptr<LineReader> reader;
 	bool echo;
 };
 
@@ -103,25 +86,44 @@ struct SHELL_Cmd {
 	HELP_Category category = HELP_Category::Misc;
 };
 
-class DOS_Shell : public Program, public HostShell {
+class ShellHistory {
+public:
+	std::vector<std::string> GetCommands(uint16_t code_page) const;
+	void Append(std::string command, uint16_t code_page);
+
+	ShellHistory();
+	~ShellHistory();
+	ShellHistory(const ShellHistory&)            = delete;
+	ShellHistory& operator=(const ShellHistory&) = delete;
+	ShellHistory(ShellHistory&&)                 = delete;
+	ShellHistory& operator=(ShellHistory&&)      = delete;
+
+private:
+	std::vector<std::string> commands{};
+	std_fs::path path;
+};
+
+class DOS_Shell : public Program {
 private:
 	void PrintHelpForCommands(MoreOutputStrings& output, HELP_Filter req_filter);
 	void AddShellCmdsToHelpList();
 	bool WriteHelp(const std::string& command, char* args);
 	[[nodiscard]] std::string ReadCommand();
 	[[nodiscard]] std::string SubstituteEnvironmentVariables(std::string_view command);
-	[[nodiscard]] std::string Which(std::string_view name) const;
+	[[nodiscard]] std::string ResolvePath(std::string_view name) const;
 
 	friend class AutoexecEditor;
-	std::vector<std::string> utf8_history{};
-	std::stack<BatchFile> batchfiles{};
 
+	std::shared_ptr<ShellHistory> history  = {};
+	std::stack<BatchFile> batchfiles       = {};
+	uint16_t input_handle                  = STDIN;
+	bool call                              = false;
 	bool exit_cmd_called                   = false;
 	static inline bool help_list_populated = false;
 
 public:
 	DOS_Shell();
-	~DOS_Shell() override = default;
+	~DOS_Shell() override                  = default;
 	DOS_Shell(const DOS_Shell&)            = delete; // prevent copy
 	DOS_Shell& operator=(const DOS_Shell&) = delete; // prevent assignment
 	void Run() override;
@@ -129,11 +131,19 @@ public:
 
 	/* A load of subfunctions */
 	void ParseLine(char* line);
-	void GetRedirection(char* s, std::string& ifn, std::string& ofn,
-	                    std::string& pipe, bool* append);
 	void InputCommand(char* line);
 	void ShowPrompt();
 	void DoCommand(char* cmd);
+
+	// Returned by the GetRedirection(...) member function
+	struct RedirectionResults {
+		std::string processed_line = {};
+		std::string in_file        = {};
+		std::string out_file       = {};
+		std::string pipe_target    = {};
+		bool is_appending          = false;
+	};
+	static std::optional<RedirectionResults> GetRedirection(const std::string_view line);
 
 	// Execute external shell command / program / configuration change
 	// 'virtual' needed for unit tests
@@ -141,13 +151,9 @@ public:
 	bool ExecuteProgram(std::string_view name, std::string_view args);
 	bool ExecuteConfigChange(const char* const cmd_in, const char* const line);
 
-	void ReadShellHistory();
-	void WriteShellHistory();
-
-	bool GetEnvStr(const char* entry, std::string& result) const override;
-	bool GetEnvNum(Bitu num, std::string& result) const;
-	[[nodiscard]] Bitu GetEnvCount() const;
-	bool SetEnv(const char* entry, const char* new_string);
+	// HACK: Don't use in new code
+	// TODO: Remove the call to this function from autoexec
+	bool SetEnv(std::string_view entry, std::string_view new_string);
 
 	/* Commands */
 	void CMD_HELP(char* args);
@@ -183,10 +189,7 @@ public:
 	void CMD_VOL(char* args);
 	void CMD_MOVE(char* args);
 
-	/* The shell's variables */
-	uint16_t input_handle         = 0;
-	bool echo                     = false;
-	bool call                     = false;
+	bool echo = true;
 };
 
 std::tuple<std::string, std::string, std::string, bool> parse_drive_conf(

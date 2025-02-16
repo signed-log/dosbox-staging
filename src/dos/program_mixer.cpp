@@ -43,7 +43,7 @@ bool SelectChannel::operator==(const SelectChannel that) const
 
 bool SetVolume::operator==(const SetVolume that) const
 {
-	return volume == that.volume;
+	return volume_as_gain == that.volume_as_gain;
 }
 
 bool SetStereoMode::operator==(const SetStereoMode that) const
@@ -85,10 +85,10 @@ void Executor::operator()(const SelectChannel cmd)
 void Executor::operator()(const SetVolume cmd)
 {
 	if (master_channel) {
-		MIXER_SetMasterVolume(cmd.volume);
+		MIXER_SetMasterVolume(cmd.volume_as_gain);
 	} else {
 		assert(channel);
-		channel->SetUserVolume({cmd.volume.left, cmd.volume.right});
+		channel->SetUserVolume(cmd.volume_as_gain);
 	}
 }
 
@@ -106,8 +106,8 @@ void Executor::operator()(const SetCrossfeedStrength cmd)
 	}
 
 	if (global_command) {
-		for (const auto& [_, channel] : MIXER_GetChannels()) {
-			channel->SetCrossfeedStrength(cmd.strength);
+		for (const auto& [_, ch] : MIXER_GetChannels()) {
+			ch->SetCrossfeedStrength(cmd.strength);
 		}
 	} else {
 		assert(channel);
@@ -123,8 +123,8 @@ void Executor::operator()(const SetReverbLevel cmd)
 	}
 
 	if (global_command) {
-		for (const auto& [_, channel] : MIXER_GetChannels()) {
-			channel->SetReverbLevel(cmd.level);
+		for (const auto& [_, ch] : MIXER_GetChannels()) {
+			ch->SetReverbLevel(cmd.level);
 		}
 	} else {
 		assert(channel);
@@ -140,8 +140,8 @@ void Executor::operator()(const SetChorusLevel cmd)
 	}
 
 	if (global_command) {
-		for (const auto& [_, channel] : MIXER_GetChannels()) {
-			channel->SetChorusLevel(cmd.level);
+		for (const auto& [_, ch] : MIXER_GetChannels()) {
+			ch->SetChorusLevel(cmd.level);
 		}
 	} else {
 		assert(channel);
@@ -206,9 +206,8 @@ static std::variant<Error, Command> parse_volume_command(const std::string& s,
                                                          const std::string& channel_name)
 {
 	if (is_global_channel(channel_name)) {
-		const auto message = format_str(
-		        MSG_Get("SHELL_CMD_MIXER_INVALID_GLOBAL_COMMAND"),
-		        s.c_str());
+		const auto message = format_str(MSG_Get("SHELL_CMD_MIXER_INVALID_GLOBAL_COMMAND"),
+		                                s.c_str());
 
 		return error(ErrorType::InvalidGlobalCommand, message);
 	}
@@ -278,8 +277,8 @@ static std::variant<Error, Command> parse_volume_command(const std::string& s,
 		} else {
 			const Error error = {ErrorType::InvalidVolumeCommand,
 			                     format_str(MSG_Get("SHELL_CMD_MIXER_INVALID_VOLUME_COMMAND"),
-			                                   channel_name.c_str(),
-			                                   s.c_str())};
+			                                channel_name.c_str(),
+			                                s.c_str())};
 			return error;
 		}
 
@@ -293,15 +292,15 @@ static std::variant<Error, Command> parse_volume_command(const std::string& s,
 		} else {
 			const Error error = {ErrorType::InvalidVolumeCommand,
 			                     format_str(MSG_Get("SHELL_CMD_MIXER_INVALID_VOLUME_COMMAND"),
-			                                   channel_name.c_str(),
-			                                   s.c_str())};
+			                                channel_name.c_str(),
+			                                s.c_str())};
 			return error;
 		}
 	} else { // more than 2 parts
 		const Error error = {ErrorType::InvalidVolumeCommand,
 		                     format_str(MSG_Get("SHELL_CMD_MIXER_INVALID_VOLUME_COMMAND"),
-		                                   channel_name.c_str(),
-		                                   s.c_str())};
+		                                channel_name.c_str(),
+		                                s.c_str())};
 		return error;
 	}
 }
@@ -309,10 +308,10 @@ static std::variant<Error, Command> parse_volume_command(const std::string& s,
 static std::optional<StereoLine> parse_stereo_mode(const std::string& s)
 {
 	if (s == "STEREO") {
-		return Stereo;
+		return StereoMap;
 	}
 	if (s == "REVERSE") {
-		return Reverse;
+		return ReverseMap;
 	}
 	return {};
 }
@@ -333,8 +332,8 @@ static bool is_command_with_prefix(const std::string& s, const char prefix)
 static Error make_invalid_master_channel_command_error(const std::string& command)
 {
 	const auto message = format_str(MSG_Get("SHELL_CMD_MIXER_INVALID_CHANNEL_COMMAND"),
-	                                   ChannelName::Master,
-	                                   command.c_str());
+	                                ChannelName::Master,
+	                                command.c_str());
 
 	return error(ErrorType::InvalidMasterChannelCommand, message);
 }
@@ -367,7 +366,7 @@ static std::variant<Error, Command> parse_crossfeed_command(
 		                 : "SHELL_CMD_MIXER_MISSING_CROSSFEED_STRENGTH");
 
 		const auto message = format_str(MSG_Get(msg_id),
-		                                   channel_name.c_str());
+		                                channel_name.c_str());
 
 		return error(ErrorType::MissingCrossfeedStrength, message);
 	}
@@ -417,7 +416,7 @@ static std::variant<Error, Command> parse_reverb_command(const std::string& s,
 		                             : "SHELL_CMD_MIXER_MISSING_REVERB_LEVEL");
 
 		const auto message = format_str(MSG_Get(msg_id),
-		                                   channel_name.c_str());
+		                                channel_name.c_str());
 
 		return error(ErrorType::MissingReverbLevel, message);
 	}
@@ -468,7 +467,7 @@ static std::variant<Error, Command> parse_chorus_command(const std::string& s,
 		                             : "SHELL_CMD_MIXER_MISSING_CHORUS_LEVEL");
 
 		const auto message = format_str(MSG_Get(msg_id),
-		                                   channel_name.c_str());
+		                                channel_name.c_str());
 
 		return error(ErrorType::MissingChorusLevel, message);
 	}
@@ -504,8 +503,8 @@ std::variant<Error, std::queue<Command>> ParseCommands(
 	std::queue<Command> commands = {};
 
 	// We always implicitly select the "global virtual channel" at the start
-	const SelectChannel cmd = {GlobalVirtualChannelName};
-	commands.emplace(cmd);
+	const SelectChannel select_global_chan_cmd = {GlobalVirtualChannelName};
+	commands.emplace(select_global_chan_cmd);
 
 	auto parse_select_channel_command =
 	        [&](const std::string& channel_name) -> std::optional<SelectChannel> {
@@ -696,8 +695,8 @@ static ChannelInfos create_channel_infos()
 {
 	ChannelInfosMap infos = {};
 
-	for (const auto& [name, channel] : MIXER_GetChannels()) {
-		infos[name] = channel->GetFeatures();
+	for (const auto& [name, ch] : MIXER_GetChannels()) {
+		infos[name] = ch->GetFeatures();
 	}
 
 	return ChannelInfos(infos);
@@ -741,7 +740,7 @@ void MIXER::Run()
 		return;
 	}
 	if (cmd->FindExist("/LISTMIDI")) {
-		MIDI_ListAll(this);
+		MIDI_ListDevices(this);
 		return;
 	}
 
@@ -756,8 +755,6 @@ void MIXER::Run()
 	}
 
 	const auto args = cmd->GetArguments();
-
-	MIXER_LockAudioDevice();
 
 	auto result = MixerCommand::ParseCommands(args,
 	                                          create_channel_infos(),
@@ -785,11 +782,10 @@ void MIXER::Run()
 
 		// To give people a hint if their [autoexec] contains invalid
 		// MIXER commands.
-		LOG_WARNING("MIXER: Incorrect MIXER command invocation; "
-		            "run MIXER /? for help");
+		LOG_WARNING(
+		        "MIXER: Incorrect MIXER command invocation; "
+		        "run MIXER /? for help");
 	}
-
-	MIXER_UnlockAudioDevice();
 }
 
 void MIXER::AddMessages()
@@ -907,17 +903,17 @@ void MIXER::ShowMixerStatus()
 	column_layout.append({'\n'});
 
 	auto show_channel = [&](const std::string& name,
-	                        const AudioFrame& volume,
+	                        const AudioFrame& volume_as_gain,
 	                        const std::string& mode,
 	                        const std::string& xfeed,
 	                        const std::string& reverb,
 	                        const std::string& chorus) {
 		WriteOut(column_layout.c_str(),
 		         name.c_str(),
-		         static_cast<double>(gain_to_percentage(volume.left)),
-		         static_cast<double>(gain_to_percentage(volume.right)),
-		         static_cast<double>(gain_to_decibel(volume.left)),
-		         static_cast<double>(gain_to_decibel(volume.right)),
+		         static_cast<double>(gain_to_percentage(volume_as_gain.left)),
+		         static_cast<double>(gain_to_percentage(volume_as_gain.right)),
+		         static_cast<double>(gain_to_decibel(volume_as_gain.left)),
+		         static_cast<double>(gain_to_decibel(volume_as_gain.right)),
 		         mode.c_str(),
 		         xfeed.c_str(),
 		         reverb.c_str(),
@@ -928,8 +924,6 @@ void MIXER::ShowMixerStatus()
 
 	const auto off_value      = MSG_Get("SHELL_CMD_MIXER_CHANNEL_OFF");
 	constexpr auto none_value = "-";
-
-	MIXER_LockAudioDevice();
 
 	constexpr auto master_channel_string = "[color=light-cyan]MASTER[reset]";
 
@@ -984,6 +978,4 @@ void MIXER::ShowMixerStatus()
 		             reverb,
 		             chorus);
 	}
-
-	MIXER_UnlockAudioDevice();
 }

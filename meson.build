@@ -1,8 +1,11 @@
 project(
-    'dosbox-staging',
-    'c',
-    'cpp',
-    version: '0.82.0-alpha',
+    'dosbox-staging', 'c', 'cpp',
+
+    version: run_command(
+      meson.project_source_root() + '/scripts/get-version.sh',
+      'version', check: true,
+    ).stdout().strip(),
+
     license: 'GPL-2.0-or-later',
     meson_version: '>= 0.59.0',
     default_options: [
@@ -13,18 +16,25 @@ project(
         'b_pie=false',
         'warning_level=3',
         'glib:b_staticpic=true',
+        'glib:bsymbolic_functions=false',
         'glib:glib_assert=false',
         'glib:glib_checks=false',
         'glib:glib_debug=disabled',
+        'glib:dtrace=false',
+        'glib:force_posix_threads=false',
         'glib:libmount=disabled',
         'glib:libelf=disabled',
         'glib:nls=disabled',
+        'glib:selinux=disabled',
+        'glib:systemtap=false',
+        'glib:sysprof=disabled',
         'glib:tests=false',
         'glib:warning_level=0',
         'glib:xattr=false',
         'gtest:warning_level=0',
         'libjpeg-turbo:b_staticpic=true',
         'libpng:b_staticpic=true',
+        'pcre2:grep=false',
         'zlib-ng:c_std=c11',
     ],
 )
@@ -44,6 +54,7 @@ install_data(
     'LICENSE',
     'licenses/BSD-2-Clause.txt',
     'licenses/BSD-3-Clause.txt',
+    'licenses/DEBUG.COM.txt',
     'licenses/GPL-2.0.txt',
     'licenses/LGPL-2.1.txt',
     'licenses/MIT.txt',
@@ -98,7 +109,6 @@ foreach flag : [
     '-Wduplicated-branches',
     '-Weffc++',
     '-Wextra-semi',
-    '-Wfloat-conversion',
     '-Wlogical-op',
     '-Wlogical-not-parentheses',
     '-Wredundant-decls',
@@ -409,9 +419,14 @@ add_project_link_arguments(link_supported_arguments, language: 'cpp')
 # The actual config.h file will be generated after interpreting
 # all the build files in all the subdirs.
 #
+git_hash = run_command(
+  './scripts/get-version.sh', 'hash', check: true,
+).stdout().strip()
+
 conf_data = configuration_data()
 conf_data.set('version', meson.project_version())
 conf_data.set('project_name', meson.project_name())
+conf_data.set('git_hash', git_hash)
 conf_data.set_quoted(
     'CUSTOM_DATADIR',
     get_option('prefix') / get_option('datadir'),
@@ -669,21 +684,35 @@ opus_dep = dependency(
     include_type: 'system',
 )
 
-if host_machine.system() == 'darwin'
-    # use SDL2 wrap so we can control MACOSX_DEPLOYMENT_TARGET during the build
-    sdl2_dep = subproject(
-        'sdl2',
-        default_options: default_wrap_options,
-    ).get_variable('sdl2_dep')
-else
-    sdl2_dep = dependency(
-        'sdl2',
-        version: ['>= 2.0.5', '< 3'],
-        static: ('sdl2' in static_libs_list),
-        fallback: [],
-        include_type: 'system',
-    )
-endif
+sdl2_dep = dependency(
+    'sdl2',
+    version: ['>= 2.0.5', '< 3'],
+    static: ('sdl2' in static_libs_list or prefers_static_libs),
+    default_options: default_wrap_options
+    + [
+        'assertions=' + (is_optimized_buildtype ? 'disabled' : 'enabled'),
+        'prefer_dlopen=true',
+        'test=' + wants_tests.to_string(),
+        'use_audio=enabled',
+        'use_events=enabled',
+        'use_joystick=enabled',
+        'use_loadso=enabled',
+        'use_timers=enabled',
+        'use_video=enabled',
+
+        'use_dummies=false',
+        'system_iconv=disabled',
+        'use_atomic=enabled',
+        'use_file=disabled',
+        'use_filesystem=disabled',
+        'use_hidapi=disabled',
+        'use_haptic=disabled',
+        'use_locale=disabled',
+        'use_sensor=disabled',
+        'use_power=disabled',
+    ],
+    include_type: 'system',
+)
 
 # zlib
 # ~~~~
@@ -926,22 +955,14 @@ have_fd_zero = (
 sdl2_net_dep = optional_dep
 sdl2_net_summary_msg = 'Disabled'
 if get_option('use_sdl2_net')
-    if host_machine.system() == 'darwin'
-        # use wrap so we can control MACOSX_DEPLOYMENT_TARGET during the build
-        sdl2_net_dep = subproject(
-            'sdl2_net',
-            default_options: default_wrap_options,
-        ).get_variable('sdl2_net_dep')
-    else
-        sdl2_net_dep = dependency(
-            'SDL2_net',
-            version: ['>= 2.0.0', '< 3'],
-            static: ('sdl2_net' in static_libs_list),
-            fallback: [],
-            not_found_message: msg.format('use_sdl2_net'),
-            include_type: 'system',
-        )
-    endif
+    sdl2_net_dep = dependency(
+        'SDL2_net',
+        version: ['>= 2.0.0', '< 3'],
+        static: ('sdl2_net' in static_libs_list or prefers_static_libs),
+        default_options: default_wrap_options,
+        not_found_message: msg.format('use_sdl2_net'),
+        include_type: 'system',
+    )
     sdl2_net_summary_msg = sdl2_net_dep.found()
 
     if sdl2_net_dep.found() and not have_fd_zero
@@ -1215,7 +1236,7 @@ if host_machine.system() in ['windows', 'cygwin']
     summary('Windows Multimedia support', winmm_dep.found())
 endif
 
-# Setup include directories
+# Set up include directories
 incdir = [
     include_directories('include', '.'),
     include_directories('src/libs', is_system: true),
@@ -1232,10 +1253,11 @@ subdir('src/libs/ghc')
 subdir('src/libs/loguru')
 subdir('src/libs/decoders')
 subdir('src/libs/nuked')
+subdir('src/libs/ESFMu')
 subdir('src/libs/residfp')
-subdir('src/libs/sdlcd')
 subdir('src/libs/whereami')
 subdir('src/libs/YM7128B_emu')
+
 if conf_data.get('C_MANYMOUSE') != 0
     subdir('src/libs/manymouse')
 endif
@@ -1256,7 +1278,6 @@ third_party_deps = [
     ghc_dep,
     libiir_dep,
     libloguru_dep,
-    libsdlcd_dep,
     tracy_dep,
     libwhereami_dep,
     libtalchorus_dep,
@@ -1267,6 +1288,7 @@ if conf_data.get('C_MANYMOUSE') != 0
 endif
 
 # internal libs
+subdir('src/audio')
 subdir('src/capture')
 subdir('src/cpu')
 subdir('src/dos')
@@ -1292,11 +1314,10 @@ configure_file(
 )
 
 
-# Setup the executable and libraries
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Set up the executable and libraries
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-version_file = vcs_tag(input: 'src/version.cpp.in', output: 'version.cpp')
-dosbox_sources = ['src/main.cpp', 'src/dosbox.cpp', version_file]
+dosbox_sources = ['src/main.cpp', 'src/dosbox.cpp']
 
 # Add Windows resources file if building on Windows
 if host_machine.system() == 'windows'
@@ -1317,7 +1338,7 @@ executable(
 # create a library so we can test things inside DOSBOX dep path
 libdosbox = static_library(
     'dosbox',
-    ['src/dosbox.cpp', version_file],
+    ['src/dosbox.cpp'],
     include_directories: incdir,
     dependencies: internal_deps + third_party_deps,
 )
@@ -1325,12 +1346,9 @@ libdosbox = static_library(
 dosbox_dep = declare_dependency(link_with: libdosbox)
 
 
-# Setup unit tests
-# ~~~~~~~~~~~~~~~~
-# Some tests use relative paths; in meson 0.56.0 this can be replaced
-# with meson.project_source_root().
+# Set up unit tests
+# ~~~~~~~~~~~~~~~~~
 #
 if wants_tests
-    project_source_root = meson.current_source_dir()
     subdir('tests')
 endif

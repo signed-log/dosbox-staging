@@ -1,9 +1,14 @@
 name: PVS-Studio analysis
 
-# If the CI job fails with 404-not-found, then PVS studio has updated the release.
-# Get the new DEB version from: https://pvs-studio.com/en/pvs-studio/download-all/
-
-on: push
+on:
+  push:
+    paths-ignore:
+      - '.clang-format'
+      - '.mdl-styles'
+      - '*.md'
+      - 'docs/**'
+      - 'licenses/**'
+      - 'website/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,43 +17,35 @@ concurrency:
 jobs:
   pvs_studio_analyzer:
     name: PVS-Studio static analyzer
-    runs-on: ubuntu-latest
-    env:
-      debfile: pvs-studio-7.29.79138.387-amd64.deb
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: false
 
-      - run:  sudo apt-get update
-
-      - name: Log and setup environment
+      - name: Configure PVS-Studio repository
         run: |
-          ./scripts/log-env.sh
-          mkdir -p pvs-package
-
-      - uses: actions/cache@v4.0.0
-        id: cache-pvs
-        with:
-          path: pvs-package
-          key: ${{ env.debfile }}
-
-      - name:  Fetch PVS-Studio package
-        if:    steps.cache-pvs.outputs.cache-hit != 'true'
-        run:   wget "https://cdn.pvs-studio.com/${debfile}" -O "pvs-package/pvs.deb"
+          set -xeu
+          wget -q -O - https://files.pvs-studio.com/etc/pubkey.txt | sudo apt-key add -
+          sudo wget -O /etc/apt/sources.list.d/viva64.list https://files.pvs-studio.com/etc/viva64.list
 
       - name: Install dependencies
         run: |
           set -xeu
-          sudo apt-get install -y strace $(cat packages/ubuntu-20.04-apt.txt)
+          sudo apt-get update
+          sudo apt-get install -y strace $(cat packages/ubuntu-22.04-apt.txt)
           sudo pip3 install --upgrade meson ninja
-          sudo dpkg -i "pvs-package/pvs.deb"
+          sudo apt-get install pvs-studio
+
+      - name: Configure PVS-Studio license
+        run: |
+          set -xeu
           pvs-studio-analyzer credentials "${{ secrets.PvsStudioName }}" "${{ secrets.PvsStudioKey }}"
 
       - name: Cache subprojects
         id:   cache-subprojects
-        uses: actions/cache@v4.0.0
+        uses: actions/cache@v4
         with:
           path: subprojects.tar
           key: subprojects-${{ hashFiles('subprojects/*.wrap') }}-1
@@ -64,7 +61,7 @@ jobs:
       - name: Build
         run: |
           set -xeu
-          meson setup -Dbuildtype=debug -Dunit_tests=disabled --native-file=.github/meson/native-clang.ini build
+          meson setup -Dbuildtype=debug -Dunit_tests=disabled --native-file=.github/meson/native-clang-15.ini build
           pvs-studio-analyzer trace -- meson compile -C build
 
       - name: Analyze
@@ -104,14 +101,15 @@ jobs:
           rm -rf "${reportdir}/pvs-report.fullhtml"
 
       - name: Upload report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4.3.1
         with:
           name: pvs-analysis-report
           path: pvs-report
+          overwrite: true
 
       - name: Summarize report
         env:
-          MAX_BUGS: 107
+          MAX_BUGS: 84
         run: |
           echo "Full report is included in build Artifacts"
           echo

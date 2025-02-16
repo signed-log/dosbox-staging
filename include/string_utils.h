@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -90,10 +90,6 @@ size_t safe_strlen(char (&str)[N]) noexcept
 	static_assert(N != 0, "zero-length arrays are not supported");
 	return strnlen(str, N - 1);
 }
-
-bool starts_with(const std::string_view str, const std::string_view prefix) noexcept;
-
-bool ends_with(const std::string_view str, const std::string_view suffix) noexcept;
 
 std::string strip_prefix(const std::string_view str,
                          const std::string_view prefix) noexcept;
@@ -242,7 +238,7 @@ constexpr bool iequals(T1&& a, T2&& b)
 
 // Performs a "natural" comparison between A and B, which is case-insensitive
 // and treats number sequenences as whole numbers. Returns true if A < B. This
-// function can be used with higher order sort rountines, like std::sort.
+// function can be used with higher order sort routines, like std::sort.
 //
 // Examples:
 // - ("abc_2", "ABC_10") -> true, because abc_ matches and 2 < 10.
@@ -254,7 +250,7 @@ char* strip_word(char*& line);
 std::string strip_word(std::string& line);
 
 std::string replace(const std::string& str, char old_char, char new_char) noexcept;
-void trim(std::string& str, const char trim_chars[] = " \r\t\f\n");
+void trim(std::string& str, const std::string_view trim_chars = " \r\t\f\n");
 void upcase(std::string& str);
 void lowcase(std::string& str);
 void strip_punctuation(std::string& str);
@@ -289,53 +285,6 @@ std::string join_with_commas(const std::vector<std::string>& items,
                              const std::string_view and_conjunction = "and",
                              const std::string_view end_punctuation = ".");
 
-// Clear the language if it's set to the POSIX default
-void clear_language_if_default(std::string& language);
-
-// Get recommended DOS code page to render the UTF-8 strings to. This
-// might not be the code page set using KEYB command, for example due
-// to emulated hardware limitations, or duplicated code page numbers
-uint16_t get_utf8_code_page();
-
-// Specifies what to do if the DOS code page does not contain character
-// representing given Unicode grapheme
-enum class UnicodeFallback {
-	// Convert all unknown graphemes to 0 - to be used in code like TREE
-	// command implementation, which has it's own specialized ASCII fallback
-	// drawing code
-	Null,
-	// Try to provide reasonable fallback using all the characters available
-	// in target DOS code page; use for features like clipboard content
-	// exchange with host system
-	Simple,
-	// Do not use certain DOS code page characters in order to draw boxes
-	// (tables) which are consistent; for example, if code page contains
-	// character '╠', but not '╣', both will be replaced with a fallback
-	// character ('║' for example)
-	Box
-};
-
-// Convert the UTF-8 string to the format intended for display inside emulated
-// environment, or vice-versa. Code page '0' means a pure 7-bit ASCII. Functions
-// without 'code_page' parameters uses current DOS code page.
-// Return value 'false' means there were problems with string decoding or
-// rendering, but the overall output should still be sane.
-bool utf8_to_dos(const std::string& in_str, std::string& out_str,
-                 const UnicodeFallback fallback);
-bool utf8_to_dos(const std::string& in_str, std::string& out_str,
-                 const UnicodeFallback fallback, const uint16_t code_page);
-void dos_to_utf8(const std::string& in_str, std::string& out_str);
-void dos_to_utf8(const std::string& in_str, std::string& out_str,
-                 const uint16_t code_page);
-
-// Convert DOS code page string to lower/upper case; converters are aware of all
-// the national characters. Functions without 'code_page' parameter use current
-// DOS code page.
-void lowercase_dos(std::string& in_str);
-void lowercase_dos(std::string& in_str, const uint16_t code_page);
-void uppercase_dos(std::string& in_str);
-void uppercase_dos(std::string& in_str, const uint16_t code_page);
-
 // Parse the string as an integer or decimal value and return it as a float.
 // This API should give us enough numerical range and accuracy for any
 // text-based inputs.
@@ -365,6 +314,9 @@ std::optional<float> parse_percentage_with_optional_percent_sign(const std::stri
 template <typename... Args>
 std::string format_str(const std::string& format, const Args&... args) noexcept
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-security"
+
 	// Perform a non-writing format to determine the size
 	const auto required_size = std::snprintf(nullptr, 0, format.c_str(), args...);
 	if (required_size <= 0) {
@@ -380,6 +332,7 @@ std::string format_str(const std::string& format, const Args&... args) noexcept
 	std::string result(out_size, '\0');
 
 	std::snprintf(result.data(), result.size(), format.c_str(), args...);
+#pragma clang diagnostic pop
 
 	// The buffer should now have the determined output length plus the
 	// terminating zero
@@ -389,5 +342,28 @@ std::string format_str(const std::string& format, const Args&... args) noexcept
 	result.pop_back();
 	return result;
 }
+
+template<size_t N>
+std::string safe_tostring(char (&str)[N]) noexcept
+{
+	return std::string(str, safe_strlen(str));
+}
+
+inline std::string safe_tostring(const char* str, const std::size_t maxlen) noexcept
+{
+	return std::string(str, strnlen(str, maxlen));
+}
+
+std::string replace_all(const std::string& str, const std::string& from,
+                        const std::string& to);
+
+// Returns the host-specific end-of-line marking
+std::string host_eol();
+
+// Replaces end-of-line markings (any encoding) with the supplied one
+std::string replace_eol(const std::string& str, const std::string& new_eol);
+
+// Compares two pieces of text, insensitive to end-of-line encoding differences
+bool is_text_equal(const std::string& str_1, const std::string& str_2);
 
 #endif

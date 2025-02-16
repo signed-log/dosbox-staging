@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -126,37 +126,6 @@ TEST(NaturalCompare, AtEndNum)
 	EXPECT_TRUE(natural_compare("Ab999", "aB1000"));
 }
 
-
-TEST(StartsWith, Prefix)
-{
-	EXPECT_TRUE(starts_with("abcd", "ab"));
-	EXPECT_TRUE(starts_with(std::string{"abcd"}, "ab"));
-}
-
-TEST(StartsWith, NotPrefix)
-{
-	EXPECT_FALSE(starts_with("abcd", "xy"));
-	EXPECT_FALSE(starts_with(std::string{"abcd"}, "xy"));
-}
-
-TEST(StartsWith, TooLongPrefix)
-{
-	EXPECT_FALSE(starts_with("ab", "abcd"));
-	EXPECT_FALSE(starts_with(std::string{"ab"}, "abcd"));
-}
-
-TEST(StartsWith, EmptyPrefix)
-{
-	EXPECT_TRUE(starts_with("abcd", ""));
-	EXPECT_TRUE(starts_with(std::string{"abcd"}, ""));
-}
-
-TEST(StartsWith, EmptyString)
-{
-	EXPECT_FALSE(starts_with("", "ab"));
-	EXPECT_FALSE(starts_with(std::string{""}, "ab"));
-}
-
 TEST(SafeSprintF, PreventOverflow)
 {
 	char buf[3];
@@ -244,7 +213,7 @@ TEST(SafeStrlen, FixedSize)
 	EXPECT_EQ(N - 1, safe_strlen(buffer));
 }
 
-TEST(Split_delit, NoBoundingDelims)
+TEST(Split_delim, NoBoundingDelims)
 {
 	const std::vector<std::string> expected({"a", "/b", "/c/d", "/e/f/"});
 	EXPECT_EQ(split_with_empties("a:/b:/c/d:/e/f/", ':'), expected);
@@ -472,6 +441,209 @@ TEST(FormatString, Valid)
 	EXPECT_EQ(format_str("%d", 42), "42");
 	EXPECT_EQ(format_str("%d\0", 42), "42\0");
 	EXPECT_EQ(format_str("%s%d%s", "abcd", 42, "xyz"), "abcd42xyz");
+}
+
+TEST(IsHexDigits, Valid)
+{
+	EXPECT_TRUE(is_hex_digits("0123456789ABCDEF"));
+	EXPECT_TRUE(is_hex_digits("0123456789abcdef"));
+	EXPECT_TRUE(is_hex_digits(""));
+}
+
+TEST(IsHexDigits, Invalid)
+{
+	EXPECT_FALSE(is_hex_digits("0123456789ABCDEFG"));
+	EXPECT_FALSE(is_hex_digits("0123456789abcdefg"));
+}
+
+TEST(IsDigits, Valid)
+{
+	EXPECT_TRUE(is_digits("0123456789"));
+	EXPECT_TRUE(is_digits(""));
+}
+
+TEST(IsDigits, Invalid)
+{
+	EXPECT_FALSE(is_digits("01234567890ABCDEFG"));
+	EXPECT_FALSE(is_digits("01234567890abcdefg"));
+}
+
+TEST(LTrim, Valid) 
+{
+	auto perform_ltrim = [](const std::string& input) {
+		std::string output = input;
+		ltrim(output);
+		return output;
+	};
+	EXPECT_EQ(perform_ltrim("  ABC"), "ABC");
+	EXPECT_EQ(perform_ltrim("ABC"), "ABC");
+	EXPECT_EQ(perform_ltrim("ABC   "), "ABC   ");
+}
+
+TEST(Upcase, Valid) {
+	auto perform_upcase = [](const std::string& input) {
+		std::string output = input;
+		upcase(output);
+		return output;
+	};
+	EXPECT_EQ(perform_upcase("abc"), "ABC");
+	EXPECT_EQ(perform_upcase("ABC"), "ABC");
+	EXPECT_EQ(perform_upcase("aBc"), "ABC");
+}
+
+TEST(Lowcase, Valid)
+{
+	auto perform_lowcase = [](const std::string& input) {
+		std::string output = input;
+		lowcase(output);
+		return output;
+	};
+	EXPECT_EQ(perform_lowcase("abc"), "abc");
+	EXPECT_EQ(perform_lowcase("ABC"), "abc");
+	EXPECT_EQ(perform_lowcase("aBc"), "abc");
+}
+
+TEST(Replace, Valid)
+{
+	EXPECT_EQ(replace("abc", 'c', 'D'), "abD");
+	EXPECT_EQ(replace("abc", 'd', 'D'), "abc");
+	EXPECT_EQ(replace("", 'd', 'D'), "");
+}
+
+TEST(ReplaceAll, Valid)
+{
+	const auto s1 = "%% foo%%bar quz%baz%";
+	EXPECT_EQ(replace_all(s1, "%%", "%"), "% foo%bar quz%baz%");
+
+	const auto s2 = "\nthe quick brown fox jumps\nover the\nlazy dog";
+	EXPECT_EQ(replace_all(s2, "the", "a"), "\na quick brown fox jumps\nover a\nlazy dog");
+}
+
+TEST(ReplaceEol, Valid)
+{
+	const auto s1 = "\n foo \n\r bar \r\n baz \r";
+
+	EXPECT_EQ(replace_eol(s1, "\n"), "\n foo \n bar \n baz \n");
+	EXPECT_EQ(replace_eol(s1, "\n\r"), "\n\r foo \n\r bar \n\r baz \n\r");
+	EXPECT_EQ(replace_eol(s1, "\r\n"), "\r\n foo \r\n bar \r\n baz \r\n");
+
+	const auto s2 = "Foo\n\nBar\r\r";
+
+	EXPECT_EQ(replace_eol(s2, "\n"), "Foo\n\nBar\n\n");
+	EXPECT_EQ(replace_eol(s2, "\n\r"), "Foo\n\r\n\rBar\n\r\n\r");
+	EXPECT_EQ(replace_eol(s2, "\r\n"), "Foo\r\n\r\nBar\r\n\r\n");
+}
+
+TEST(IsTextEqual, Valid)
+{
+	// Base text, different eol marks
+	const auto s1_posix =
+	        "Lorem ipsum dolor sit amet,\n"
+	        "consectetur adipiscing elit,\n"
+	        "sed do eiusmod tempor incididunt\n"
+	        "ut labore et dolore magna aliqua.\n";
+	const auto s1_win32 =
+	        "Lorem ipsum dolor sit amet,\r\n"
+	        "consectetur adipiscing elit,\r\n"
+	        "sed do eiusmod tempor incididunt\r\n"
+	        "ut labore et dolore magna aliqua.\r\n";
+	const auto s1_mixed =
+	        "Lorem ipsum dolor sit amet,\r\n"
+	        "consectetur adipiscing elit,\n"
+	        "sed do eiusmod tempor incididunt\n\r"
+	        "ut labore et dolore magna aliqua.\r";
+
+	// Similar to s1_*, but each line starts with uppercase
+	const auto s2_posix =
+	        "Lorem ipsum dolor sit amet,\n"
+	        "Consectetur adipiscing elit,\n"
+	        "Sed do eiusmod tempor incididunt\n"
+	        "Ut labore et dolore magna aliqua.\n";
+	const auto s2_win32 =
+	        "Lorem ipsum dolor sit amet,\r\n"
+	        "Consectetur adipiscing elit,\r\n"
+	        "Sed do eiusmod tempor incididunt\r\n"
+	        "Ut labore et dolore magna aliqua.\r\n";
+
+	// Similar to s1_*, but each end-of-line is doubled
+	const auto s3_posix =
+	        "Lorem ipsum dolor sit amet,\n\n"
+	        "consectetur adipiscing elit,\n\n"
+	        "sed do eiusmod tempor incididunt\n\n"
+	        "ut labore et dolore magna aliqua.\n\n";
+
+	const auto s3_win32 =
+	        "Lorem ipsum dolor sit amet,\r\n\r\n"
+	        "consectetur adipiscing elit,\r\n\r\n"
+	        "sed do eiusmod tempor incididunt\r\n\r\n"
+	        "ut labore et dolore magna aliqua.\r\n\r\n";
+
+	// Compare with same text
+	EXPECT_TRUE(is_text_equal(s1_posix, s1_posix));
+	EXPECT_TRUE(is_text_equal(s1_win32, s1_win32));
+	EXPECT_TRUE(is_text_equal(s1_mixed, s1_mixed));
+	EXPECT_TRUE(is_text_equal(s2_posix, s2_posix));
+	EXPECT_TRUE(is_text_equal(s2_win32, s2_win32));
+	EXPECT_TRUE(is_text_equal(s3_posix, s3_posix));
+	EXPECT_TRUE(is_text_equal(s3_win32, s3_win32));
+
+	// Compare s1_* with s1_*
+	EXPECT_TRUE(is_text_equal(s1_posix, s1_win32));
+	EXPECT_TRUE(is_text_equal(s1_win32, s1_posix));
+	EXPECT_TRUE(is_text_equal(s1_win32, s1_mixed));
+	EXPECT_TRUE(is_text_equal(s1_mixed, s1_win32));
+	EXPECT_TRUE(is_text_equal(s1_mixed, s1_posix));
+	EXPECT_TRUE(is_text_equal(s1_posix, s1_mixed));
+
+	// Compare s2_* with s2_*
+	EXPECT_TRUE(is_text_equal(s2_posix, s2_win32));
+	EXPECT_TRUE(is_text_equal(s2_win32, s2_posix));
+
+	// Compare s3_* with s3_*
+	EXPECT_TRUE(is_text_equal(s3_posix, s3_win32));
+	EXPECT_TRUE(is_text_equal(s3_win32, s3_posix));
+
+	// Compare s1_posix with s2_*
+	EXPECT_FALSE(is_text_equal(s1_posix, s2_posix));
+	EXPECT_FALSE(is_text_equal(s1_posix, s2_win32));
+	EXPECT_FALSE(is_text_equal(s1_posix, s3_posix));
+	EXPECT_FALSE(is_text_equal(s1_posix, s3_win32));
+
+	// Compare s2_* with s1_posix
+	EXPECT_FALSE(is_text_equal(s2_posix, s1_posix));
+	EXPECT_FALSE(is_text_equal(s2_win32, s1_posix));
+	EXPECT_FALSE(is_text_equal(s3_posix, s1_posix));
+	EXPECT_FALSE(is_text_equal(s3_win32, s1_posix));
+
+	// Compare s1_win32 with s2_*
+	EXPECT_FALSE(is_text_equal(s1_win32, s2_posix));
+	EXPECT_FALSE(is_text_equal(s1_win32, s2_win32));
+	EXPECT_FALSE(is_text_equal(s1_win32, s3_posix));
+	EXPECT_FALSE(is_text_equal(s1_win32, s3_win32));
+
+	// Compare s2_* with s1_win32
+	EXPECT_FALSE(is_text_equal(s2_posix, s1_win32));
+	EXPECT_FALSE(is_text_equal(s2_win32, s1_win32));
+	EXPECT_FALSE(is_text_equal(s3_posix, s1_win32));
+	EXPECT_FALSE(is_text_equal(s3_win32, s1_win32));
+
+	// Compare s1_mixed with s2_*
+	EXPECT_FALSE(is_text_equal(s1_mixed, s2_posix));
+	EXPECT_FALSE(is_text_equal(s1_mixed, s2_win32));
+	EXPECT_FALSE(is_text_equal(s1_mixed, s3_posix));
+	EXPECT_FALSE(is_text_equal(s1_mixed, s3_win32));
+
+	// Compare s2_* with s1_mixed
+	EXPECT_FALSE(is_text_equal(s2_posix, s1_mixed));
+	EXPECT_FALSE(is_text_equal(s2_win32, s1_mixed));
+	EXPECT_FALSE(is_text_equal(s3_posix, s1_mixed));
+	EXPECT_FALSE(is_text_equal(s3_win32, s1_mixed));
+
+	// Compare strings without newline characters
+	EXPECT_TRUE(is_text_equal("FooBar", "FooBar"));
+	EXPECT_FALSE(is_text_equal("FooBar", "BarFoo"));
+	EXPECT_FALSE(is_text_equal("FooBar", "FooBarBaz"));
+	EXPECT_FALSE(is_text_equal("FooBarBaz", "FooBar"));
 }
 
 } // namespace
