@@ -664,8 +664,8 @@ static void CleanupFromUserCallback(void)
 static uint32_t FMPDRV_driver_call(const uint8_t command, const uint8_t media_handle,
                                    const uint16_t subfunc, const uint16_t param1, const uint16_t param2)
 {
-	ReelMagic_MediaPlayer* player;
-	ReelMagic_PlayerConfiguration* cfg;
+	ReelMagic_MediaPlayer* player = nullptr;
+	ReelMagic_PlayerConfiguration* cfg = nullptr;
 	uint32_t rv;
 	switch (command) {
 	//
@@ -882,7 +882,7 @@ static uint32_t FMPDRV_driver_call(const uint8_t command, const uint8_t media_ha
 			 (unsigned short)param1);
 			return 0;
 		}
-		if (media_handle != 0)
+		if (player != nullptr)
 			player->NotifyConfigChange();
 
 		return rv;
@@ -1407,7 +1407,7 @@ void ReelMagic_Init(Section* sec)
 	if (!wants_card_only && !wants_card_and_driver) {
 		if (!reelmagic_choice_has_bool) {
 			LOG_WARNING("REELMAGIC: Invalid 'reelmagic' value: '%s', shutting down.",
-			            reelmagic_choice.data());
+			            reelmagic_choice.c_str());
 		}
 		return;
 	}

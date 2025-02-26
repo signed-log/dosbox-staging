@@ -1,5 +1,7 @@
 /*
- *  Copyright (C) 2022-2023  The DOSBox Staging Team
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ *  Copyright (C) 2022-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +27,7 @@
 #include "dos_inc.h"
 #include "math_utils.h"
 #include "pic.h"
-#include "string_utils.h"
+#include "unicode.h"
 
 #include <algorithm>
 #include <initializer_list>
@@ -174,11 +176,12 @@ void ManyMouseGlue::Rescan()
 	ClearPhysicalMice();
 
 	for (uint8_t idx = 0; idx < num_mice; idx++) {
-		const auto name_utf8 = ManyMouse_DeviceName(idx);
-		std::string name;
 		// We want the mouse name to be the same regardless of the code
 		// page set - so use 7-bit ASCII characters only
-		utf8_to_dos(name_utf8, name, UnicodeFallback::Simple, 0);
+		auto name = utf8_to_dos(ManyMouse_DeviceName(idx),
+		                        DosStringConvertMode::NoSpecialCharacters,
+		                        UnicodeFallback::Simple,
+		                        0);
 
 		// Replace non-breaking space with a regular space
 		const char character_nbsp  = 0x7f;
@@ -224,8 +227,15 @@ void ManyMouseGlue::Rescan()
 
 void ManyMouseGlue::RescanIfSafe()
 {
-	if (rescan_blocked_config)
+	if (rescan_blocked_config) {
 		return;
+	}
+
+#if defined(WIN32)
+	if (mouse_config.raw_input) {
+		return;
+	}
+#endif
 
 	ShutdownIfSafe();
 	InitIfNeeded();
@@ -369,11 +379,13 @@ bool ManyMouseGlue::IsMappingInEffect() const
 
 void ManyMouseGlue::HandleEvent(const ManyMouseEvent &event, const bool critical_only)
 {
-	if (GCC_UNLIKELY(event.device >= mouse_info.physical.size()))
+	if (event.device >= mouse_info.physical.size()) {
 		return; // device ID out of supported range
-	if (GCC_UNLIKELY(mouse_config.capture == MouseCapture::NoMouse &&
-	                 event.type != MANYMOUSE_EVENT_DISCONNECT))
+	}
+	if (mouse_config.capture == MouseCapture::NoMouse &&
+	    event.type != MANYMOUSE_EVENT_DISCONNECT) {
 		return; // mouse control disabled in GUI
+	}
 
 	const auto device_idx = static_cast<uint8_t>(event.device);
 	const auto interface_id = physical_devices[device_idx].GetMappedInterfaceId();

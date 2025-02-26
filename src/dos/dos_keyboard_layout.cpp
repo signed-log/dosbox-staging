@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2019-2023  The DOSBox Staging Team
+ *  Copyright (C) 2019-2025  The DOSBox Staging Team
  *  Copyright (C) 2002-2015  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -22,13 +22,11 @@
 #include <map>
 #include <memory>
 #include <string_view>
-using sv = std::string_view;
 
 #include "../ints/int10.h"
-#include "autoexec.h"
-#include "bios.h"
 #include "bios_disk.h"
 #include "callback.h"
+#include "dos_code_page.h"
 #include "dos_inc.h"
 #include "dos_locale.h"
 #include "drives.h"
@@ -38,36 +36,58 @@ using sv = std::string_view;
 #include "setup.h"
 #include "string_utils.h"
 
+static const std::string ResourceDir = "freedos-keyboard";
+
 // A common pattern in the keyboard layout file is to try opening the requested
-// file first within DOS, then from the local path, and finally from builtin
-// resources. This function performs those in order and returns the first hit.
-static FILE_unique_ptr open_layout_file(const char *name, const char *resource_dir = nullptr)
+// file first within DOS, then from the local path.
+// This function performs those in order and returns the first hit.
+static FILE_unique_ptr open_layout_file(const std::string& name)
 {
-	constexpr auto file_perms = "rb";
+	constexpr auto FilePermissions = "rb";
 
 	// Try opening from DOS first (this can throw, so we catch/ignore)
 	uint8_t drive = 0;
 	char fullname[DOS_PATHLENGTH] = {};
-	if (DOS_MakeName(name, fullname, &drive)) try {
-		// try to open file on mounted drive first
-		const auto ldp = dynamic_cast<localDrive*>(Drives[drive]);
-		if (ldp) {
-			if (const auto fp = ldp->GetSystemFilePtr(fullname, file_perms); fp) {
-				return FILE_unique_ptr(fp);
+	if (DOS_MakeName(name.c_str(), fullname, &drive)) {
+		try {
+			// try to open file on mounted drive first
+			const auto ldp = std::dynamic_pointer_cast<localDrive>(
+			        Drives[drive]);
+			if (ldp) {
+				if (const auto fp = ldp->GetHostFilePtr(fullname,
+				                                        FilePermissions);
+				    fp) {
+					return FILE_unique_ptr(fp);
+				}
 			}
+		} catch (...) {
 		}
-	} catch (...) {}
+	}
 
 	// Then try from the local filesystem
-	if (const auto fp = fopen(name, file_perms); fp)
+	if (const auto fp = fopen(name.c_str(), FilePermissions); fp) {
 		return FILE_unique_ptr(fp);
-
-	// Finally try from a built-in resources
-	if (resource_dir)
-		if (const auto rp = GetResourcePath(resource_dir, name); !rp.empty())
-			return make_fopen(rp.string().c_str(), file_perms);
+	}
 
 	return nullptr;
+}
+
+// Try to open file from bundled resources
+static FILE_unique_ptr open_bundled_file(const std::string& name,
+                                         const std::string& resource_dir = {})
+{
+	constexpr auto FilePermissions = "rb";
+
+	if (resource_dir.empty()) {
+		return nullptr;
+	}
+
+	const auto resource_path = get_resource_path(resource_dir, name);
+	if (resource_path.empty()) {
+		return nullptr;
+	}
+
+	return make_fopen(resource_path.string().c_str(), FilePermissions);
 }
 
 class KeyboardLayout {
@@ -75,33 +95,26 @@ public:
 	KeyboardLayout()
 	{
 		Reset();
-		sprintf(current_keyboard_file_name, "none");
 	}
 
-	KeyboardLayout(const KeyboardLayout &) = delete; // prevent copying
-	KeyboardLayout &operator=(const KeyboardLayout &) = delete; // prevent
-	                                                            // assignment
+	KeyboardLayout(const KeyboardLayout&)            = delete;
+	KeyboardLayout& operator=(const KeyboardLayout&) = delete;
 
-	// read in a codepage from a .cpi-file
-	KeyboardErrorCode ReadCodePageFile(const char *codepage_file_name,
-	                                   const int32_t codepage_id);
+	void SetRomFont();
 
-	uint16_t ExtractCodePage(const char *keyboard_file_name);
+	uint16_t ExtractCodePage(const std::string& keyboard_layout);
 
-	// read in a keyboard layout from a .kl-file
-	KeyboardErrorCode ReadKeyboardFile(const char *keyboard_file_name,
-	                                   const int32_t req_cp);
+	// read in a keyboard layout from a file
+	KeyboardLayoutResult ReadKeyboardFile(const std::string& keyboard_layout,
+	                                      const uint16_t code_page);
 
 	// call SetLayoutKey to apply the current language layout
 	bool SetLayoutKey(const uint8_t key, const uint8_t flags1,
 	                  const uint8_t flags2, const uint8_t flags3);
 
-	KeyboardErrorCode SwitchKeyboardLayout(const char *new_layout,
-	                                       KeyboardLayout *&created_layout,
-	                                       int32_t &tried_cp);
-	void SwitchForeignLayout();
-	const char *GetLayoutName();
-	const char *GetMainLanguageCode();
+	KeyboardLayoutResult SwitchKeyboardLayout(const std::string& keyboard_layout,
+	                                          KeyboardLayout*& created_layout);
+	std::string GetLayoutName() const;
 
 private:
 	static constexpr uint8_t layout_pages = 12;
@@ -124,23 +137,22 @@ private:
 	uint16_t diacritics_character = 0;
 	uint16_t user_keys            = 0;
 
-	char current_keyboard_file_name[256] = {};
+	std::string current_keyboard_layout = {};
 
 	bool use_foreign_layout = false;
 
-	// the list of language codes supported by this layout. Used when
-	// switching layouts.
-	std::list<std::string> language_codes = {};
+	// The list of layouts loaded from current file
+	std::list<std::string> available_layouts = {};
 
-	bool HasLanguageCode(const char *requested_code);
+	bool IsLayoutAvailable(const std::string& keyboard_layout);
 	void ResetLanguageCodes();
 
 	void Reset();
-	void ReadKeyboardFile(const int32_t specific_layout);
+	void SwitchSubMapping(const int32_t specific_layout);
 
-	KeyboardErrorCode ReadKeyboardFile(const char *keyboard_file_name,
-	                                   const int32_t specific_layout,
-	                                   const int32_t requested_codepage);
+	KeyboardLayoutResult ReadKeyboardFile(const std::string& keyboard_layout,
+	                                      const int32_t specific_layout,
+	                                      const uint16_t code_page);
 
 	bool SetMapKey(const uint8_t key, const uint16_t layouted_key,
 	               const bool is_command, const bool is_keypair);
@@ -160,34 +172,36 @@ void KeyboardLayout::Reset()
 	diacritics_entries=0;		// no diacritics loaded
 	diacritics_character=0;
 	user_keys=0;				// all userkeys off
-	language_codes.clear();
+	available_layouts.clear();
 }
 
-KeyboardErrorCode KeyboardLayout::ReadKeyboardFile(const char *keyboard_file_name,
-                                                   const int32_t req_cp)
+KeyboardLayoutResult KeyboardLayout::ReadKeyboardFile(const std::string& keyboard_layout,
+                                                      const uint16_t code_page)
 {
-	return ReadKeyboardFile(keyboard_file_name, -1, req_cp);
+	return ReadKeyboardFile(keyboard_layout, -1, code_page);
 }
 
-// switch to a different layout
-void KeyboardLayout::ReadKeyboardFile(const int32_t specific_layout)
+void KeyboardLayout::SwitchSubMapping(const int32_t specific_layout)
 {
-	if (strcmp(current_keyboard_file_name, "none"))
-		ReadKeyboardFile(current_keyboard_file_name,
+	if (!current_keyboard_layout.empty()) {
+		ReadKeyboardFile(current_keyboard_layout,
 		                 specific_layout,
 		                 dos.loaded_codepage);
+	}
 }
 
 static void log_layout_read_error()
 {
-	LOG_WARNING("DOS: Error reading keyboard layout file: '%s'",
+	LOG_WARNING("LOCALE: Error reading keyboard layout file: '%s'",
 	            strerror(errno));
 }
 
-static uint32_t read_kcl_file(const FILE_unique_ptr &kcl_file, const char *layout_id, bool first_id_only)
+// Read the 'KC' compiler output file (not the full keyboard layouts .SYS file)
+static uint32_t read_kcl_file(const FILE_unique_ptr& kcl_file,
+                              const std::string& keyboard_layout, bool first_id_only)
 {
 	assert(kcl_file);
-	assert(layout_id);
+	assert(!keyboard_layout.empty());
 	static uint8_t rbuf[8192];
 
 	// check ID-bytes of file
@@ -221,7 +235,7 @@ static uint32_t read_kcl_file(const FILE_unique_ptr &kcl_file, const char *layou
 			return 0;
 		}
 
-		// get all language codes for this layout
+		// get all the layouts from this file
 		for (auto i = 0; i < data_len;) {
 			if (fread(rbuf, sizeof(uint8_t), 2, kcl_file.get()) != 2) {
 				break;
@@ -238,14 +252,15 @@ static uint32_t read_kcl_file(const FILE_unique_ptr &kcl_file, const char *layou
 				lng_codes[lng_pos++] = (char)rbuf[0];
 			}
 			lng_codes[lng_pos] = 0;
-			if (strcasecmp(lng_codes, layout_id)==0) {
+			if (strcasecmp(lng_codes, keyboard_layout.c_str()) == 0) {
 				// language ID found in file, return file position
 				return check_cast<uint32_t>(cur_pos);
 			}
 			if (first_id_only) break;
 			if (lcnum) {
 				sprintf(&lng_codes[lng_pos], "%d", lcnum);
-				if (strcasecmp(lng_codes, layout_id)==0) {
+				if (strcasecmp(lng_codes,
+				               keyboard_layout.c_str()) == 0) {
 					// language ID found in file, return file position
 					return check_cast<uint32_t>(cur_pos);
 				}
@@ -261,19 +276,26 @@ static uint32_t read_kcl_file(const FILE_unique_ptr &kcl_file, const char *layou
 
 // Scans the builtin keyboard files for the given layout.
 // If found, populates the kcl_file and starting position.
-static bool load_builtin_keyboard_layouts(const char *layout_id, FILE_unique_ptr &kcl_file, uint32_t &kcl_start_pos)
+static KeyboardLayoutResult load_builtin_keyboard_layouts(const std::string& keyboard_layout,
+                                                          FILE_unique_ptr& kcl_file,
+                                                          uint32_t& kcl_start_pos)
 {
-	auto find_layout_id = [&](const char *builtin_filename, const bool first_only) {
+	bool had_file_open_error = false;
+
+	auto find_layout_id = [&](const std::string& file_name,
+	                          const bool first_only) {
 		// Could we open the file?
-		constexpr auto resource_dir = "freedos-keyboard";
-		auto fp = open_layout_file(builtin_filename, resource_dir);
-		if (!fp)
+		auto fp = open_bundled_file(file_name, ResourceDir);
+		if (!fp) {
+			had_file_open_error = true;
 			return false;
+		}
 
 		// Could we read it and find the start of the layout?
-		const auto pos = read_kcl_file(fp, layout_id, first_only);
-		if (pos == 0)
+		const auto pos = read_kcl_file(fp, keyboard_layout, first_only);
+		if (pos == 0) {
 			return false;
+		}
 
 		// Layout was found at the given position
 		kcl_file = std::move(fp);
@@ -281,23 +303,31 @@ static bool load_builtin_keyboard_layouts(const char *layout_id, FILE_unique_ptr
 		return true;
 	};
 
-	for (const auto first_only : {true, false})
-		for (const auto builtin_filename : {"KEYBOARD.SYS", "KEYBRD2.SYS", "KEYBRD3.SYS", "KEYBRD4.SYS"})
-			if (find_layout_id(builtin_filename, first_only))
-				return true;
+	for (const auto first_only : {true, false}) {
+		for (const auto file_name :
+		     {"KEYBOARD.SYS", "KEYBRD2.SYS", "KEYBRD3.SYS", "KEYBRD4.SYS"}) {
+			if (find_layout_id(file_name, first_only)) {
+				return KeyboardLayoutResult::OK;
+			}
+		}
+	}
 
-	return false;
+	return had_file_open_error ? KeyboardLayoutResult::LayoutFileNotFound
+	                           : KeyboardLayoutResult::LayoutNotKnown;
 }
 
-KeyboardErrorCode KeyboardLayout::ReadKeyboardFile(const char *keyboard_file_name,
-                                                   const int32_t specific_layout,
-                                                   const int32_t requested_codepage)
+KeyboardLayoutResult KeyboardLayout::ReadKeyboardFile(const std::string& keyboard_layout,
+                                                      const int32_t specific_layout,
+                                                      const uint16_t code_page)
 {
 	Reset();
 
-	if (specific_layout == -1)
-		safe_strcpy(current_keyboard_file_name, keyboard_file_name);
-	if (!strcmp(keyboard_file_name,"none")) return KEYB_NOERROR;
+	if (specific_layout == -1) {
+		current_keyboard_layout = keyboard_layout;
+	}
+	if (keyboard_layout.empty()) {
+		return KeyboardLayoutResult::OK;
+	}
 
 	static uint8_t read_buf[65535];
 	uint32_t read_buf_size, read_buf_pos, bytes_read;
@@ -305,20 +335,21 @@ KeyboardErrorCode KeyboardLayout::ReadKeyboardFile(const char *keyboard_file_nam
 
 	char nbuf[512];
 	read_buf_size = 0;
-	sprintf(nbuf, "%s.kl", keyboard_file_name);
+	sprintf(nbuf, "%s.kl", keyboard_layout.c_str());
 	auto tempfile = open_layout_file(nbuf);
 
 	if (!tempfile) {
-		if (!load_builtin_keyboard_layouts(keyboard_file_name, tempfile, start_pos)) {
-			LOG(LOG_BIOS, LOG_ERROR)
-			("Keyboard layout file %s not found", keyboard_file_name);
-			return KEYB_FILENOTFOUND;
+		const auto result = load_builtin_keyboard_layouts(keyboard_layout,
+		                                                  tempfile,
+		                                                  start_pos);
+		if (result != KeyboardLayoutResult::OK) {
+			return result;
 		}
 		if (tempfile) {
 			const auto seek_pos = start_pos + 2;
 			if (fseek(tempfile.get(), seek_pos, SEEK_SET) != 0) {
 				log_layout_read_error();
-				return KEYB_INVALIDFILE;
+				return KeyboardLayoutResult::InvalidLayoutFile;
 			}
 			read_buf_size = (uint32_t)fread(read_buf, sizeof(uint8_t),
 			                              65535, tempfile.get());
@@ -329,9 +360,9 @@ KeyboardErrorCode KeyboardLayout::ReadKeyboardFile(const char *keyboard_file_nam
 		uint32_t dr = (uint32_t)fread(read_buf, sizeof(uint8_t), 4,
 		                          tempfile.get());
 		if ((dr<4) || (read_buf[0]!=0x4b) || (read_buf[1]!=0x4c) || (read_buf[2]!=0x46)) {
-			LOG(LOG_BIOS, LOG_ERROR)
-			("Invalid keyboard layout file %s", keyboard_file_name);
-			return KEYB_INVALIDFILE;
+			LOG_WARNING("LOCALE: Keyboard layout file for layout '%s' is invalid",
+			            keyboard_layout.c_str());
+			return KeyboardLayoutResult::InvalidLayoutFile;
 		}
 
 		fseek(tempfile.get(), 0, SEEK_SET);
@@ -343,20 +374,20 @@ KeyboardErrorCode KeyboardLayout::ReadKeyboardFile(const char *keyboard_file_nam
 	assert(data_len < UINT8_MAX);
 	static_assert(UINT8_MAX < sizeof(read_buf), "read_buf too small");
 
-	language_codes.clear();
-	// get all language codes for this layout
+	// Get all the layouts for this file
+	available_layouts.clear();
 	for (uint16_t i = 0; i < data_len;) {
 		i+=2;
-		std::string language_code = {};
+		std::string available_layout = {};
 		for (;i<data_len;) {
 			assert(start_pos + i < sizeof(read_buf));
 			char lcode=char(read_buf[start_pos+i]);
 			i++;
 			if (lcode==',') break;
-			language_code.push_back(lcode);
+			available_layout.push_back(lcode);
 		}
-		if (!language_code.empty()) {
-			language_codes.emplace_back(std::move(language_code));
+		if (!available_layout.empty()) {
+			available_layouts.emplace_back(std::move(available_layout));
 		}
 	}
 
@@ -403,10 +434,14 @@ KeyboardErrorCode KeyboardLayout::ReadKeyboardFile(const char *keyboard_file_nam
 
 		// read codepage of submapping
 		submap_cp=host_readw(&read_buf[start_pos+0x14+sub_map*8]);
-		if ((submap_cp!=0) && (submap_cp!=requested_codepage) && (specific_layout==-1))
-			continue;		// skip nonfitting submappings
+		if ((submap_cp != 0) && (submap_cp != code_page) &&
+		    (specific_layout == -1)) {
+			continue; // skip nonfitting submappings
+		}
 
-		if (submap_cp==requested_codepage) found_matching_layout=true;
+		if (submap_cp == code_page) {
+			found_matching_layout = true;
+		}
 
 		// get table offset
 		table_offset=host_readw(&read_buf[start_pos+0x18+sub_map*8]);
@@ -481,18 +516,14 @@ KeyboardErrorCode KeyboardLayout::ReadKeyboardFile(const char *keyboard_file_nam
 	}
 
 	if (found_matching_layout) {
-		if (specific_layout==-1) LOG(LOG_BIOS,LOG_NORMAL)("Keyboard layout %s successfully loaded",keyboard_file_name);
-		else LOG(LOG_BIOS,LOG_NORMAL)("Keyboard layout %s (%i) successfully loaded",keyboard_file_name,specific_layout);
 		use_foreign_layout = true;
-		return KEYB_NOERROR;
+		return KeyboardLayoutResult::OK;
 	}
-
-	LOG(LOG_BIOS,LOG_ERROR)("No matching keyboard layout found in %s",keyboard_file_name);
 
 	// Reset layout data (might have been changed by general layout)
 	Reset();
 
-	return KEYB_LAYOUTNOTFOUND;
+	return KeyboardLayoutResult::NoLayoutForCodePage;
 }
 
 bool KeyboardLayout::SetLayoutKey(const uint8_t key, const uint8_t flags1,
@@ -602,8 +633,8 @@ bool KeyboardLayout::SetMapKey(const uint8_t key, const uint16_t layouted_key,
 				diacritics_character = 0;
 			return true;
 		} else if ((key_command>=120) && (key_command<140)) {
-			// switch layout command
-			ReadKeyboardFile(key_command - 119);
+			// switch submapping command
+			SwitchSubMapping(key_command - 119);
 			return true;
 		} else if ((key_command>=180) && (key_command<188)) {
 			// switch user key off
@@ -650,10 +681,10 @@ bool KeyboardLayout::SetMapKey(const uint8_t key, const uint16_t layouted_key,
 	return false;
 }
 
-uint16_t KeyboardLayout::ExtractCodePage(const char *keyboard_file_name)
+uint16_t KeyboardLayout::ExtractCodePage(const std::string& keyboard_layout)
 {
-	if (!strcmp(keyboard_file_name, "none")) {
-		return DefaultCodePage437;
+	if (keyboard_layout.empty()) {
+		return DefaultCodePage;
 	}
 
 	size_t read_buf_size = 0;
@@ -661,14 +692,21 @@ uint16_t KeyboardLayout::ExtractCodePage(const char *keyboard_file_name)
 	uint32_t start_pos=5;
 
 	char nbuf[512];
-	sprintf(nbuf, "%s.kl", keyboard_file_name);
+	// TODO: this at least needs to be documented at least in KEYB command
+	//       help; preferably the command should be extended to allow
+	//       specifying the .SYS or .KL file, this will force a re-design
+	//       here; and .KL file loading shouldn't happen during the startup
+	sprintf(nbuf, "%s.kl", keyboard_layout.c_str());
 	auto tempfile = open_layout_file(nbuf);
 
 	if (!tempfile) {
-		if (!load_builtin_keyboard_layouts(keyboard_file_name, tempfile, start_pos)) {
-			LOG(LOG_BIOS, LOG_ERROR)
-			("Keyboard layout file %s not found", keyboard_file_name);
-			return DefaultCodePage437;
+		const auto result = load_builtin_keyboard_layouts(keyboard_layout,
+		                                                  tempfile,
+		                                                  start_pos);
+		if (result != KeyboardLayoutResult::OK) {
+			LOG_WARNING("LOCALE: Keyboard layout file for layout '%s' not found",
+			            keyboard_layout.c_str());
+			return DefaultCodePage;
 		}
 		if (tempfile) {
 			fseek(tempfile.get(), start_pos + 2, SEEK_SET);
@@ -680,17 +718,18 @@ uint16_t KeyboardLayout::ExtractCodePage(const char *keyboard_file_name)
 		uint32_t dr = (uint32_t)fread(read_buf, sizeof(uint8_t), 4,
 		                          tempfile.get());
 		if ((dr<4) || (read_buf[0]!=0x4b) || (read_buf[1]!=0x4c) || (read_buf[2]!=0x46)) {
-			LOG(LOG_BIOS, LOG_ERROR)
-			("Invalid keyboard layout file %s", keyboard_file_name);
-			return DefaultCodePage437;
+			LOG_WARNING("LOCALE: Keyboard layout file for layout '%s' is invalid",
+			            keyboard_layout.c_str());
+			return DefaultCodePage;
 		}
 
 		fseek(tempfile.get(), 0, SEEK_SET);
 		read_buf_size = fread(read_buf, sizeof(uint8_t), 65535, tempfile.get());
 	}
 	if (read_buf_size == 0) {
-		LOG_WARNING("CODEPAGE: Could not read data from layout file %s", keyboard_file_name);
-		return DefaultCodePage437;
+		LOG_WARNING("LOCALE: Could not read keyboard layout '%s' data",
+		            keyboard_layout.c_str());
+		return DefaultCodePage;
 	}
 
 	auto data_len = read_buf[start_pos++];
@@ -703,9 +742,9 @@ uint16_t KeyboardLayout::ExtractCodePage(const char *keyboard_file_name)
 	// Make sure the submappings value won't let us read beyond the end of
 	// the buffer
 	if (submappings >= ceil_udivide(sizeof(read_buf) - start_pos - 0x14, 8u)) {
-		LOG(LOG_BIOS, LOG_ERROR)
-		("Keyboard layout file %s is corrupt", keyboard_file_name);
-		return DefaultCodePage437;
+		LOG_WARNING("LOCALE: Keyboard layout file for layout '%s' is corrupt",
+		            keyboard_layout.c_str());
+		return DefaultCodePage;
 	}
 
 	// check all submappings and use them if general submapping or same
@@ -718,543 +757,189 @@ uint16_t KeyboardLayout::ExtractCodePage(const char *keyboard_file_name)
 
 		if (submap_cp!=0) return submap_cp;
 	}
-	return DefaultCodePage437;
+	return DefaultCodePage;
 }
 
-KeyboardErrorCode KeyboardLayout::ReadCodePageFile(const char *requested_cp_filename, const int32_t codepage_id)
+bool KeyboardLayout::IsLayoutAvailable(const std::string& keyboard_layout)
 {
-	assert(requested_cp_filename);
-	std::string cp_filename = requested_cp_filename;
-
-	if (cp_filename.empty() || cp_filename == "none" || codepage_id == dos.loaded_codepage)
-		return KEYB_NOERROR;
-
-	if (cp_filename == "auto") {
-		cp_filename = DOS_GetBundledCodePageFileName(codepage_id);
-		if (cp_filename.empty()) {
-			LOG_WARNING("CODEPAGE: Could not find a file for codepage ID %d", codepage_id);
-			return KEYB_INVALIDCPFILE;
-		}
-	}
-	// At this point, we expect to have a filename
-	assert(!cp_filename.empty());
-
-	auto tempfile = open_layout_file(cp_filename.c_str(), "freedos-cpi");
-	if (!tempfile) {
-		LOG_WARNING("CODEPAGE: Could not open file %s in DOS or from host resources", cp_filename.c_str());
-		return KEYB_INVALIDCPFILE;
-	}
-	// At this point, we expect to have a file
-	assert(tempfile);
-
-	std::array<uint8_t, UINT16_MAX + 1> cpi_buf;
-	constexpr size_t cpi_unit_size = sizeof(cpi_buf[0]);
-
-	size_t cpi_buf_size = 0;
-	size_t size_of_cpxdata = 0;
-	bool upxfound = false;
-	size_t found_at_pos = 5;
-
-	constexpr auto bytes_to_detect_upx = 5;
-
-	const auto dr = fread(cpi_buf.data(), cpi_unit_size, bytes_to_detect_upx, tempfile.get());
-	// check if file is valid
-	if (dr < 5) {
-		LOG(LOG_BIOS, LOG_ERROR)
-		("Codepage file %s invalid", cp_filename.c_str());
-		return KEYB_INVALIDCPFILE;
-	}
-
-	// Helper used by both the compressed and uncompressed code paths to read the entire file
-	auto read_entire_cp_file = [&](size_t &bytes_read) {
-		if (fseek(tempfile.get(), 0, SEEK_SET) != 0) {
-			LOG_ERR("CODEPAGE: could not seek to start of compressed file %s: %s: ",
-			        cp_filename.c_str(), strerror(errno));
-			return false;
-		}
-		bytes_read = fread(cpi_buf.data(),
-		                   cpi_unit_size,
-		                   cpi_buf.size(),
-		                   tempfile.get());
-		return (bytes_read > 0);
-	};
-
-	// check if non-compressed cpi file
-	if ((cpi_buf[0] != 0xff) || (cpi_buf[1] != 0x46) || (cpi_buf[2] != 0x4f) || (cpi_buf[3] != 0x4e) ||
-	    (cpi_buf[4] != 0x54)) {
-		// check if dr-dos custom cpi file
-		if ((cpi_buf[0] == 0x7f) && (cpi_buf[1] != 0x44) && (cpi_buf[2] != 0x52) && (cpi_buf[3] != 0x46) &&
-		    (cpi_buf[4] != 0x5f)) {
-			LOG(LOG_BIOS, LOG_ERROR)
-			("Codepage file %s has unsupported DR-DOS format", cp_filename.c_str());
-			return KEYB_INVALIDCPFILE;
-		}
-
-		// Read enough data to scan for UPX's identifier and version
-		const auto scan_size = 100;
-		assert(scan_size <= cpi_buf.size());
-		if (fread(cpi_buf.data(), cpi_unit_size, scan_size, tempfile.get()) != scan_size) {
-			LOG_WARNING("CODEPAGE: File %s is too small, could not read initial %d bytes",
-			            cp_filename.c_str(),
-			            scan_size + ds);
-			return KEYB_INVALIDCPFILE;
-		}
-		// Scan for the UPX identifier
-		const auto upx_id     = sv{"UPX!"};
-		const auto scan_buf   = sv{reinterpret_cast<char *>(cpi_buf.data()), scan_size};
-		const auto upx_id_pos = scan_buf.find(upx_id);
-
-		// did we find the UPX identifier?
-		upxfound = upx_id_pos != scan_buf.npos;
-		if (!upxfound) {
-			LOG_WARNING("CODEPAGE: File %s is invalid, could not find the UPX identifier", cp_filename.c_str());
-			return KEYB_INVALIDCPFILE;
-		}
-		// The IPX version byte comes after the identifier pattern
-		const auto upx_ver_pos = upx_id_pos + upx_id.length();
-		const auto upx_ver     = cpi_buf[upx_ver_pos];
-
-		// Can we handle this version?
-		constexpr uint8_t upx_min_ver = 10;
-		if (upx_ver < upx_min_ver) {
-			LOG_WARNING("CODEPAGE: File %s is packed with UPX version %u, but %u+ is needed",
-			            cp_filename.c_str(),
-			            upx_ver,
-			            upx_min_ver);
-			return KEYB_INVALIDCPFILE;
-		}
-		// The next data comes after the version (used for decompression below)
-		found_at_pos += upx_ver_pos + sizeof(upx_ver);
-
-		// Read the entire compressed CPX file
-		if (!read_entire_cp_file(size_of_cpxdata))
-			return KEYB_INVALIDCPFILE;
-
-	} else {
-		// read the entire uncompressed CPI file
-		if (!read_entire_cp_file(cpi_buf_size))
-			return KEYB_INVALIDCPFILE;
-	}
-
-	if (upxfound) {
-		if (size_of_cpxdata>0xfe00) E_Exit("Size of cpx-compressed data too big");
-
-		found_at_pos+=19;
-		// prepare for direct decompression
-		cpi_buf[found_at_pos]=0xcb;
-
-		uint16_t seg=0;
-		uint16_t size=0x1500;
-		if (!DOS_AllocateMemory(&seg,&size)) E_Exit("Not enough free low memory to unpack data");
-
-		const auto dos_segment = static_cast<uint32_t>((seg << 4) + 0x100);
-		assert(size_of_cpxdata <= cpi_buf.size());
-		MEM_BlockWrite(dos_segment, cpi_buf.data(), size_of_cpxdata);
-
-		// setup segments
-		uint16_t save_ds=SegValue(ds);
-		uint16_t save_es=SegValue(es);
-		uint16_t save_ss=SegValue(ss);
-		uint32_t save_esp=reg_esp;
-		SegSet16(ds,seg);
-		SegSet16(es,seg);
-		SegSet16(ss,seg+0x1000);
-		reg_esp=0xfffe;
-
-		// let UPX unpack the file
-		CALLBACK_RunRealFar(seg,0x100);
-
-		SegSet16(ds,save_ds);
-		SegSet16(es,save_es);
-		SegSet16(ss,save_ss);
-		reg_esp=save_esp;
-
-		// get unpacked content
-		MEM_BlockRead(dos_segment, cpi_buf.data(), cpi_buf.size());
-		cpi_buf_size=65536;
-
-		DOS_FreeMemory(seg);
-	}
-
-	constexpr auto data_start_index = 0x13;
-	static_assert(data_start_index < cpi_buf.size());
-	auto start_pos = host_readd(&cpi_buf[data_start_index]);
-
-	// Internally unpacking some UPX code-page files can result in unparseable data
-	if (start_pos >= cpi_buf_size) {
-		LOG_WARNING("KEYBOARD: Could not parse %scode-data from: %s",
-		            (upxfound) ? "UPX-unpacked " : "",
-		            cp_filename.c_str());
-
-		LOG(LOG_BIOS, LOG_ERROR)
-		("Code-page file %s invalid start_pos=%u", cp_filename.c_str(), start_pos);
-		return KEYB_INVALIDCPFILE;
-	}
-
-	const auto number_of_codepages = host_readw(&cpi_buf.at(start_pos));
-	start_pos+=4;
-
-	// search if codepage is provided by file
-	for (uint16_t test_codepage = 0; test_codepage < number_of_codepages; test_codepage++) {
-		// device type can be display/printer (only the first is supported)
-		const auto device_type = host_readw(&cpi_buf.at(start_pos + 0x04));
-		const auto font_codepage = host_readw(&cpi_buf.at(start_pos + 0x0e));
-		const auto font_data_header_pt = host_readd(&cpi_buf.at(start_pos + 0x16));
-		const auto font_type = host_readw(&cpi_buf.at(font_data_header_pt));
-
-		if ((device_type==0x0001) && (font_type==0x0001) && (font_codepage==codepage_id)) {
-			// valid/matching codepage found
-
-			const auto number_of_fonts = host_readw(&cpi_buf.at(font_data_header_pt + 0x02));
-			// const uint16_t font_data_length = host_readw(&cpi_buf[font_data_header_pt + 0x04]);
-
-			auto font_data_start = font_data_header_pt + 0x06;
-
-			// load all fonts if possible
-			bool font_changed = false;
-			for (uint16_t current_font = 0; current_font < number_of_fonts; ++current_font) {
-				const auto font_height = cpi_buf.at(font_data_start);
-				font_data_start += 6;
-				if (font_height == 0x10) {
-					// 16x8 font
-					const auto font16pt = RealToPhysical(int10.rom.font_16);
-					for (uint16_t i = 0; i < 256 * 16; ++i) {
-						phys_writeb(font16pt + i, cpi_buf.at(font_data_start + i));
-					}
-					// terminate alternate list to prevent loading
-					phys_writeb(RealToPhysical(int10.rom.font_16_alternate),0);
-					font_changed=true;
-				} else if (font_height == 0x0e) {
-					// 14x8 font
-					const auto font14pt = RealToPhysical(int10.rom.font_14);
-					for (uint16_t i = 0; i < 256 * 14; ++i) {
-						phys_writeb(font14pt + i, cpi_buf.at(font_data_start + i));
-					}
-					// terminate alternate list to prevent loading
-					phys_writeb(RealToPhysical(int10.rom.font_14_alternate),0);
-					font_changed=true;
-				} else if (font_height == 0x08) {
-					// 8x8 fonts
-					auto font8pt = RealToPhysical(int10.rom.font_8_first);
-					for (uint16_t i = 0; i < 128 * 8; ++i) {
-						phys_writeb(font8pt + i, cpi_buf.at(font_data_start + i));
-					}
-					font8pt=RealToPhysical(int10.rom.font_8_second);
-					for (uint16_t i = 0; i < 128 * 8; ++i) {
-						phys_writeb(font8pt + i,
-						            cpi_buf.at(font_data_start + i + 128 * 8));
-					}
-					font_changed=true;
-				}
-				font_data_start+=font_height*256;
-			}
-
-			LOG(LOG_BIOS,LOG_NORMAL)("Codepage %i successfully loaded",codepage_id);
-
-			// set codepage entries
-			dos.loaded_codepage=(uint16_t)(codepage_id&0xffff);
-
-			// update font if necessary
-			if (font_changed && (CurMode->type==M_TEXT) && (IS_EGAVGA_ARCH)) {
-				INT10_ReloadFont();
-			}
-			INT10_SetupRomMemoryChecksum();
-
-			// re-create country information and [autoexec] section
-			// to match new code page
-			DOS_RefreshCountryInfo();
-			AUTOEXEC_NotifyNewCodePage();
-
-			return KEYB_NOERROR;
-		}
-
-		start_pos = host_readd(&cpi_buf.at(start_pos));
-		start_pos+=2;
-	}
-
-	LOG(LOG_BIOS,LOG_ERROR)("Codepage %i not found",codepage_id);
-
-	return KEYB_INVALIDCPFILE;
-}
-
-bool KeyboardLayout::HasLanguageCode(const char *requested_code)
-{
-	for (const auto &language_code : language_codes)
-		if (iequals(language_code, requested_code))
+	for (const auto& availalbe_layout : available_layouts) {
+		if (iequals(availalbe_layout, keyboard_layout)) {
 			return true;
+		}
+	}
+
 	return false;
 }
 
-KeyboardErrorCode KeyboardLayout::SwitchKeyboardLayout(const char *new_layout,
-                                                       KeyboardLayout *&created_layout,
-                                                       int32_t &tried_cp)
+KeyboardLayoutResult KeyboardLayout::SwitchKeyboardLayout(
+        const std::string& keyboard_layout, KeyboardLayout*& created_layout)
 {
-	assert(new_layout);
-
-	if (!iequals(new_layout, "US")) {
+	if (!iequals(keyboard_layout, "US")) {
 		// switch to a foreign layout
 
-		if (HasLanguageCode(new_layout)) {
+		if (IsLayoutAvailable(keyboard_layout)) {
 			if (!use_foreign_layout) {
 				// switch to foreign layout
-				use_foreign_layout  = true;
-				diacritics_character=0;
-				LOG(LOG_BIOS, LOG_NORMAL)("Switched to layout %s", new_layout);
+				use_foreign_layout   = true;
+				diacritics_character = 0;
 			}
 		} else {
 			KeyboardLayout *temp_layout = new KeyboardLayout();
-			auto req_codepage           = temp_layout->ExtractCodePage(new_layout);
-			tried_cp                    = req_codepage;
-			auto rcode                  = temp_layout->ReadKeyboardFile(new_layout, req_codepage);
-			if (rcode) {
+
+			auto code_page = temp_layout->ExtractCodePage(keyboard_layout);
+			if (!DOS_CanLoadScreenFonts() && code_page != DefaultCodePage) {
 				delete temp_layout;
-				return rcode;
+				return KeyboardLayoutResult::IncompatibleMachine;
 			}
-			// ...else keyboard layout loaded successfully, change codepage accordingly
-			rcode = temp_layout->ReadCodePageFile("auto", req_codepage);
-			if (rcode) {
+
+			auto result = temp_layout->ReadKeyboardFile(keyboard_layout,
+			                                            code_page);
+			if (result != KeyboardLayoutResult::OK) {
 				delete temp_layout;
-				return rcode;
+				return result;
 			}
+
+			// ...else keyboard layout loaded successfully,
+			// change code page accordingly
+			result = DOS_LoadScreenFont(code_page);
+			if (result != KeyboardLayoutResult::OK) {
+				delete temp_layout;
+				return result;
+			}
+
 			// Everything went fine, switch to new layout
 			created_layout=temp_layout;
 		}
 	} else if (use_foreign_layout) {
 		// switch to the US layout
-		use_foreign_layout  = false;
-		diacritics_character=0;
-		LOG(LOG_BIOS,LOG_NORMAL)("Switched to US layout");
+		use_foreign_layout   = false;
+		diacritics_character = 0;
 	}
-	return KEYB_NOERROR;
+	return KeyboardLayoutResult::OK;
 }
 
-void KeyboardLayout::SwitchForeignLayout()
+std::string KeyboardLayout::GetLayoutName() const
 {
-	use_foreign_layout   = !use_foreign_layout;
-	diacritics_character = 0;
-	if (use_foreign_layout)
-		LOG(LOG_BIOS, LOG_NORMAL)("Switched to foreign layout");
-	else
-		LOG(LOG_BIOS, LOG_NORMAL)("Switched to US layout");
-}
-
-const char *KeyboardLayout::GetLayoutName()
-{
-	// get layout name (language ID or nullptr if default layout)
-	if (use_foreign_layout) {
-		if (strcmp(current_keyboard_file_name,"none") != 0) {
-			return (const char*)&current_keyboard_file_name;
-		}
-	}
-	return nullptr;
-}
-
-const char *KeyboardLayout::GetMainLanguageCode()
-{
-	if (!language_codes.empty()) {
-		assert(!language_codes.front().empty());
-		return language_codes.front().c_str();
-	}
-	return nullptr;
+	return current_keyboard_layout;
 }
 
 static std::unique_ptr<KeyboardLayout> loaded_layout = {};
-
-#if 0
-// Ctrl+Alt+F2 switches between foreign and US-layout using this function
-static void SwitchKeyboardLayout(bool pressed) {
-	if (!pressed)
-		return;
-	if (loaded_layout) loaded_layout->SwitchForeignLayout();
-}
-#endif
 
 // called by int9-handler
 bool DOS_LayoutKey(const uint8_t key, const uint8_t flags1,
                    const uint8_t flags2, const uint8_t flags3)
 {
-	if (loaded_layout)
+	if (loaded_layout) {
 		return loaded_layout->SetLayoutKey(key, flags1, flags2, flags3);
-	else
+	} else {
 		return false;
+	}
 }
 
-static KeyboardErrorCode load_keyboard_layout(const char* layoutname,
-                                              const int32_t codepage,
-                                              const char* codepagefile)
+KeyboardLayoutResult DOS_LoadKeyboardLayout(const std::string& keyboard_layout,
+                                            uint16_t& code_page,
+                                            const std::string& cpi_file,
+                                            const bool prefer_rom_font)
 {
-	auto temp_layout = std::make_unique<KeyboardLayout>();
+	const bool code_page_autodetect = (code_page == 0);
+	const auto old_keyboard_layout  = DOS_GetLoadedLayout();
 
-	// try to read the layout for the specified codepage
-	auto rcode = temp_layout->ReadKeyboardFile(layoutname, codepage);
-	if (rcode) {
-		return rcode;
+	if (code_page_autodetect && !cpi_file.empty()) {
+		assert(false); // Incorrect arguments
+		return KeyboardLayoutResult::NoCodePageInCpiFile;
 	}
-	// ...else keyboard layout loaded successfully, change codepage accordingly
-	rcode = temp_layout->ReadCodePageFile(codepagefile, codepage);
-	if (rcode) {
-		return rcode;
-	}
-	// Everything went fine, switch to new layout
-	loaded_layout = std::move(temp_layout);
-	return KEYB_NOERROR;
-}
 
-KeyboardErrorCode DOS_LoadKeyboardLayout(const char* layoutname,
-                                         const int32_t codepage,
-                                         const char* codepagefile)
-{
-	const auto result = load_keyboard_layout(layoutname, codepage, codepagefile);
-	if (!result) {
-		LOG_MSG("DOS: Loaded codepage %d", codepage); // success!
+	auto new_layout = std::make_unique<KeyboardLayout>();
+
+	std::vector<uint16_t> code_pages = {};
+
+	if (!DOS_CanLoadScreenFonts()) {
+		// Can't set custom code page on pre-EGA display adapters
+		if (code_page_autodetect) {
+			code_pages.push_back(DefaultCodePage);
+		} else if (code_page != DefaultCodePage || !cpi_file.empty()) {
+			return KeyboardLayoutResult::IncompatibleMachine;
+		}
+	} else if (code_page_autodetect) {
+		// Get the preferred code page
+		const auto bundled = DOS_GetBundledCodePage(keyboard_layout);
+		code_pages = DOS_SuggestBetterCodePages(bundled, keyboard_layout);
+		code_pages.push_back(bundled);
+	} else {
+		code_pages.push_back(code_page);
+	}
+
+	// Try to read the keyboard layout
+	KeyboardLayoutResult result = KeyboardLayoutResult::LayoutNotKnown;
+	for (const auto try_code_page : code_pages) {
+		code_page = try_code_page;
+		result = new_layout->ReadKeyboardFile(keyboard_layout, code_page);
+		if (result == KeyboardLayoutResult::OK) {
+			break;
+		}
+	}
+
+	// Allow using 'us' layout with any code page
+	if ((result == KeyboardLayoutResult::LayoutNotKnown ||
+	     result == KeyboardLayoutResult::NoLayoutForCodePage) &&
+	    iequals(keyboard_layout, "US")) {
+		// Allow using 'us' layout with any code page
+		result = new_layout->ReadKeyboardFile(keyboard_layout,
+		                                      DefaultCodePage);
+	}
+
+	// If no suitable code page found, terminate
+	if (result != KeyboardLayoutResult::OK) {
+		if (result == KeyboardLayoutResult::NoLayoutForCodePage &&
+		    code_page_autodetect) {
+			return KeyboardLayoutResult::IncompatibleMachine;
+		}
+		return result;
+	}
+
+	// Keyboard layout loaded successfully, change code page accordingly
+	if (!DOS_CanLoadScreenFonts() ||
+	    (prefer_rom_font && code_page == DefaultCodePage)) {
+		DOS_SetRomScreenFont();
+	} else {
+		result = DOS_LoadScreenFont(code_page, cpi_file);
+		if (result != KeyboardLayoutResult::OK) {
+			return result;
+		}
+	}
+
+	// Everything went fine, switch to the new layout
+	loaded_layout = std::move(new_layout);
+
+	KeyboardLayout* changed_layout = nullptr;
+	result = loaded_layout->SwitchKeyboardLayout(keyboard_layout, changed_layout);
+	if (result != KeyboardLayoutResult::OK) {
+		// If this happens, we most likely have a bug somewhere
+		LOG_WARNING("LOCALE: Unable to switch to keyboard layout '%s'",
+		            keyboard_layout.c_str());
+	}
+	if (changed_layout) {
+		// Remove old layout, activate new layout
+		loaded_layout.reset(changed_layout);
+	}
+
+	// Log loaded keyboard layout
+	const auto new_keyboard_layout = DOS_GetLoadedLayout();
+	if (old_keyboard_layout != new_keyboard_layout) {
+		assert(!new_keyboard_layout.empty());
+		LOG_MSG("LOCALE: Loaded keyboard layout '%s' - '%s'",
+		        new_keyboard_layout.c_str(),
+		        DOS_GetKeyboardLayoutName(new_keyboard_layout).c_str());
 	}
 
 	return result;
 }
 
-KeyboardErrorCode DOS_SwitchKeyboardLayout(const char* new_layout, int32_t& tried_cp)
-{
-	if (loaded_layout) {
-		KeyboardLayout *changed_layout = nullptr;
-		const auto rcode = loaded_layout->SwitchKeyboardLayout(new_layout, changed_layout, tried_cp);
-		if (changed_layout) {
-			// Remove old layout, activate new layout
-			loaded_layout.reset(changed_layout);
-		}
-		return rcode;
-	} else
-		return KEYB_LAYOUTNOTFOUND;
-}
-
-// get currently loaded layout name (nullptr if no layout is loaded)
-const char* DOS_GetLoadedLayout()
+std::string DOS_GetLoadedLayout()
 {
 	if (loaded_layout) {
 		return loaded_layout->GetLayoutName();
 	}
-	return nullptr;
-}
 
-// A helper that loads a layout given only a language
-KeyboardErrorCode DOS_LoadKeyboardLayoutFromLanguage(const char * language_pref)
-{
-	assert(language_pref);
-
-	// If a specific language wasn't provided, get it from setup
-	std::string language = language_pref;
-	if (language == "auto") {
-		language = control->GetLanguage();
-	}
-
-	// TODO: This code mixes language code with keyboard layout; this should
-	//       be cleaned up eventually, possibly we should use
-	//       'use get_language_from_os()' from 'cross.h'
-
-	// Does the language have a country associate with it?
-	auto country       = DOS_GetDefaultCountry();
-	bool found_country = DOS_GetCountryFromLayout(language, country);
-
-	// If we can't find a country for the language, try from the host
-	if (!found_country) {
-		language      = DOS_GetLayoutFromHost();
-		found_country = DOS_GetCountryFromLayout(language, country);
-	}
-	// Inform the user if we couldn't find a valid country
-	if (!language.empty() && !found_country) {
-		LOG_WARNING("DOS: A country could not be found for the language: %s",
-		            language.c_str());
-	}
-
-	// Regardless of the above, carry on with setting up the layout
-	const auto codepage = DOS_GetCodePageFromCountry(country);
-	const auto layout   = DOS_CheckLanguageToLayoutException(language);
-	const auto result   = load_keyboard_layout(layout.c_str(), codepage, "auto");
-
-	if (result == KEYB_NOERROR) {
-		LOG_MSG("DOS: Loaded codepage %d for detected language '%s'",
-		        codepage,
-		        language.c_str());
-	} else if (country != DOS_GetDefaultCountry()) {
-		LOG_WARNING("DOS: Failed loading codepage %d for detected language '%s'",
-		            codepage,
-		            language.c_str());
-	}
-	return result;
-}
-
-class DOS_KeyboardLayout final : public Module_base {
-public:
-	DOS_KeyboardLayout(Section* configuration) : Module_base(configuration)
-	{
-		Section_prop* section = static_cast<Section_prop*>(configuration);
-		assert(section);
-
-		// US codepage already initialized
-		dos.loaded_codepage = DefaultCodePage437;
-
-		loaded_layout = std::make_unique<KeyboardLayout>();
-
-		std::string layoutname = section->Get_string("keyboardlayout");
-
-		// If the use only provided a single value (language), then try using it
-		constexpr bool reason_keyboard_layout = true;
-		const auto layout_is_one_value = sv(layoutname).find(' ') == std::string::npos;
-		if (layout_is_one_value) {
-			if (!DOS_LoadKeyboardLayoutFromLanguage(layoutname.c_str())) {
-				// Success - re-create country information to
-				// match new keyboard layout
-				DOS_RefreshCountryInfo(reason_keyboard_layout);
-				return;
-			}
-		}
-		// Otherwise use the layout to get the codepage
-		const auto req_codepage = loaded_layout->ExtractCodePage(layoutname.c_str());
-		loaded_layout->ReadCodePageFile("auto", req_codepage);
-
-		if (loaded_layout->ReadKeyboardFile(layoutname.c_str(), dos.loaded_codepage)) {
-			if (strncmp(layoutname.c_str(), "auto", 4)) {
-				LOG_ERR("DOS: Failed to load keyboard layout '%s'",
-				        layoutname.c_str());
-			}
-		} else {
-			const char *lcode = loaded_layout->GetMainLanguageCode();
-			if (lcode) {
-				LOG_MSG("DOS: Loaded keyboard layout '%s' with main language code '%s'",
-				        layoutname.c_str(),
-				        lcode);
-			}
-		}
-
-		// Re-create country information and [autoexec] section
-		// to match new code page and keyboard layout
-		DOS_RefreshCountryInfo(reason_keyboard_layout);
-		AUTOEXEC_NotifyNewCodePage();
-	}
-
-	~DOS_KeyboardLayout()
-	{
-		if ((dos.loaded_codepage != DefaultCodePage437) &&
-		    (CurMode->type == M_TEXT)) {
-			INT10_ReloadRomFonts();
-			dos.loaded_codepage = DefaultCodePage437; // US codepage
-		}
-		if (loaded_layout) {
-			loaded_layout.reset();
-		}
-	}
-};
-
-static std::unique_ptr<DOS_KeyboardLayout> KeyboardLayout = {};
-
-void DOS_KeyboardLayout_ShutDown(Section* /*sec*/) {
-	KeyboardLayout.reset();
-}
-
-void DOS_KeyboardLayout_Init(Section *sec)
-{
-	assert(sec);
-	KeyboardLayout = std::make_unique<DOS_KeyboardLayout>(sec);
-
-	constexpr auto changeable_at_runtime = true;
-	sec->AddDestroyFunction(&DOS_KeyboardLayout_ShutDown, changeable_at_runtime);
+	return {};
 }

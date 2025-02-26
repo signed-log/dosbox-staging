@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2023  The DOSBox Staging Team
+ *  Copyright (C) 2022-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2022  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,7 @@
 #include "bitops.h"
 #include "checks.h"
 #include "config.h"
+#include "control.h"
 #include "inout.h"
 #include "mem.h"
 #include "pic.h"
@@ -370,65 +371,32 @@ static uint8_t get_translated(const uint8_t byte)
 }
 
 // ***************************************************************************
-// Port disable workaround
-// ***************************************************************************
-
-// TODO: This part is a workaround for 'Ultima VIII: Pagan' problem with
-// non-working keyboard. The proper fix would require larger rework:
-// - it seems that even if keyboard is disabled, the 8042 should fire the
-//   interrupt
-// - testing with 86Box revealed that command 0xad (disable keyboard port) and
-//   0xae (enable port) are being sent by BIOS with each and every key press;
-//   our internal BIOS does not work this way
-//
-// Ignoring command 0xad totally might be risky, as Windows 3.11 for Workgroups
-// disables/reenables the keyboard port during startup and shutdown, issuing
-// controller commands in between; if something disturbs it, we might run into
-// a problem with keyboard/mouse not responding at all.
-//
-// This code re-enables the keyboard after certain time - unless there is
-// some command currently being issued to the controller.
-
-static bool kbd_disabled_timer_running = false;
-static bool kbd_disabled_timer_expired = true;
-
-// Make the delay a little longer than between two bytes of a scancode,
-// even lower values are enough
-constexpr double KbdDisabledDurationMs = PortDelayMs * 1.5f;
-
-// Forward declaration
-static void restart_kbd_disabled_timer();
-
-static void maybe_reenable_kbd_port()
-{
-	if (is_disabled_kbd && kbd_disabled_timer_expired) {
-		is_disabled_kbd = false;
-	}
-}
-
-static void kbd_disabled_timer_handler(uint32_t /*val*/)
-{
-	kbd_disabled_timer_running = false;
-	kbd_disabled_timer_expired = true;
-
-	if (current_command != Command::None) {
-		restart_kbd_disabled_timer();
-	}
-}
-
-static void restart_kbd_disabled_timer()
-{
-	if (kbd_disabled_timer_running) {
-		PIC_RemoveEvents(kbd_disabled_timer_handler);
-	}
-	PIC_AddEvent(kbd_disabled_timer_handler, KbdDisabledDurationMs);
-	kbd_disabled_timer_running = true;
-	kbd_disabled_timer_expired = false;
-}
-
-// ***************************************************************************
 // Controller buffer support
 // ***************************************************************************
+
+static uint8_t get_irq_mouse()
+{
+	return IrqNumMouse;
+}
+
+static uint8_t get_irq_keyboard()
+{
+	if (machine == MCH_PCJR) {
+		return IrqNumKbdPcjr;
+	} else {
+		return IrqNumKbdIbmPc;
+	}
+}
+
+static void activate_irqs_if_needed()
+{
+	if (is_data_from_aux && is_irq_active_aux) {
+		PIC_ActivateIRQ(get_irq_mouse());
+	}
+	if (is_data_from_kbd && is_irq_active_kbd) {
+		PIC_ActivateIRQ(get_irq_keyboard());
+	}
+}
 
 static void flush_buffer()
 {
@@ -510,18 +478,7 @@ static void maybe_transfer_buffer()
 	is_data_from_kbd = buffer[idx].is_from_kbd;
 	is_data_new      = true;
 	restart_delay_timer();
-
-	// If needed, activate interrupt
-	if (is_data_from_aux && is_irq_active_aux) {
-		PIC_ActivateIRQ(IrqNumMouse);
-	}
-	if (is_data_from_kbd && is_irq_active_kbd) {
-		if (machine == MCH_PCJR) {
-			PIC_ActivateIRQ(IrqNumKbdPcjr);
-		} else {
-			PIC_ActivateIRQ(IrqNumKbdIbmPc);
-		}
-	}
+	activate_irqs_if_needed();
 }
 
 static void buffer_add(const uint8_t byte,
@@ -658,12 +615,6 @@ static bool is_cmd_vendor_lines(const Command command)
 	return (code >= 0xb0) && (code <= 0xbd);
 }
 
-static void request_system_reset()
-{
-	E_Exit("I8042: System reset requested");
-	// TODO: we need a proper reset implementation
-}
-
 static void execute_command(const Command command)
 {
 	// LOG_INFO("I8042: Command 0x%02x", static_cast<int>(command));
@@ -727,7 +678,7 @@ static void execute_command(const Command command)
 		buffer_add(0);
 		break;
 	case Command::ReadFwRevision: // 0xa1
-		// Reads the keybaord copntroller firmware
+		// Reads the keyboard controller firmware
 		// revision, always one byte
 		flush_buffer();
 		buffer_add(FirmwareRevision);
@@ -768,7 +719,6 @@ static void execute_command(const Command command)
 		is_disabled_kbd      = true;
 		uses_kbd_translation = true;
 		passed_self_test     = true;
-		restart_kbd_disabled_timer();
 		flush_buffer();
 		buffer_add(0x55);
 		break;
@@ -777,7 +727,6 @@ static void execute_command(const Command command)
 		// (as with aux port test)
 		// Disables the keyboard port
 		is_disabled_kbd = true;
-		restart_kbd_disabled_timer();
 		flush_buffer();
 		buffer_add(0x00); // as with TestPortAux
 		break;
@@ -803,7 +752,6 @@ static void execute_command(const Command command)
 		// Disable keyboard port; any keyboard command
 		// reenables the port
 		is_disabled_kbd = true;
-		restart_kbd_disabled_timer();
 		break;
 	case Command::EnablePortKbd: // 0xae
 		// Enable the keyboard port
@@ -822,7 +770,7 @@ static void execute_command(const Command command)
 		buffer_add(get_input_port());
 		break;
 	case Command::ReadControllerMode: // 0xca
-		// Reads keybaord controller mode
+		// Reads keyboard controller mode
 		// 0x00: ISA (AT)
 		// 0x01: PS/2 (MCA)
 		flush_buffer();
@@ -915,7 +863,7 @@ static void execute_command(const Command command, const uint8_t param)
 		MEM_A20_Enable(bit::is(param, b1));
 		if (!bit::is(param, b0)) {
 			LOG_WARNING("I8042: Clearing P2 bit 0 locks a real PC");
-			request_system_reset();
+			restart_dosbox();
 		}
 		break;
 	case Command::SimulateInputKbd: // 0xd2
@@ -950,7 +898,8 @@ static void execute_command(const Command command, const uint8_t param)
 				warn_line_pulse();
 			}
 			if (code == 0xf0 && !(lines & 0b0001)) {
-				request_system_reset();
+				// System reset via keyboard controller
+				restart_dosbox();
 			}
 		} else {
 			// If we are here, than either this function
@@ -1005,7 +954,10 @@ static uint8_t read_data_port(io_port_t, io_width_t) // port 0x60
 	is_data_from_aux = false;
 	is_data_from_kbd = false;
 
-	maybe_transfer_buffer();
+	// Enforce the simulated data transfer delay, as some software
+	// (Tyrian 2000 setup) reads the port without waiting for the
+	// interrupt.
+	restart_delay_timer(PortDelayMs);
 
 	return ret_val;
 }
@@ -1025,9 +977,6 @@ static void write_data_port(io_port_t, io_val_t value, io_width_t) // port 0x60
 		// A controller command is waiting for a parameter
 		const auto command = current_command;
 		current_command    = Command::None;
-		if (is_disabled_kbd) {
-			restart_kbd_disabled_timer();
-		}
 
 		const bool should_notify_aux = !I8042_IsReadyForAuxFrame();
 		const bool should_notify_kbd = !I8042_IsReadyForKbdFrame();
@@ -1071,9 +1020,6 @@ static void write_command_port(io_port_t, io_val_t value, io_width_t) // port 0x
 	status_byte.was_last_write_cmd = true;
 
 	current_command = Command::None;
-	if (is_disabled_kbd) {
-		restart_kbd_disabled_timer();
-	}
 	if ((byte <= 0x1f) || (byte >= 0x40 && byte <= 0x5f)) {
 		// AMI BIOS systems command aliases
 		execute_command(static_cast<Command>(byte + 0x20));
@@ -1164,7 +1110,6 @@ bool I8042_IsReadyForAuxFrame()
 
 bool I8042_IsReadyForKbdFrame()
 {
-	maybe_reenable_kbd_port();
 	return !waiting_bytes_from_kbd && !is_disabled_kbd && !is_diagnostic_dump;
 }
 

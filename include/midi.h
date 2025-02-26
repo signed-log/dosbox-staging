@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 #include <array>
 #include <cassert>
 
+#include "control.h"
 #include "setup.h"
 
 class Program;
@@ -36,7 +37,22 @@ class Program;
 // Using data bytes will result in a dummy zero lookup.
 extern uint8_t MIDI_message_len_by_status[256];
 
-constexpr auto MIDI_SYSEX_SIZE = 8192;
+// A SysEx dump containing a full set of Roland MT-32 timbre and patch data is
+// around 18K (confirmed by the MT32Editor's author).
+//
+// The Roland SC-55 stores its internal state at 0x8000-0x905F in its RAM, so
+// the total data length of a bulk SysEx transmission containing all internal
+// data is 4191 bytes long.
+//
+// Given these hard upper limits, a 20K static buffer is sufficient for all
+// SysEx communications with these DOS-era MIDI devices. The standardised
+// Roland SysEx packet format can contain up to 256 data bytes. If we add the
+// header information and the checksum to this, the final maximum SysEx packet
+// length is 266 bytes. 18K worth of SysEx data can be transmitted in 72
+// packets, which makes the total length of all SysEx messages to be
+// transmitted 72 * 266 = 19,152 bytes, which is a bit under 20K.
+//
+constexpr auto MaxMidiSysExBytes = 20 * 1024;
 
 constexpr uint8_t MaxMidiMessageLen = 3;
 
@@ -48,6 +64,19 @@ constexpr uint8_t NumMidiNotes  = 128;
 constexpr uint8_t FirstMidiNote = 0;
 constexpr uint8_t LastMidiNote  = NumMidiNotes - 1;
 
+// MIDI has a baud rate of 31250; at optimum, this is 31,250 bits per
+// second. A MIDI byte is 8 bits plus a start and stop bit, and each
+// MIDI message is three bytes, which gives a total of 30 bits per
+// message. This means that under optimal conditions, a maximum of 1041
+// messages per second can be obtained via the MIDI protocol.
+constexpr int MaxMidiMessageRateHz = 1041;
+
+// We have measured DOS games sending hundreds of MIDI messages within a
+// short handful of millseconds, so a safe but very generous upper bound
+// is used.
+//
+// The actual memory used by the FIFO is incremental based on actual usage.
+constexpr int MaxMidiWorkFifoSize = MaxMidiMessageRateHz * 10;
 
 enum class MessageType : uint8_t { Channel, SysEx };
 
@@ -199,19 +228,21 @@ MessageType get_midi_message_type(const uint8_t status_byte);
 uint8_t get_midi_status(const uint8_t status_byte);
 uint8_t get_midi_channel(const uint8_t channel_status);
 
-bool MIDI_Available();
+void MIDI_Init();
+bool MIDI_IsAvailable();
 void MIDI_Reset();
-void MIDI_Init(Section* sec);
-void MIDI_ListAll(Program* output_handler);
-void MIDI_RawOutByte(uint8_t data);
+
+void MIDI_ListDevices(Program* output_handler);
+void MIDI_RawOutByte(const uint8_t data);
 
 void MIDI_Mute();
 void MIDI_Unmute();
 
 struct MidiWork {
-	std::vector<uint8_t> message      = {};
-	uint16_t num_pending_audio_frames = 0;
-	MessageType message_type          = {};
+	std::vector<uint8_t> message = {};
+	int num_pending_audio_frames = 0;
+	MessageType message_type     = {};
+	double timestamp             = 0.0;
 
 	// Default value constructor
 	MidiWork()                      = default;
@@ -219,12 +250,12 @@ struct MidiWork {
 	MidiWork& operator=(MidiWork&&) = default;
 
 	// Construct from movable values
-	MidiWork(std::vector<uint8_t>&& _message,
-	         const uint16_t _num_audio_frames_pending,
-	         const MessageType _message_type)
+	MidiWork(std::vector<uint8_t>&& _message, const int _num_audio_frames_pending,
+	         const MessageType _message_type, const double _timestamp)
 	        : message(std::move(_message)),
 	          num_pending_audio_frames(_num_audio_frames_pending),
-	          message_type(_message_type)
+	          message_type(_message_type),
+	          timestamp(_timestamp)
 	{
 		// leave the source in a valid state
 		_message.clear();
@@ -236,13 +267,15 @@ struct MidiWork {
 };
 
 #if C_FLUIDSYNTH
-void FLUID_AddConfigSection(const config_ptr_t& conf);
+void FSYNTH_AddConfigSection(const ConfigPtr& conf);
 #endif
 
 #if C_MT32EMU
-void MT32_AddConfigSection(const config_ptr_t& conf);
+void MT32_AddConfigSection(const ConfigPtr& conf);
 #endif
 
-void MIDI_AddConfigSection(const config_ptr_t& conf);
+void SOUNDCANVAS_AddConfigSection(const ConfigPtr& conf);
+
+void MIDI_AddConfigSection(const ConfigPtr& conf);
 
 #endif

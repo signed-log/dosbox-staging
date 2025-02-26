@@ -44,18 +44,19 @@ void LOADROM::Run(void)
 	}
 	uint8_t drive;
 	char fullname[DOS_PATHLENGTH];
-	if (!DOS_MakeName((char*)temp_line.c_str(), fullname, &drive)) {
+	if (!DOS_MakeName(temp_line.c_str(), fullname, &drive)) {
 		return;
 	}
 
 	try {
 		/* try to read ROM file into buffer */
-		const auto ldp = dynamic_cast<localDrive*>(Drives.at(drive));
+		const auto ldp = std::dynamic_pointer_cast<localDrive>(
+		        Drives.at(drive));
 		if (!ldp) {
 			return;
 		}
 
-		FILE* tmpfile = ldp->GetSystemFilePtr(fullname, "rb");
+		FILE* tmpfile = ldp->GetHostFilePtr(fullname, "rb");
 		if (tmpfile == nullptr) {
 			WriteOut(MSG_Get("PROGRAM_LOADROM_CANT_OPEN"));
 			return;

@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2023  The DOSBox Staging Team
+ *  Copyright (C) 2022-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,15 +36,15 @@ public:
 	~PcSpeakerImpulse() final;
 
 	void SetFilterState(const FilterState filter_state) final;
-	bool TryParseAndSetCustomFilter(const std::string_view filter_choice) final;
+	bool TryParseAndSetCustomFilter(const std::string& filter_choice) final;
 	void SetCounter(const int cntr, const PitMode pit_mode) final;
 	void SetPITControl(const PitMode pit_mode) final;
 	void SetType(const PpiPortB& port_b) final;
+	void PicCallback(const int requested_frames) final;
 
 private:
 	void AddImpulse(float index, const int16_t amplitude);
 	void AddPITOutput(const float index);
-	void ChannelCallback(uint16_t requested_frames);
 	void ForwardPIT(const float new_index);
 	float CalcImpulse(const double t) const;
 	void InitializeImpulseLUT();
@@ -56,7 +56,7 @@ private:
 	// Amplitude constants
 
 	// The impulse PWM scalar was manually adjusted to roughly match voltage
-	// levels recorded from a hardware PC Speaker
+	// levels recorded from a hardware PC speaker
 	// Ref:https://github.com/dosbox-staging/dosbox-staging/files/9494469/3.audio.samples.zip
 	static constexpr float pwm_scalar = 0.5f;
 
@@ -69,20 +69,21 @@ private:
 	static constexpr float ms_per_pit_tick = 1000.0f / PIT_TICK_RATE;
 
 	// Mixer channel constants
-	static constexpr uint16_t sample_rate        = 32000u;
-	static constexpr uint16_t sample_rate_per_ms = sample_rate / 1000u;
+	static constexpr auto sample_rate_hz     = 32000;
+	static constexpr auto sample_rate_per_ms = sample_rate_hz / 1000;
 
-	static constexpr auto minimum_counter = 2 * PIT_TICK_RATE / sample_rate;
+	static constexpr auto minimum_counter = 2 * PIT_TICK_RATE / sample_rate_hz;
 
 	// must be greater than 0.0f
 	static constexpr float cutoff_margin = 0.2f;
 
 	// Should be selected based on sampling rate
-	static constexpr float sinc_amplitude_fade         = 0.999f;
-	static constexpr uint16_t sinc_filter_quality      = 100u;
-	static constexpr uint16_t sinc_oversampling_factor = 32u;
-	static constexpr uint16_t sinc_filter_width = sinc_filter_quality *
-	                                              sinc_oversampling_factor;
+	static constexpr float sinc_amplitude_fade     = 0.999f;
+	static constexpr auto sinc_filter_quality      = 100;
+	static constexpr auto sinc_oversampling_factor = 32;
+
+	static constexpr auto sinc_filter_width = sinc_filter_quality *
+	                                          sinc_oversampling_factor;
 
 	static constexpr float max_possible_pit_ms = 1320000.0f / PIT_TICK_RATE;
 
@@ -112,8 +113,6 @@ private:
 	std::deque<float> waveform_deque = {};
 
 	std::array<float, sinc_filter_width> impulse_lut = {};
-
-	mixer_channel_t channel = nullptr;
 
 	PpiPortB prev_port_b = {};
 

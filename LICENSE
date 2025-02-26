@@ -35,6 +35,7 @@ GPL-2.0-or-later terms, however there are some exceptions:
    - loguru: Public Domain
    - ManyMouse: Zlib
    - PDcurses: Public Domain
+   - simde: MIT
    - stb_truetype: MIT or Public Domain
    - whereami: MIT or WTFPL
    - YM7128B_emu: BSD 2-Clause
@@ -42,6 +43,26 @@ GPL-2.0-or-later terms, however there are some exceptions:
 The above licenses meet GNU's qualifications for being free
 software (https://www.gnu.org/licenses/license-list.en.html) and
 are compatible with the GNU GPL.
+
+
+Bundled Binaries Licenses
+-------------------------
+
+The following 3rd party binaries are shipped with DOSBox Staging:
+
+- DOS command binaries in contrib/resources/drives/y/dos, are licensed as follows:
+   - debug.com: licenses/DEBUG.COM.txt, source code: https://github.com/Baron-von-Riedesel/DOS-debug
+   - deltree.com: GPL-2.0, source code: https://gitlab.com/FreeDOS/base/deltree
+   - xcopy.exe: GPL-2.0, source code: https://github.com/FDOS/xcopy/
+
+- FreeDOS CPI files in contrib/resources/freedos-cpi are GPL-2.0 licensed;
+  these are hand-drawn bitmap fonts, so they don't have a source code; original repositories:
+   - https://gitlab.com/FreeDOS/base/cpidos (the main code page pack)
+   - https://github.com/FDOS/cpi (ISO/KOI/MAC/WIN code page packs)
+  The code page files were originally in the CPX format, they were decompressed into the CPI format.
+
+- FreeDOS keyboard layout files in contrib/resources/freedos-keyboard are GPL-2.0 licensed;
+  source code: https://gitlab.com/FreeDOS/base/keyb_lay
 
 
 Individual Source File Licenses 

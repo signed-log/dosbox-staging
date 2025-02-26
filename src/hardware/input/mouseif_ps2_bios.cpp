@@ -1,5 +1,7 @@
 /*
- *  Copyright (C) 2022-2023  The DOSBox Staging Team
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ *  Copyright (C) 2022-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -74,7 +76,7 @@ static const std::vector<uint8_t> list_resolutions = {
 
 // clang-format on
 
-enum class Command : uint8_t { // PS/2 AUX (mouse) port commands
+enum class AuxCommand : uint8_t { // PS/2 AUX (mouse) port commands
 	None          = 0x00,
 	SetScaling11  = 0xe6,
 	SetScaling21  = 0xe7,
@@ -105,9 +107,10 @@ static MouseButtonsAll buttons;     // currently visible button state
 static MouseButtonsAll buttons_all; // state of all 5 buttons as on the host side
 static MouseButtons12S buttons_12S; // buttons with 3/4/5 quished together
 
-static float delta_x = 0.0f; // accumulated mouse movement since last reported
-static float delta_y = 0.0f;
-static int8_t counter_w = 0; // mouse wheel counter
+// Accumulated mouse movement, waiting to be reported
+static float delta_x     = 0.0f;
+static float delta_y     = 0.0f;
+static float delta_wheel = 0.0f;
 
 static MouseModelPS2 protocol = MouseModelPS2::Standard;
 static uint8_t unlock_idx_im = 0; // sequence index for unlocking extended protocol
@@ -131,13 +134,13 @@ static bool mode_remote  = false; // true = remote mode, false = stream mode
 static bool mode_wrap    = false; // true = wrap mode
 
 // Command currently being executed, waiting for parameter
-static Command current_command = Command::None;
+static AuxCommand current_command = AuxCommand::None;
 
 // ***************************************************************************
 // Helper routines to log various warnings
 // ***************************************************************************
 
-static void warn_unknown_command(const Command command)
+static void warn_unknown_command(const AuxCommand command)
 {
 	static bool already_warned[UINT8_MAX + 1];
 	const uint8_t code = static_cast<uint8_t>(command);
@@ -202,26 +205,19 @@ static void set_protocol(const MouseModelPS2 new_protocol)
 
 static uint8_t get_reset_wheel_4bit()
 {
-	const int8_t tmp = std::clamp(counter_w,
-	                              static_cast<int8_t>(-0x08),
-	                              static_cast<int8_t>(0x07));
-
-	// reading always clears the counter
-	counter_w = 0;
+	auto d = MOUSE_ConsumeInt8(delta_wheel);
+	d = std::clamp(d, static_cast<int8_t>(-0x08), static_cast<int8_t>(0x07));
 
 	// 0x0f for -1, 0x0e for -2, etc.
-	return static_cast<uint8_t>((tmp >= 0) ? tmp : 0x10 + tmp);
+	return static_cast<uint8_t>((d >= 0) ? d : 0x10 + d);
 }
 
 static uint8_t get_reset_wheel_8bit()
 {
-	const auto tmp = counter_w;
-
-	// reading always clears the counter
-	counter_w = 0;
+	const auto d = MOUSE_ConsumeInt8(delta_wheel);
 
 	// 0xff for -1, 0xfe for -2, etc.
-	return static_cast<uint8_t>((tmp >= 0) ? tmp : 0x100 + tmp);
+	return static_cast<uint8_t>((d >= 0) ? d : 0x100 + d);
 }
 
 static int16_t get_scaled_movement(const int16_t d, const bool is_polling)
@@ -252,9 +248,9 @@ static int16_t get_scaled_movement(const int16_t d, const bool is_polling)
 
 static void reset_counters()
 {
-	delta_x   = 0.0f;
-	delta_y   = 0.0f;
-	counter_w = 0;
+	delta_x     = 0.0f;
+	delta_y     = 0.0f;
+	delta_wheel = 0.0f;
 }
 
 static void build_protocol_frame(const bool is_polling = false)
@@ -277,11 +273,8 @@ static void build_protocol_frame(const bool is_polling = false)
 	mdat.right  = buttons.right;
 	mdat.middle = buttons.middle;
 
-	auto dx = static_cast<int16_t>(std::round(delta_x));
-	auto dy = static_cast<int16_t>(std::round(delta_y));
-
-	delta_x -= dx;
-	delta_y -= dy;
+	auto dx = MOUSE_ConsumeInt16(delta_x);
+	auto dy = MOUSE_ConsumeInt16(delta_y);
 
 	dx = get_scaled_movement(dx, is_polling);
 	dy = get_scaled_movement(static_cast<int16_t>(-dy), is_polling);
@@ -430,7 +423,8 @@ static void cmd_poll_frame()
 	build_protocol_frame(is_polling);
 	I8042_AddAuxFrame(frame);
 	frame.clear();
-	reset_counters();
+	// resetting counters not necessary; frame building process consumes
+	// all the data
 }
 
 static void cmd_set_resolution(const uint8_t new_counts_mm)
@@ -545,7 +539,7 @@ static void cmd_reset(bool is_startup = false)
 	}
 }
 
-static void execute_command(const Command command)
+static void execute_command(const AuxCommand command)
 {
 	// LOG_INFO("MOUSEPS2: Command 0x%02x", static_cast<int>(command));
 
@@ -555,62 +549,62 @@ static void execute_command(const Command command)
 	//
 	// Commands requiring a parameter
 	//
-	case Command::SetResolution: // 0xe8
-	case Command::SetSampleRate: // 0xf3
+	case AuxCommand::SetResolution: // 0xe8
+	case AuxCommand::SetSampleRate: // 0xf3
 		current_command = command;
 		break;
 	//
 	// No-parameter commands
 	//
-	case Command::SetScaling11: // 0xe6
+	case AuxCommand::SetScaling11: // 0xe6
 		// Set mouse movement scaling 1:1
 		cmd_set_scaling_21(false);
 		break;
-	case Command::SetScaling21: // 0xe7
+	case AuxCommand::SetScaling21: // 0xe7
 		// Set mouse movement scaling 2:1
 		cmd_set_scaling_21(true);
 		break;
-	case Command::GetStatus: // 0xe9
+	case AuxCommand::GetStatus: // 0xe9
 		// Send a 3-byte status packet
 		cmd_get_status();
 		break;
-	case Command::SetStreamMode: // 0xea
+	case AuxCommand::SetStreamMode: // 0xea
 		// Set stream (non-remote) mode, reset movement counters
 		cmd_set_mode_remote(false);
 		break;
-	case Command::PollFrame: // 0xeb
+	case AuxCommand::PollFrame: // 0xeb
 		// Set mouse data packet, reset movement counters afterwards
 		cmd_poll_frame();
 		break;
-	case Command::ResetWrapMode: // 0xec
+	case AuxCommand::ResetWrapMode: // 0xec
 		// Reset wrap mode, reset movement counters
 		cmd_set_mode_wrap(false);
 		break;
-	case Command::SetWrapMode: // 0xee
+	case AuxCommand::SetWrapMode: // 0xee
 		// Set wrap mode, reset movement counters
 		cmd_set_mode_wrap(true);
 		break;
-	case Command::SetRemoteMode: // 0xf0
+	case AuxCommand::SetRemoteMode: // 0xf0
 		// Set remote (non-stream) mode, reset movement counters
 		cmd_set_mode_remote(true);
 		break;
-	case Command::GetDevId: // 0xf2
+	case AuxCommand::GetDevId: // 0xf2
 		// Send current protocol ID, reset movement counters
 		cmd_get_dev_id();
 		break;
-	case Command::EnableDev: // 0xf4
+	case AuxCommand::EnableDev: // 0xf4
 		// Enable reporting in stream mode, reset movement counters
 		cmd_set_reporting(true);
 		break;
-	case Command::DisableDev: // 0xf5
+	case AuxCommand::DisableDev: // 0xf5
 		// Disable reporting in stream mode, reset movement counters
 		cmd_set_reporting(false);
 		break;
-	case Command::SetDefaults: // 0xf6
+	case AuxCommand::SetDefaults: // 0xf6
 		// Load defaults, reset movement counters, enter stream mode
 		cmd_set_defaults();
 		break;
-	case Command::ResetDev: // 0xff
+	case AuxCommand::ResetDev: // 0xff
 		// Enter reset mode
 		cmd_reset();
 		break;
@@ -618,7 +612,7 @@ static void execute_command(const Command command)
 	}
 }
 
-static void execute_command(const Command command, const uint8_t param)
+static void execute_command(const AuxCommand command, const uint8_t param)
 {
 	// LOG_INFO("MOUSEPS2: Command 0x%02x, parameter 0x%02x",
 	//          static_cast<int>(command), param);
@@ -626,11 +620,11 @@ static void execute_command(const Command command, const uint8_t param)
 	I8042_AddAuxByte(0xfa); // acknowledge
 
 	switch (command) {
-	case Command::SetResolution: // 0xe8
+	case AuxCommand::SetResolution: // 0xe8
 		// Set mouse resolution, reset movement counters
 		cmd_set_resolution(param);
 		break;
-	case Command::SetSampleRate: // 0xf3
+	case AuxCommand::SetSampleRate: // 0xf3
 		// Set mouse resolution, reset movement counters
 		// Magic sequences change mouse protocol
 		cmd_set_sample_rate(param);
@@ -649,19 +643,19 @@ bool MOUSEPS2_PortWrite(const uint8_t byte)
 		return false; // no mouse emulated
 	}
 
-	if (byte != static_cast<uint8_t>(Command::ResetDev) && mode_wrap &&
-	    byte != static_cast<uint8_t>(Command::ResetWrapMode)) {
+	if (byte != static_cast<uint8_t>(AuxCommand::ResetDev) && mode_wrap &&
+	    byte != static_cast<uint8_t>(AuxCommand::ResetWrapMode)) {
 		I8042_AddAuxByte(byte); // wrap mode, just send bytes back
 		return true;
 	}
 
 	const auto command = current_command;
-	if (command != Command::None) {
+	if (command != AuxCommand::None) {
 		// Continue execution of previous command
-		current_command = Command::None;
+		current_command = AuxCommand::None;
 		execute_command(command, byte);
 	} else {
-		execute_command(static_cast<Command>(byte));
+		execute_command(static_cast<AuxCommand>(byte));
 	}
 
 	return true;
@@ -677,13 +671,10 @@ void MOUSEPS2_NotifyMoved(const float x_rel, const float y_rel)
 	delta_x = MOUSE_ClampRelativeMovement(delta_x + x_rel);
 	delta_y = MOUSE_ClampRelativeMovement(delta_y + y_rel);
 
-	// Threshold the accumulated movement needs to cross
-	// to be considered significant enough for new event
-	constexpr float threshold = 0.5f;
-
-	has_data_for_frame |= (std::fabs(delta_x) >= threshold) ||
-	                      (std::fabs(delta_y) >= threshold) ||
+	has_data_for_frame |= MOUSE_HasAccumulatedInt(delta_x) ||
+	                      MOUSE_HasAccumulatedInt(delta_y) ||
 	                      vmm_needs_dummy_event;
+
 	maybe_transfer_frame();
 	vmm_needs_dummy_event = false;
 }
@@ -710,17 +701,25 @@ void MOUSEPS2_NotifyButton(const MouseButtons12S new_buttons_12S,
 	vmm_needs_dummy_event = false;
 }
 
-void MOUSEPS2_NotifyWheel(const int16_t w_rel)
+void MOUSEPS2_NotifyWheel(const float w_rel)
 {
 	// Note: VMware mouse protocol can support wheel even if the emulated
-	// PS/2 mouse does not have it - this works at least with VBADOS v0.67
-	auto old_counter_w = counter_w;
+	// PS/2 mouse does not have it - this works at least with VBADOS v0.67.
+	// Thus, we can't skip the function entirely for basic PS/2 mouse.
+
+	constexpr bool skip_delta_update = true;
+
+	const auto old_counter = MOUSE_ConsumeInt8(delta_wheel, skip_delta_update);
+
 	if (protocol == MouseModelPS2::IntelliMouse ||
 	    protocol == MouseModelPS2::Explorer) {
-		counter_w = clamp_to_int8(static_cast<int32_t>(counter_w + w_rel));
+		delta_wheel = MOUSE_ClampWheelMovement(delta_wheel + w_rel);
 	}
 
-	has_data_for_frame |= (old_counter_w != counter_w) || vmm_needs_dummy_event;
+	const auto new_counter = MOUSE_ConsumeInt8(delta_wheel, skip_delta_update);
+
+	has_data_for_frame |= (old_counter != new_counter);
+	has_data_for_frame |= vmm_needs_dummy_event;
 	maybe_transfer_frame();
 	vmm_needs_dummy_event = false;
 }

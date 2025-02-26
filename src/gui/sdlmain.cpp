@@ -71,9 +71,34 @@
 #include "setup.h"
 #include "string_utils.h"
 #include "timer.h"
+#include "titlebar.h"
 #include "tracy.h"
 #include "vga.h"
 #include "video.h"
+
+static void switch_console_to_utf8()
+{
+#ifdef WIN32
+	constexpr uint16_t CodePageUtf8 = 65001;
+	if (!sdl.original_code_page) {
+		sdl.original_code_page = GetConsoleOutputCP();
+		// Don't do anything if we couldn't get the original code page
+		if (sdl.original_code_page) {
+			SetConsoleOutputCP(CodePageUtf8);
+		}
+	}
+#endif
+}
+
+static void restore_console_encoding()
+{
+#ifdef WIN32
+	if (sdl.original_code_page) {
+		SetConsoleOutputCP(sdl.original_code_page);
+		sdl.original_code_page = 0;
+	}
+#endif
+}
 
 #if C_OPENGL
 //Define to report opengl errors
@@ -92,7 +117,7 @@
  */
 typedef void (APIENTRYP PFNGLATTACHSHADERPROC) (GLuint program, GLuint shader);
 typedef void (APIENTRYP PFNGLCOMPILESHADERPROC) (GLuint shader);
-typedef GLuint (APIENTRYP PFNGLCREATEPROGRAMPROC) (void);
+typedef GLuint (APIENTRYP PFNGLCREATEPROGRAMPROC) ();
 typedef GLuint (APIENTRYP PFNGLCREATESHADERPROC) (GLenum type);
 typedef void (APIENTRYP PFNGLDELETEPROGRAMPROC) (GLuint program);
 typedef void (APIENTRYP PFNGLDELETESHADERPROC) (GLuint shader);
@@ -216,14 +241,14 @@ static const char* safe_gl_get_string(const GLenum requested_name,
                                       const char* default_result);
 #endif
 
-static const char* vsync_state_as_string(const VsyncState state)
+static const char* to_string(const VsyncMode mode)
 {
-	switch (state) {
-	case VsyncState::Unset: return "unset";
-	case VsyncState::Adaptive: return "adaptive";
-	case VsyncState::Off: return "off";
-	case VsyncState::On: return "on";
-	default: return "unknown";
+	switch (mode) {
+	case VsyncMode::Unset: return "unset";
+	case VsyncMode::Adaptive: return "adaptive";
+	case VsyncMode::Off: return "off";
+	case VsyncMode::On: return "on";
+	default: assertm(false, "Invalid VsyncMode"); return "";
 	}
 }
 
@@ -249,7 +274,7 @@ static bool is_debugger_event(const SDL_Event &event)
 	return false;
 }
 
-SDL_Window *GFX_GetSDLWindow(void)
+SDL_Window *GFX_GetSDLWindow()
 {
 	return sdl.window;
 }
@@ -280,82 +305,19 @@ void OPENGL_ERROR(const char*) {
 #endif
 #endif
 
-extern "C" void SDL_CDROMQuit(void);
 static void QuitSDL()
 {
 	if (sdl.initialized) {
-		SDL_CDROMQuit();
 #if !C_DEBUG
 		SDL_Quit();
 #endif
 	}
+	restore_console_encoding();
 }
 
-extern const char* RunningProgram;
-extern bool CPU_CycleAutoAdjust;
-//Globals for keyboard initialisation
-bool startup_state_numlock=false;
-bool startup_state_capslock=false;
-
-void GFX_SetTitle(const int32_t new_num_cycles, const bool is_paused = false)
-{
-	char title_buf[200] = {0};
-
-#if !defined(NDEBUG)
-	#define APP_NAME_STR DOSBOX_NAME " (debug build)"
-#else
-	#define APP_NAME_STR DOSBOX_NAME
-#endif
-
-	auto &num_cycles      = sdl.title_bar.num_cycles;
-	auto &cycles_ms_str   = sdl.title_bar.cycles_ms_str;
-	auto &hint_mouse_str  = sdl.title_bar.hint_mouse_str;
-	auto &hint_paused_str = sdl.title_bar.hint_paused_str;
-
-	if (new_num_cycles != -1) {
-		num_cycles = new_num_cycles;
-	}
-
-	if (cycles_ms_str.empty()) {
-		cycles_ms_str   = MSG_GetRaw("TITLEBAR_CYCLES_MS");
-		hint_paused_str = std::string(" ") + MSG_GetRaw("TITLEBAR_HINT_PAUSED");
-	}
-
-	const auto& hint_str = is_paused ? hint_paused_str : hint_mouse_str;
-	if (CPU_CycleAutoAdjust) {
-		if (CPU_CycleLimit > 0) {
-			safe_sprintf(title_buf,
-			             "%8s - max %d%% limit %d %s - " APP_NAME_STR "%s",
-			             RunningProgram,
-			             num_cycles,
-			             CPU_CycleLimit,
-			             cycles_ms_str.c_str(),
-			             hint_str.c_str());
-		} else {
-			safe_sprintf(title_buf,
-			             "%8s - max %d%% %s - " APP_NAME_STR "%s",
-			             RunningProgram,
-			             num_cycles,
-			             cycles_ms_str.c_str(),
-			             hint_str.c_str());
-		}
-	} else {
-		safe_sprintf(title_buf,
-		             "%8s - %d %s - " APP_NAME_STR "%s",
-		             RunningProgram,
-		             num_cycles,
-		             cycles_ms_str.c_str(),
-		             hint_str.c_str());
-	}
-
-	SDL_SetWindowTitle(sdl.window, title_buf);
-}
-
-void GFX_RefreshTitle(const bool is_paused = false)
-{
-	constexpr int8_t refresh_cycle_count = -1;
-	GFX_SetTitle(refresh_cycle_count, is_paused);
-}
+// Globals for keyboard initialisation
+static bool startup_state_numlock  = false;
+static bool startup_state_capslock = false;
 
 // Detects if we're running within a desktop environment (or window manager).
 bool GFX_HaveDesktopEnvironment()
@@ -401,9 +363,12 @@ static double get_host_refresh_rate()
 {
 	auto get_sdl_rate = []() {
 		SDL_DisplayMode mode = {};
-		auto &sdl_rate = mode.refresh_rate;
+
+		auto& sdl_rate = mode.refresh_rate;
+
 		assert(sdl.window);
 		const auto display_in_use = SDL_GetWindowDisplayIndex(sdl.window);
+
 		if (display_in_use < 0) {
 			LOG_ERR("SDL: Could not get the current window index: %s",
 			        SDL_GetError());
@@ -419,134 +384,137 @@ static double get_host_refresh_rate()
 			            sdl_rate);
 			return RefreshRateHostDefault;
 		}
+
 		assert(sdl_rate >= RefreshRateMin);
 		return sdl_rate;
 	};
 
 	auto get_vrr_rate = [](const int sdl_rate) {
-		constexpr auto vrr_backoff_hz = 3;
-		return sdl_rate - vrr_backoff_hz;
+		constexpr auto VrrBackoffHz = 3;
+		return sdl_rate - VrrBackoffHz;
 	};
 
 	auto get_sdi_rate = [](const int sdl_rate) {
-		const auto is_odd = sdl_rate % 2 != 0;
-		const auto not_div_by_5 = sdl_rate % 5 != 0;
+		// TODO needs explanation - what are we even calculating here?
+		const auto is_odd           = sdl_rate % 2 != 0;
+		const auto not_div_by_5     = sdl_rate % 5 != 0;
 		const auto next_is_div_by_3 = (sdl_rate + 1) % 3 == 0;
+
 		const bool should_adjust = is_odd && not_div_by_5 && next_is_div_by_3;
 		constexpr auto sdi_factor = 1.0 - 1.0 / 1000.0;
+
 		return should_adjust ? (sdl_rate + 1) * sdi_factor : sdl_rate;
 	};
 
 	// To be populated in the switch
-	auto rate = 0.0;                   // refresh rate as a floating point number
-	const char *rate_description = ""; // description of the refresh rate
+	auto refresh_rate            = 0.0;
+	const char* rate_description = "";
 
 	switch (sdl.desktop.host_rate_mode) {
 	case HostRateMode::Auto:
 		if (const auto sdl_rate = get_sdl_rate();
 		    sdl.desktop.fullscreen && sdl_rate >= InterpolatingVrrMinRateHz) {
-			rate = get_vrr_rate(sdl_rate);
+			refresh_rate     = get_vrr_rate(sdl_rate);
 			rate_description = "VRR-adjusted (auto)";
 		} else {
-			rate = get_sdi_rate(sdl_rate);
+			refresh_rate     = get_sdi_rate(sdl_rate);
 			rate_description = "standard SDI (auto)";
 		}
 		break;
+
 	case HostRateMode::Sdi:
-		rate = get_sdi_rate(get_sdl_rate());
+		refresh_rate     = get_sdi_rate(get_sdl_rate());
 		rate_description = "standard SDI";
 		break;
+
 	case HostRateMode::Vrr:
-		rate = get_vrr_rate(get_sdl_rate());
+		refresh_rate     = get_vrr_rate(get_sdl_rate());
 		rate_description = "VRR-adjusted";
 		break;
+
 	case HostRateMode::Custom:
 		assert(sdl.desktop.preferred_host_rate >= RefreshRateMin);
-		rate = sdl.desktop.preferred_host_rate;
+		refresh_rate     = sdl.desktop.preferred_host_rate;
 		rate_description = "custom";
 		break;
 	}
-	assert(rate >= RefreshRateMin);
+	assert(refresh_rate >= RefreshRateMin);
 
 	// Log if changed
 	static auto last_int_rate = 0;
-	const auto int_rate = ifloor(rate);
+	const auto int_rate       = ifloor(refresh_rate);
+
 	if (last_int_rate != int_rate) {
 		last_int_rate = int_rate;
 		LOG_MSG("SDL: Using %s display refresh rate of %2.5g Hz",
-		        rate_description, rate);
+		        rate_description,
+		        refresh_rate);
 	}
-	return rate;
+	return refresh_rate;
 }
 
-static Section_prop* get_sdl_section()
-{
-	assert(control);
-
-	auto sdl_section = static_cast<Section_prop*>(control->GetSection("sdl"));
-	assert(sdl_section);
-
-	return sdl_section;
-}
-
-// Reset and populate the vsync settings from the user's conf setting. This is
-// called on-demand after startup and on output-mode changes (ie: switching from
-// an SDL-based drawing context to an OpenGL-based context).
+// Reset and populate the vsync settings from the config. This is
+// called on-demand after startup and on output mode changes (e.g., switching
+// from the 'texture' backend to 'opengl').
 //
 static void initialize_vsync_settings()
 {
 	sdl.vsync = {};
 
-	const auto section = get_sdl_section();
-	const std::string user_pref = (section ? section->Get_string("vsync") : "auto");
+	const std::string user_pref = get_sdl_section()->Get_string("vsync");
 
 	if (has_true(user_pref)) {
-		sdl.vsync.when_windowed.requested   = VsyncState::On;
-		sdl.vsync.when_fullscreen.requested = VsyncState::On;
+		sdl.vsync.when_windowed.requested   = VsyncMode::On;
+		sdl.vsync.when_fullscreen.requested = VsyncMode::On;
+
 	} else if (user_pref == "adaptive") {
-		sdl.vsync.when_windowed.requested   = VsyncState::Adaptive;
-		sdl.vsync.when_fullscreen.requested = VsyncState::Adaptive;
+		sdl.vsync.when_windowed.requested   = VsyncMode::Adaptive;
+		sdl.vsync.when_fullscreen.requested = VsyncMode::Adaptive;
+
 	} else if (has_false(user_pref)) {
-		sdl.vsync.when_windowed.requested   = VsyncState::Off;
-		sdl.vsync.when_fullscreen.requested = VsyncState::Off;
+		sdl.vsync.when_windowed.requested   = VsyncMode::Off;
+		sdl.vsync.when_fullscreen.requested = VsyncMode::Off;
+
 	} else if (user_pref == "yield") {
-		sdl.vsync.when_windowed.requested   = VsyncState::Yield;
-		sdl.vsync.when_fullscreen.requested = VsyncState::Yield;
+		sdl.vsync.when_windowed.requested   = VsyncMode::Yield;
+		sdl.vsync.when_fullscreen.requested = VsyncMode::Yield;
+
 	} else {
 		assert(user_pref == "auto");
 
-		// In 'vsync = auto' windowed-mode, we try to disable vsync for
-		// our Window because enabling vsync both at the program and
-		// compositor levels (which might be enforced) may add latency
-		// (i.e,: extra time blocked inside rendering or presentation
-		// calls), which stalls DOSBox.
+		// With 'vsync = auto' in windowed mode, we try to disable vsync
+		// because the OS-level compositor usually enforces it anyway,
+		// so we get no tearing. Enabling vsync on our side would usually
+		// have either no effect, or it would add extra latency
+		// without any benefits in the worst case.
 		//
-		sdl.vsync.when_windowed.requested = VsyncState::Off;
+		sdl.vsync.when_windowed.requested = VsyncMode::Off;
 
-		// In fullscreen-mode, the above still applies however we add
-		// handling for VRR displays that perform frame interpolation.
-		// as tehy need vsync enabled to lock onto the content:
+		// In fullscreen mode, the above still applies, however, we add
+		// handling for VRR displays that perform frame interpolation,
+		// as they need vsync enabled to lock onto the content.
+		//
 		const bool prefers_vsync_when_fullscreen =
 		        (get_host_refresh_rate() >= InterpolatingVrrMinRateHz);
 
 		sdl.vsync.when_fullscreen.requested = prefers_vsync_when_fullscreen
-		                                            ? VsyncState::On
-		                                            : VsyncState::Off;
+		                                            ? VsyncMode::On
+		                                            : VsyncMode::Off;
 
 		// In 'vsync = auto', we also /assume/ vsync is enabled
 		// (regardless how the above requests actually played out) by
-		// overriding the measured state, as follows:
+		// overriding the auto-determined mode as follows:
 		//
-		sdl.vsync.when_windowed.measured   = VsyncState::On;
-		sdl.vsync.when_fullscreen.measured = VsyncState::On;
-		//
+		sdl.vsync.when_windowed.auto_determined   = VsyncMode::On;
+		sdl.vsync.when_fullscreen.auto_determined = VsyncMode::On;
+
 		// A 60 Hz display can only show 60 complete frames per second.
 		// To achieve a higher frame rate, the host must drop or tear
 		// frames. This creates two layers of tearing when combined with
 		// DOS's (potentially) torn frames, which is common in games
 		// that don't use vblank. In "auto" mode, we aim for the best
-		// user experience, and dual-tearing isn't it. However, users
-		// can always set 'vsync = off'.
+		// user experience with no extra host-level tearing. However,
+		// users can always set 'vsync = off'.
 		//
 		// There is no downside to making this assumption when the host
 		// display is faster than the DOS rate because all frames will
@@ -577,8 +545,8 @@ static bool is_command_pressed(const SDL_Event event)
 	}
 	const auto inkeymod = static_cast<uint16_t>(SDL_GetModState());
 
-	bool is_paused = true;
-	GFX_RefreshTitle(is_paused);
+	sdl.is_paused = true;
+	GFX_RefreshTitle();
 
 	SDL_Event event;
 
@@ -586,9 +554,14 @@ static bool is_command_pressed(const SDL_Event event)
 		// flush event queue.
 	}
 
+	// Prevent the mixer from running while in our pause loop
+	// Muting is not ideal for some sound devices such as GUS that loop samples
+	// This also saves CPU time by not rendering samples we're not going to play anyway
+	MIXER_LockMixerThread();
+
 	// NOTE: This is one of the few places where we use SDL key codes with
 	// SDL 2.0, rather than scan codes. Is that the correct behavior?
-	while (is_paused && !shutdown_requested) {
+	while (sdl.is_paused && !shutdown_requested) {
 		// since we're not polling, CPU usage drops to 0.
 		SDL_WaitEvent(&event);
 
@@ -623,8 +596,8 @@ static bool is_command_pressed(const SDL_Event event)
 					// Which is tricky due to possible use
 					// of scancodes.
 				}
-				is_paused = false;
-				GFX_RefreshTitle(is_paused);
+				sdl.is_paused = false;
+				GFX_RefreshTitle();
 				break;
 			}
 
@@ -639,6 +612,7 @@ static bool is_command_pressed(const SDL_Event event)
 #endif
 		}
 	}
+	MIXER_UnlockMixerThread();
 }
 
 uint8_t GFX_GetBestMode(const uint8_t flags)
@@ -654,14 +628,14 @@ void GFX_DisengageRendering()
 	sdl.frame.present = present_frame_noop;
 }
 
-void GFX_ResetScreen(void)
+void GFX_ResetScreen()
 {
 	GFX_Stop();
 	if (sdl.draw.callback) {
-		(sdl.draw.callback)(GFX_CallBackReset);
+		(sdl.draw.callback)(GFX_CallbackReset);
 	}
 	GFX_Start();
-	CPU_Reset_AutoAdjust();
+	CPU_ResetAutoAdjust();
 
 	VGA_SetupDrawing(0);
 }
@@ -690,7 +664,7 @@ static uint32_t opengl_driver_crash_workaround(const RenderingBackend rendering_
 		return 0;
 	}
 
-	if (starts_with(sdl.render_driver, "opengl")) {
+	if (sdl.render_driver.starts_with("opengl")) {
 		return SDL_WINDOW_OPENGL;
 	}
 
@@ -709,7 +683,7 @@ static uint32_t opengl_driver_crash_workaround(const RenderingBackend rendering_
 		if (info.flags & SDL_RENDERER_TARGETTEXTURE)
 			break;
 	}
-	default_driver_is_opengl = starts_with(info.name, "opengl");
+	default_driver_is_opengl = std::string_view(info.name).starts_with("opengl");
 	return (default_driver_is_opengl ? SDL_WINDOW_OPENGL : 0);
 }
 
@@ -763,6 +737,7 @@ static DosBox::Rect get_canvas_size_in_pixels(
 // Logs the source and target resolution including describing scaling method
 // and pixel aspect ratio. Note that this function deliberately doesn't use
 // any global structs to disentangle it from the existing sdl-main design.
+//
 static void log_display_properties(const int render_width_px,
                                    const int render_height_px,
                                    const std::optional<VideoMode>& maybe_video_mode,
@@ -836,6 +811,7 @@ static SDL_Point get_initial_window_position_or_default(int default_val)
 // A safer way to call SDL_SetWindowSize because it ensures the event-callback
 // is disabled during the resize event. This prevents the event callback from
 // firing before the window is resized in which case an endless loop can occur
+//
 static void safe_set_window_size(const int w, const int h)
 {
 	decltype(sdl.draw.callback) saved_callback = nullptr;
@@ -851,8 +827,8 @@ static void safe_set_window_size(const int w, const int h)
 
 static VsyncSettings& get_vsync_settings()
 {
-	if (sdl.vsync.when_fullscreen.requested == VsyncState::Unset ||
-	    sdl.vsync.when_windowed.requested == VsyncState::Unset) {
+	if (sdl.vsync.when_fullscreen.requested == VsyncMode::Unset ||
+	    sdl.vsync.when_windowed.requested == VsyncMode::Unset) {
 		initialize_vsync_settings();
 	}
 	return sdl.desktop.fullscreen ? sdl.vsync.when_fullscreen
@@ -862,22 +838,30 @@ static VsyncSettings& get_vsync_settings()
 // Benchmarks are run in each vsync'd mode as part of the vsync detection
 // process. This routine returns the vsync mode's current benchmark rate
 // if available.
+//
 static std::optional<int> get_benchmarked_vsync_rate()
 {
 	const auto bench_rate = get_vsync_settings().benchmarked_rate;
-	return (bench_rate != 0 ? std::optional<int>(bench_rate) : std::nullopt);
+
+	if (bench_rate != 0)
+		return bench_rate;
+	else {
+		return {};
+	}
 }
 
 static void save_rate_to_frame_period(const double rate_hz)
 {
 	assert(rate_hz > 0);
-	// backoff by one-onethousandth to avoid hitting the vsync edge
-	sdl.frame.period_ms = 1'001.0 / rate_hz;
+
+	// Back off by one-onethousandth to avoid hitting the vsync edge
+	sdl.frame.period_ms  = 1'001.0 / rate_hz;
 	const auto period_us = sdl.frame.period_ms * 1'000;
-	sdl.frame.period_us = ifloor(period_us);
+	sdl.frame.period_us  = ifloor(period_us);
+
 	// Permit the frame period to be off by up to 90% before "out of sync"
 	sdl.frame.period_us_early = ifloor(55 * period_us / 100);
-	sdl.frame.period_us_late = ifloor(145 * period_us / 100);
+	sdl.frame.period_us_late  = ifloor(145 * period_us / 100);
 }
 
 static std::unique_ptr<Pacer> render_pacer = {};
@@ -895,10 +879,10 @@ static int benchmark_presentation_rate()
 	const auto bench_frames  = ten_percent_of_fps;
 
 	// Disable the pacer because we need every frame presented and measured
-	// so we can hit the vsync wall (if it exists).
+	// so we can hit the vsync limit (if it exists).
 	render_pacer->SetTimeout(0);
 
-	// Warmup round
+	// Warm-up round
 	for (auto i = 0; i < warmup_frames; ++i) {
 		sdl.frame.update(nullptr);
 		sdl.frame.present();
@@ -909,7 +893,9 @@ static int benchmark_presentation_rate()
 		sdl.frame.update(nullptr);
 		sdl.frame.present();
 	}
-	const auto elapsed_us = std::max(static_cast<int64_t>(1L), GetTicksUsSince(start_us));
+	const auto elapsed_us = std::max(static_cast<int64_t>(1L),
+	                                 GetTicksUsSince(start_us));
+
 	return iround(static_cast<int>((bench_frames * 1'000'000) / elapsed_us));
 }
 
@@ -935,57 +921,76 @@ static int nearest_common_rate(const double rate)
 	return nearest_rate;
 }
 
-static VsyncState measure_vsync_state(int& bench_rate)
+static VsyncMode measure_vsynced_rate(int& bench_rate)
 {
 	bench_rate = benchmark_presentation_rate();
+
 	const auto host_rate = get_host_refresh_rate();
 
-	// Notify the user if the machine is prensetation-starved.
+	// Notify the user if the machine is presentation-starved.
 	if (bench_rate < host_rate * 0.8) {
-		LOG_WARNING("SDL: We can only render %d FPS, which is well below"
-		            " the host's reported refresh rate of %2.5g Hz.",
-		            bench_rate,
-		            host_rate);
 		LOG_WARNING(
-		        "SDL: You will experience rendering lag and stuttering."
-		        " Consider updating your video drivers and try disabling"
-		        " vsync in your host and drivers, set [sdl] vsync = false");
+		        "SDL: We can only render %d FPS, which is well below "
+		        "the host's reported refresh rate of %2.5g Hz.",
+		        bench_rate,
+		        host_rate);
+
+		LOG_WARNING(
+		        "SDL: You will experience rendering lag and stuttering. "
+		        "Consider updating your video drivers and try disabling "
+		        "any frame limiters and vsync in your driver settings, "
+				"or try setting 'vsync = off'");
 	}
 
-	if (bench_rate < host_rate * 1.5)
-		return VsyncState::On;
-	else if (bench_rate < host_rate * 2.5)
-		return VsyncState::Adaptive;
-	else
-		return VsyncState::Off;
+	// TODO what are these magic multipliers?
+	if (bench_rate < host_rate * 1.5) {
+		return VsyncMode::On;
+	} else if (bench_rate < host_rate * 2.5) {
+		return VsyncMode::Adaptive;
+	} else {
+		return VsyncMode::Off;
+	}
 }
 
-static void set_vsync(const VsyncState state)
+static void set_vsync(const VsyncMode mode)
 {
-	if (state == VsyncState::Yield) {
+	if (mode == VsyncMode::Yield) {
 		return;
 	}
 #if C_OPENGL
 	if (sdl.rendering_backend == RenderingBackend::OpenGl) {
 		assert(sdl.opengl.context);
-		const auto interval = static_cast<int>(state);
-		// -1=adaptive, 0=off, 1=on
-		assert(interval >= -1 && interval <= 1);
-		if (SDL_GL_SetSwapInterval(interval) == 0)
-			return;
 
-		// the requested interval is not supported
-		LOG_WARNING("OPENGL: Failed setting the vsync state to %s (%d): %s",
-		            vsync_state_as_string(state), interval, SDL_GetError());
+		const auto swap_interval = [&] {
+			switch (mode) {
+			case VsyncMode::Adaptive: return -1;
+			case VsyncMode::Off: return 0;
+			case VsyncMode::On: return 1;
+			default: assertm(false, "Invalid VsyncMode"); return 0;
+			}
+		}();
+
+		if (SDL_GL_SetSwapInterval(swap_interval) == 0) {
+			return;
+		}
+
+		// The requested swap_interval is not supported
+		LOG_WARNING(
+		        "OPENGL: Failed setting the vsync mode to '%s' "
+		        "(swap interval: %d): %s",
+		        to_string(mode),
+		        swap_interval,
+		        SDL_GetError());
 
 		// Per SDL's recommendation: If an application requests adaptive
 		// vsync and the system does not support it, this function will
 		// fail and return -1. In such a case, you should probably retry
-		// the call with 1 for the interval.
-		if (interval == -1 && SDL_GL_SetSwapInterval(1) != 0) {
-			LOG_WARNING("OPENGL: Tried enabling non-adaptive vsync, "
-			            "but it still failed: %s",
-			            SDL_GetError());
+		// the call with 1 for the swap_interval.
+		if (swap_interval == -1 && SDL_GL_SetSwapInterval(1) != 0) {
+			LOG_WARNING(
+			        "OPENGL: Tried enabling non-adaptive vsync, "
+			        "but it still failed: %s",
+			        SDL_GetError());
 		}
 		return;
 	}
@@ -994,31 +999,35 @@ static void set_vsync(const VsyncState state)
 	// https://wiki.libsdl.org/SDL_HINT_RENDER_VSYNC - can only be
 	// set to "1", "0", adapative is currently not supported, so we
 	// also treat it as "1"
-	const auto hint_str = (state == VsyncState::On ||
-							state == VsyncState::Adaptive)
-									? "1"
-									: "0";
-	if (SDL_SetHint(SDL_HINT_RENDER_VSYNC, hint_str) == SDL_TRUE)
+	const auto hint_str = (mode == VsyncMode::On || mode == VsyncMode::Adaptive)
+	                            ? "1"
+	                            : "0";
+
+	if (SDL_SetHint(SDL_HINT_RENDER_VSYNC, hint_str) == SDL_TRUE) {
 		return;
-	LOG_WARNING("SDL: Failed setting vsync state to to %s (%s): %s",
-				vsync_state_as_string(state), hint_str, SDL_GetError());
+	}
+	LOG_WARNING("SDL: Failed setting vsync mode to %s (%s): %s",
+	            to_string(mode),
+	            hint_str,
+	            SDL_GetError());
 }
 
-static void update_vsync_state()
+static void update_vsync_mode()
 {
-	// Hosts can have different vsync constraints between window modes
-	auto& vsync_pref = get_vsync_settings();
+	// Host OSes usually have different vsync constraints in windowed and
+	// fullscreen mode.
+	auto vsync_pref = get_vsync_settings();
 
 	// Short-hand aliases
-	auto &requested = vsync_pref.requested;
-	auto& measured  = vsync_pref.measured;
+	auto& requested       = vsync_pref.requested;
+	auto& auto_determined = vsync_pref.auto_determined;
 
-	assert(requested != VsyncState::Unset);
+	assert(requested != VsyncMode::Unset);
 
-	// Do we still need to measure the vsync state?
-	if (measured == VsyncState::Unset) {
+	// Do we still need to measure the vsync'ed frame rate?
+	if (auto_determined == VsyncMode::Unset) {
 		set_vsync(requested);
-		measured = measure_vsync_state(vsync_pref.benchmarked_rate);
+		auto_determined = measure_vsynced_rate(vsync_pref.benchmarked_rate);
 	}
 }
 
@@ -1061,9 +1070,9 @@ static void maybe_present_throttled(const bool frame_is_new)
 
 static void maybe_present_synced(const bool present_if_last_skipped)
 {
-	// state tracking across runs
+	// State tracking across runs
 	static bool last_frame_presented = false;
-	static int64_t last_sync_time = 0;
+	static int64_t last_sync_time    = 0;
 
 	const auto now = GetTicksUs();
 
@@ -1082,22 +1091,22 @@ static void maybe_present_synced(const bool present_if_last_skipped)
 
 static void setup_presentation_mode(FrameMode &previous_mode)
 {
-	// Always get the reported refresh rate and hint the VGA side with it.
-	// This ensures the VGA side always has the host's rate to prior to its
-	// next mode change.
+	// Always get the reported refresh rate and hint the emulated VGA side
+	// with it. This ensures the VGA side always has the host's rate
+	// prior to the next mode change.
+	// TODO but why is this important? needs explanation.
 	const auto host_rate = get_host_refresh_rate();
 	VGA_SetHostRate(host_rate);
 	const auto dos_rate = VGA_GetPreferredRate();
 
-	// Calculate the maximum number of duplicate frames before presenting
-	constexpr uint16_t min_rate = 10;
-	sdl.frame.max_dupe_frames   = static_cast<float>(dos_rate) / min_rate;
+	// Calculate the maximum number of duplicate frames before presenting.
+	constexpr uint16_t MinRateHz = 10;
+	sdl.frame.max_dupe_frames   = static_cast<float>(dos_rate) / MinRateHz;
 
-	// Consider any vsync state that isn't explicitly off as having some
-	// level of vsync enforcement as "on"
-	const auto vsync_is_on = (get_vsync_settings().requested != VsyncState::Off);
+	// Consider any vsync mode that isn't explicitly 'Off' as having some
+	// level of vsync enforcement as 'On'.
+	const auto vsync_is_on = (get_vsync_settings().requested != VsyncMode::Off);
 
-	// to be set below
 	auto mode = FrameMode::Unset;
 
 	// Manual CFR or VFR modes
@@ -1108,13 +1117,13 @@ static void setup_presentation_mode(FrameMode &previous_mode)
 		// Frames will be presented at the DOS rate.
 		save_rate_to_frame_period(dos_rate);
 
-		// Because we don't have proof that the host system actually
-		// supports the requested rates, we use the frame pacer to
-		// inform the user when the host is hitting the vsync wall.
+		// Because we don't have proof that the host actually supports
+		// the requested rates, we use the frame pacer to inform the
+		// user when the host is hitting the vsync limit.
 		render_pacer->SetTimeout(vsync_is_on ? sdl.vsync.skip_us : 0);
-	}
-	// Automatic CFR or VFR modes
-	else {
+
+	} else {
+		// Automatic CFR or VFR modes
 		const auto has_bench_rate = get_benchmarked_vsync_rate();
 
 		auto get_supported_rate = [=]() -> double {
@@ -1139,6 +1148,9 @@ static void setup_presentation_mode(FrameMode &previous_mode)
 		         display_might_be_interpolating);
 
 #if 0
+		// TODO some of these log statements seem to be wrong and
+		// not reflect actual reality, we'll need to revisit them
+	
 		LOG_MSG("SDL: Auto presentation mode conditions:");
 		LOG_MSG("SDL:   - DOS rate is %2.5g Hz", dos_rate);
 		if (has_bench_rate) {
@@ -1165,15 +1177,17 @@ static void setup_presentation_mode(FrameMode &previous_mode)
 			mode = FrameMode::ThrottledVfr;
 			save_rate_to_frame_period(nearest_common_rate(supported_rate));
 		}
-		// In auto-mode, the presentation rate doesn't exceed supported
-		// rate so we disable the pacer.
+
+		// In auto-mode, the presentation rate doesn't exceed the
+		// supported rate, so we disable the pacer.
 		render_pacer->SetTimeout(0);
 	}
 
-	// If the mode is unchanged, do nothing
+	// If the mode is unchanged, do nothing.
 	assert(mode != FrameMode::Unset);
-	if (previous_mode == mode)
+	if (previous_mode == mode) {
 		return;
+	}
 	previous_mode = mode;
 }
 
@@ -1316,21 +1330,9 @@ static SDL_Window* SetWindowMode(const RenderingBackend rendering_backend,
 			return nullptr;
 		}
 
-		const std::string gl_vendor = safe_gl_get_string(GL_VENDOR,
-		                                                 "unknown vendor");
-
 		SDL_GL_DeleteContext(temp_context);
 		SDL_DestroyWindow(temp_window);
-#if WIN32
-		const auto is_vendors_srgb_unreliable = (gl_vendor == "Intel");
-#else
-		constexpr auto is_vendors_srgb_unreliable = false;
-#endif
-		if (is_vendors_srgb_unreliable) {
-			LOG_WARNING("OPENGL: Not requesting an sRGB framebuffer"
-			            " because %s's driver is unreliable",
-			            gl_vendor.data());
-		} else if (SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1)) {
+		if (SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1)) {
 			LOG_ERR("OPENGL: Failed requesting an sRGB framebuffer: %s",
 			        SDL_GetError());
 		}
@@ -1391,7 +1393,6 @@ static SDL_Window* SetWindowMode(const RenderingBackend rendering_backend,
 		}
 #endif
 		check_and_handle_dpi_change(sdl.window, rendering_backend);
-
 		GFX_RefreshTitle();
 
 		SDL_RaiseWindow(sdl.window);
@@ -1438,7 +1439,7 @@ finish:
 
 	// Force redraw after changing the window
 	if (sdl.draw.callback)
-		sdl.draw.callback(GFX_CallBackRedraw);
+		sdl.draw.callback(GFX_CallbackRedraw);
 
 	// Ensure the time to change window modes isn't counted against
 	// our paced timing. This is a rare event that depends on host
@@ -1478,11 +1479,11 @@ static SDL_Rect get_desktop_size()
 	int bottom = 0;
 	int right  = 0;
 
-	(void)SDL_GetWindowBordersSize(SDL_GetWindowFromID(sdl.display_number),
-	                               &top,
-	                               &left,
-	                               &bottom,
-	                               &right);
+	SDL_GetWindowBordersSize(SDL_GetWindowFromID(sdl.display_number),
+	                         &top,
+	                         &left,
+	                         &bottom,
+	                         &right);
 
 	// If SDL_GetWindowBordersSize fails, it populates the values with 0.
 	desktop.w -= (left + right);
@@ -1591,8 +1592,6 @@ static GLuint BuildShader(GLenum type, const std::string& source)
 	}
 
 	top += (type==GL_VERTEX_SHADER) ? "#define VERTEX 1\n":"#define FRAGMENT 1\n";
-	if (!sdl.opengl.bilinear)
-		top += "#define OPENGLNB 1\n";
 
 	src_strings[0] = top.c_str();
 	src_strings[1] = shaderSrc;
@@ -1716,7 +1715,7 @@ static void initialize_sdl_window_size(SDL_Window* sdl_window,
 
 uint8_t GFX_SetSize(const int render_width_px, const int render_height_px,
                     const Fraction& render_pixel_aspect_ratio, const uint8_t flags,
-                    const VideoMode& video_mode, GFX_CallBack_t callback)
+                    const VideoMode& video_mode, GFX_Callback_t callback)
 {
 	uint8_t retFlags = 0;
 	if (sdl.updating)
@@ -1747,11 +1746,10 @@ uint8_t GFX_SetSize(const int render_width_px, const int render_height_px,
 
 	sdl.draw.callback = callback;
 
-	// If we're changing the SDL output type (ie: going from 'output =
-	// texture' to 'output = OpenGL'), then re-initialize our vsync settings
-	// because how the OS's compositor (if one exists) handles (or doesn't
-	// handle) this new type may be different, and thus warrants new
-	// measurements.
+	// If we're changing the SDL output type (i.e., going from 'output =
+	// texture' to 'output = opengl'), then re-initialise our vsync settings.
+	// The host OS might handles this backend differently, therefore we
+	// need a new measurement.
 	if (sdl.want_rendering_backend  != sdl.rendering_backend) {
 		initialize_vsync_settings();
 	}
@@ -1765,7 +1763,7 @@ uint8_t GFX_SetSize(const int render_width_px, const int render_height_px,
 			E_Exit("SDL: Failed to create window");
 		}
 
-		/* Use renderer's default format */
+		// Use renderer's default format
 		SDL_RendererInfo rinfo;
 		SDL_GetRendererInfo(sdl.renderer, &rinfo);
 		const auto texture_format = rinfo.texture_formats[0];
@@ -2068,12 +2066,18 @@ uint8_t GFX_SetSize(const int render_width_px, const int render_height_px,
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap_parameter);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap_parameter);
 
-		const GLint filter = (sdl.interpolation_mode == InterpolationMode::NearestNeighbour
-		                              ? GL_NEAREST
-		                              : GL_LINEAR);
+		const auto filter_mode = [&] {
+			switch (sdl.opengl.shader_info.settings.texture_filter_mode) {
+			case TextureFilterMode::Nearest: return GL_NEAREST;
+			case TextureFilterMode::Linear: return GL_LINEAR;
+			default:
+				assertm(false, "Invalid TextureFilterMode");
+				return 0;
+			}
+		}();
 
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter_mode);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter_mode);
 
 		const auto texture_area_bytes = static_cast<size_t>(texsize_w_px) *
 		                                texsize_h_px * MAX_BYTES_PER_PIXEL;
@@ -2212,7 +2216,7 @@ uint8_t GFX_SetSize(const int render_width_px, const int render_height_px,
 	}
 	// Ensure mouse emulation knows the current parameters
 	notify_new_mouse_screen_params();
-	update_vsync_state();
+	update_vsync_mode();
 
 	if (sdl.draw.has_changed) {
 		log_display_properties(sdl.draw.render_width_px,
@@ -2220,6 +2224,49 @@ uint8_t GFX_SetSize(const int render_width_px, const int render_height_px,
 		                       sdl.maybe_video_mode,
 		                       sdl.rendering_backend);
 	}
+
+#if C_OPENGL
+	if (sdl.rendering_backend == RenderingBackend::OpenGl) {
+		static auto last_vsync_mode = VsyncMode::Unset;
+
+		auto vsync_mode = VsyncMode::Unset;
+		switch (SDL_GL_GetSwapInterval()) {
+		case -1:
+			vsync_mode = VsyncMode::Adaptive;
+			break;
+		case 0:
+			vsync_mode = VsyncMode::Off;
+			break;
+		case 1:
+			vsync_mode = VsyncMode::On;
+			break;
+		default:
+			assertm(false, "SDL_GL_GetSwapInterval() returned invalid result");
+		}
+
+		if (last_vsync_mode != vsync_mode) {
+			last_vsync_mode = vsync_mode;
+
+			switch (vsync_mode) {
+			case VsyncMode::Unset: break;
+
+			case VsyncMode::Adaptive:
+				LOG_INFO("OPENGL: Enabled adaptive vsync");
+				break;
+
+			case VsyncMode::Off:
+				LOG_INFO("OPENGL: Disabled vsync");
+				break;
+
+			case VsyncMode::On:
+				LOG_INFO("OPENGL: Enabled non-adaptive vsync");
+				break;
+
+			default: assertm(false, "Invalid VsyncMode");
+			}
+		}
+	}
+#endif
 
 	if (retFlags) {
 		GFX_Start();
@@ -2242,57 +2289,6 @@ void GFX_SetShader([[maybe_unused]] const ShaderInfo& shader_info,
 		sdl.opengl.program_object = 0;
 	}
 #endif
-}
-
-void GFX_SetMouseHint(const MouseHint hint_id)
-{
-	static const std::string prexix = " - ";
-
-	auto create_hint_str = [](const char *requested_name) {
-		char hint_buffer[200] = {0};
-
-		safe_sprintf(hint_buffer,
-		             MSG_GetRaw(requested_name),
-		             PRIMARY_MOD_NAME);
-		return prexix + hint_buffer;
-	};
-
-	auto &hint_str = sdl.title_bar.hint_mouse_str;
-	switch (hint_id) {
-	case MouseHint::None:
-		hint_str.clear();
-		break;
-	case MouseHint::NoMouse:
-		hint_str = prexix + MSG_GetRaw("TITLEBAR_HINT_NOMOUSE");
-		break;
-	case MouseHint::CapturedHotkey:
-		hint_str = create_hint_str("TITLEBAR_HINT_CAPTURED_HOTKEY");
-		break;
-	case MouseHint::CapturedHotkeyMiddle:
-		hint_str = create_hint_str("TITLEBAR_HINT_CAPTURED_HOTKEY_MIDDLE");
-		break;
-	case MouseHint::ReleasedHotkey:
-		hint_str = create_hint_str("TITLEBAR_HINT_RELEASED_HOTKEY");
-		break;
-	case MouseHint::ReleasedHotkeyMiddle:
-		hint_str = create_hint_str("TITLEBAR_HINT_RELEASED_HOTKEY_MIDDLE");
-		break;
-	case MouseHint::ReleasedHotkeyAnyButton:
-		hint_str = create_hint_str("TITLEBAR_HINT_RELEASED_HOTKEY_ANY_BUTTON");
-		break;
-	case MouseHint::SeamlessHotkey:
-		hint_str = create_hint_str("TITLEBAR_HINT_SEAMLESS_HOTKEY");
-		break;
-	case MouseHint::SeamlessHotkeyMiddle:
-		hint_str = create_hint_str("TITLEBAR_HINT_SEAMLESS_HOTKEY_MIDDLE");
-		break;
-	default:
-		assert(false);
-		hint_str.clear();
-		break;
-	}
-
-	GFX_RefreshTitle();
 }
 
 void GFX_CenterMouse()
@@ -2463,12 +2459,11 @@ bool GFX_StartUpdate(uint8_t * &pixels, int &pitch)
 	return false;
 }
 
-extern int64_t ticksDone;
-
 void GFX_EndUpdate(const uint16_t* changedLines)
 {
-	static int64_t cumulative_time_rendered = 0;
-	const auto start                        = GetTicksUs();
+	static int64_t cumulative_time_rendered_us = 0;
+
+	const auto start_us = GetTicksUs();
 
 	sdl.frame.update(changedLines);
 
@@ -2509,16 +2504,25 @@ void GFX_EndUpdate(const uint16_t* changedLines)
 		}
 	}
 
-	const auto elapsed = GetTicksUsSince(start);
-	cumulative_time_rendered += elapsed;
-	// Update ticksDone with the rendering time
-	if (cumulative_time_rendered >= 1000) {
-		const auto cumulative_ticks_rendered = cumulative_time_rendered / 1000;
-		ticksDone -= cumulative_ticks_rendered;
-		cumulative_time_rendered %= 1000;
+	const auto elapsed_us = GetTicksUsSince(start_us);
+	cumulative_time_rendered_us += elapsed_us;
+
+	// Update "ticks done" with the rendering time
+	constexpr auto MicrosInMillisecond = 1000;
+
+	if (cumulative_time_rendered_us >= MicrosInMillisecond) {
+		// 1 tick == 1 millisecond
+		const auto cumulative_ticks_rendered = cumulative_time_rendered_us /
+		                                       MicrosInMillisecond;
+
+		DOSBOX_SetTicksDone(DOSBOX_GetTicksDone() - cumulative_ticks_rendered);
+
+		// Keep the fractional microseconds part
+		cumulative_time_rendered_us %= MicrosInMillisecond;
 	}
 
 	sdl.updating = false;
+
 	FrameMark;
 }
 
@@ -2800,10 +2804,9 @@ static void clean_up_sdl_resources()
 static void GUI_ShutDown(Section *)
 {
 	GFX_Stop();
+
 	if (sdl.draw.callback)
-		(sdl.draw.callback)( GFX_CallBackStop );
-	if (sdl.desktop.fullscreen)
-		GFX_SwitchFullScreen();
+		(sdl.draw.callback)( GFX_CallbackStop );
 
 	GFX_SetMouseCapture(false);
 	GFX_SetMouseVisibility(true);
@@ -3001,12 +3004,12 @@ static SDL_Point window_bounds_from_label(const std::string& pref,
 	constexpr int LargePercent  = 90;
 
 	const int percent = [&] {
-		if (starts_with(pref, "s")) {
+		if (pref.starts_with('s')) {
 			return SmallPercent;
-		} else if (starts_with(pref, "m") || pref == "default" ||
+		} else if (pref.starts_with('m') || pref == "default" ||
 		           pref.empty()) {
 			return MediumPercent;
-		} else if (starts_with(pref, "l")) {
+		} else if (pref.starts_with('l')) {
 			return LargePercent;
 		} else if (pref == "desktop") {
 			return 100;
@@ -3090,7 +3093,6 @@ static void save_window_size(const int w, const int h)
 // Takes in:
 //  - The user's windowresolution: default, WxH, small, medium, large,
 //    desktop, or an invalid setting.
-//  - The previously configured scaling mode: Bilinear or NearestNeighbour.
 //  - If aspect correction is requested.
 //
 // This function returns a refined size and additionally populates the
@@ -3102,7 +3104,6 @@ static void save_window_size(const int w, const int h)
 //  - 'sdl.desktop.want_resizable_window', if the window can be resized.
 //
 static void setup_window_sizes_from_conf(const char* windowresolution_val,
-                                         const InterpolationMode interpolation_mode,
                                          const bool wants_aspect_ratio_correction)
 {
 	// Get the coarse resolution from the users setting, and adjust
@@ -3133,21 +3134,10 @@ static void setup_window_sizes_from_conf(const char* windowresolution_val,
 	assert(refined_size.x <= UINT16_MAX && refined_size.y <= UINT16_MAX);
 	save_window_size(refined_size.x, refined_size.y);
 
-	auto describe_interpolation_mode = [interpolation_mode]() -> const char* {
-		switch (interpolation_mode) {
-		case InterpolationMode::Bilinear: return "bilinear";
-		case InterpolationMode::NearestNeighbour:
-			return "nearest-neighbour";
-		}
-		return "unknown";
-	};
-
 	// Let the user know the resulting window properties
-	// TODO pixels or logical unit?
-	LOG_MSG("DISPLAY: Initialised %dx%d windowed mode using %s scaling on display-%d",
+	LOG_MSG("DISPLAY: Using %dx%d window size in windowed mode on display-%d",
 	        refined_size.x,
 	        refined_size.y,
-	        describe_interpolation_mode(),
 	        sdl.display_number);
 }
 
@@ -3234,14 +3224,13 @@ void GFX_SetIntegerScalingMode(const IntegerScalingMode mode)
 	sdl.integer_scaling_mode = mode;
 }
 
-InterpolationMode GFX_GetInterpolationMode()
+InterpolationMode GFX_GetTextureInterpolationMode()
 {
-	return sdl.interpolation_mode;
+	return sdl.texture.interpolation_mode;
 }
 
 static void set_output(Section* sec, const bool wants_aspect_ratio_correction)
 {
-	// Apply the user's mouse settings
 	const auto section = static_cast<const Section_prop *>(sec);
 	std::string output = section->Get_string("output");
 
@@ -3249,28 +3238,20 @@ static void set_output(Section* sec, const bool wants_aspect_ratio_correction)
 	// it's the job of everything after this to re-engage it.
 
 	if (output == "texture") {
-		sdl.want_rendering_backend = RenderingBackend::Texture;
-		sdl.interpolation_mode = InterpolationMode::Bilinear;
+		sdl.want_rendering_backend     = RenderingBackend::Texture;
+		sdl.texture.interpolation_mode = InterpolationMode::Bilinear;
+
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 
 	} else if (output == "texturenb") {
 		sdl.want_rendering_backend = RenderingBackend::Texture;
-		sdl.interpolation_mode = InterpolationMode::NearestNeighbour;
-		// Currently the default, but... oh well
+		sdl.texture.interpolation_mode = InterpolationMode::NearestNeighbour;
+
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 
 #if C_OPENGL
-	} else if (starts_with(output, "opengl")) {
-		if (output == "opengl") {
-			sdl.want_rendering_backend = RenderingBackend::OpenGl;
-			sdl.interpolation_mode = InterpolationMode::Bilinear;
-			sdl.opengl.bilinear    = true;
-
-		} else if (output == "openglnb") {
-			sdl.want_rendering_backend = RenderingBackend::OpenGl;
-			sdl.interpolation_mode = InterpolationMode::NearestNeighbour;
-			sdl.opengl.bilinear = false;
-		}
+	} else if (output == "opengl") {
+		sdl.want_rendering_backend = RenderingBackend::OpenGl;
 #endif
 
 	} else {
@@ -3302,7 +3283,6 @@ static void set_output(Section* sec, const bool wants_aspect_ratio_correction)
 	        section->Get_string("window_position"));
 
 	setup_window_sizes_from_conf(section->Get_string("windowresolution").c_str(),
-	                             sdl.interpolation_mode,
 	                             wants_aspect_ratio_correction);
 
 #if C_OPENGL
@@ -3411,13 +3391,12 @@ static void set_output(Section* sec, const bool wants_aspect_ratio_correction)
 	const auto transparency = clamp(section->Get_int("transparency"), 0, 90);
 	const auto alpha = static_cast<float>(100 - transparency) / 100.0f;
 	SDL_SetWindowOpacity(sdl.window, alpha);
-	SDL_SetWindowTitle(sdl.window, APP_NAME_STR);
+	GFX_RefreshTitle();
 
 	RENDER_Reinit();
 }
 
 // extern void UI_Run(bool);
-void Restart(bool pressed);
 
 static void apply_active_settings()
 {
@@ -3462,7 +3441,7 @@ static void set_priority_levels(const std::string& active_pref,
 			return PRIORITY_LEVEL_HIGHEST;
 		}
 		LOG_WARNING("SDL: Invalid 'priority' setting: '%s', using 'auto'",
-		            pref.data());
+		            pref.c_str());
 
 		return PRIORITY_LEVEL_AUTO;
 	};
@@ -3471,7 +3450,12 @@ static void set_priority_levels(const std::string& active_pref,
 	sdl.priority.inactive = to_level(inactive_pref);
 }
 
-static void GUI_StartUp(Section* sec)
+static void restart_hotkey_handler([[maybe_unused]] bool pressed)
+{
+	restart_dosbox();
+}
+
+static void read_gui_config(Section* sec)
 {
 	sec->AddDestroyFunction(&GUI_ShutDown);
 	Section_prop* section = static_cast<Section_prop*>(sec);
@@ -3490,8 +3474,7 @@ static void GUI_StartUp(Section* sec)
 
 	sdl.pause_when_inactive = section->Get_bool("pause_when_inactive");
 
-	sdl.mute_when_inactive = section->Get_bool("mute_when_inactive") ||
-	                         sdl.pause_when_inactive;
+	sdl.mute_when_inactive = (!sdl.pause_when_inactive) && section->Get_bool("mute_when_inactive");
 
 	// Assume focus on startup
 	apply_active_settings();
@@ -3579,7 +3562,7 @@ static void GUI_StartUp(Section* sec)
 	                  "shutdown", "Shutdown");
 
 	MAPPER_AddHandler(switch_fullscreen, SDL_SCANCODE_RETURN, MMOD2, "fullscr", "Fullscreen");
-	MAPPER_AddHandler(Restart, SDL_SCANCODE_HOME, PRIMARY_MOD | MMOD2, "restart", "Restart");
+	MAPPER_AddHandler(restart_hotkey_handler, SDL_SCANCODE_HOME, PRIMARY_MOD | MMOD2, "restart", "Restart");
 	MAPPER_AddHandler(MOUSE_ToggleUserCapture,
 	                  SDL_SCANCODE_F10,
 	                  PRIMARY_MOD,
@@ -3608,6 +3591,24 @@ static void GUI_StartUp(Section* sec)
 
 	// Notify MOUSE subsystem that it can start now
 	MOUSE_NotifyReadyGFX();
+}
+
+static void read_config(Section* sec)
+{
+	assert(sec);
+	const Section_prop* conf = dynamic_cast<Section_prop*>(sec);
+	assert(conf);
+	if (!conf) {
+		return;
+	}
+
+	static bool first_time = true;
+	if (first_time) {
+		read_gui_config(sec);
+		first_time = false;
+	}
+
+	TITLEBAR_ReadConfig(*conf);
 }
 
 static void handle_mouse_motion(SDL_MouseMotionEvent* motion)
@@ -3779,6 +3780,26 @@ static bool maybe_auto_switch_shader()
 	                                    reinit_render);
 }
 
+static bool is_user_event(const SDL_Event& event)
+{
+	const auto start_id = sdl.start_event_id;
+	const auto end_id   = start_id + enum_val(SDL_DosBoxEvents::NumEvents);
+
+	return (event.common.type >= start_id && event.common.type < end_id);
+}
+
+static void handle_user_event(const SDL_Event& event)
+{
+	const auto id = event.common.type - sdl.start_event_id;
+	switch (static_cast<SDL_DosBoxEvents>(id)) {
+	case SDL_DosBoxEvents::RefreshAnimatedTitle:
+		GFX_RefreshAnimatedTitle();
+		break;
+	default:
+		assert(false);
+	}
+}
+
 bool GFX_Events()
 {
 #if defined(MACOSX)
@@ -3795,7 +3816,6 @@ bool GFX_Events()
 #endif
 
 	SDL_Event event;
-#if defined (REDUCE_JOYSTICK_POLLING)
 	static auto last_check_joystick = GetTicks();
 	auto current_check_joystick = GetTicks();
 	if (GetTicksDiff(current_check_joystick, last_check_joystick) > 20) {
@@ -3803,7 +3823,6 @@ bool GFX_Events()
 		if (MAPPER_IsUsingJoysticks()) SDL_JoystickUpdate();
 		MAPPER_UpdateJoysticks();
 	}
-#endif
 	while (SDL_PollEvent(&event)) {
 #if C_DEBUG
 		if (is_debugger_event(event)) {
@@ -3811,6 +3830,10 @@ bool GFX_Events()
 			continue;
 		}
 #endif
+		if (is_user_event(event)) {
+			handle_user_event(event);
+			continue;
+		}
 		switch (event.type) {
 		case SDL_DISPLAYEVENT:
 			switch (event.display.event) {
@@ -3906,7 +3929,7 @@ bool GFX_Events()
 				// LOG_DEBUG("SDL: Window has gained
 				// keyboard focus");
 				if (sdl.draw.callback)
-					sdl.draw.callback(GFX_CallBackRedraw);
+					sdl.draw.callback(GFX_CallbackRedraw);
 				focus_input();
 				continue;
 
@@ -4049,16 +4072,21 @@ bool GFX_Events()
 					 * Instead of waiting for the user to hit Alt+Break, we wait for the window to
 					 * regain window or input focus.
 					 */
-					bool paused = true;
 					ApplyInactiveSettings();
 					SDL_Event ev;
 
-					GFX_RefreshTitle();
 					KEYBOARD_ClrBuffer();
 //					Delay(500);
 //					while (SDL_PollEvent(&ev)) {
 						// flush event queue.
 //					}
+
+					bool paused = true;
+
+					// Prevent the mixer from running while in our pause loop
+					// Muting is not ideal for some sound devices such as GUS that loop samples
+					// This also saves CPU time by not rendering samples we're not going to play anyway
+					MIXER_LockMixerThread();
 
 					while (paused && !shutdown_requested) {
 						// WaitEvent waits for an event rather than polling, so CPU usage drops to zero
@@ -4072,6 +4100,7 @@ bool GFX_Events()
 							if ((ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST) || (ev.window.event == SDL_WINDOWEVENT_MINIMIZED) || (ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) || (ev.window.event == SDL_WINDOWEVENT_RESTORED) || (ev.window.event == SDL_WINDOWEVENT_EXPOSED)) {
 								// We've got focus back, so unpause and break out of the loop
 								if ((ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) || (ev.window.event == SDL_WINDOWEVENT_RESTORED) || (ev.window.event == SDL_WINDOWEVENT_EXPOSED)) {
+									sdl.is_paused = false;
 									GFX_RefreshTitle();
 									if (ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
 										paused = false;
@@ -4093,6 +4122,7 @@ bool GFX_Events()
 							break;
 						}
 					}
+					MIXER_UnlockMixerThread();
 				}
 			}
 			break; // end of SDL_WINDOWEVENT
@@ -4228,12 +4258,18 @@ static void messages_add_command_line()
 	        "  --list-countries         List all supported countries with their numeric codes.\n"
 	        "                           Codes are to be used in the 'country' config setting.\n"
 	        "\n"
+	        "  --list-layouts           List all supported keyboard layouts with their codes.\n"
+	        "                           Codes are to be used in the 'keyboard_layout' config setting.\n"
+	        "\n"
+	        "  --list-code-pages        List all bundled code pages (screen fonts).\n"
+	        "\n"
 	        "  --list-glshaders         List all available OpenGL shaders and their paths.\n"
 	        "                           Shaders are to be used in the 'glshader' config setting.\n"
 	        "\n"
 	        "  --fullscreen             Start in fullscreen mode.\n"
 	        "\n"
-	        "  --lang <lang_file>       Start with the language specified in <lang_file>.\n"
+	        "  --lang <lang_file>       Start with the language specified in <lang_file>. If set to\n"
+	        "                           'auto', tries to detect the language from the host OS.\n"
 	        "\n"
 	        "  --machine <type>         Emulate a specific type of machine. The machine type has\n"
 	        "                           influence on both the emulated video and sound cards.\n"
@@ -4273,52 +4309,89 @@ static void messages_add_sdl()
 	        "Usage: [color=light-green]config [reset]-set [color=light-cyan][SECTION][reset] "
 	        "[color=white]PROPERTY[reset][=][color=white]VALUE[reset]\n");
 
-	MSG_Add("TITLEBAR_CYCLES_MS",    "cycles/ms");
-	MSG_Add("TITLEBAR_HINT_PAUSED",  "(PAUSED)");
-	MSG_Add("TITLEBAR_HINT_NOMOUSE", "no-mouse mode");
-	MSG_Add("TITLEBAR_HINT_CAPTURED_HOTKEY",
-	        "mouse captured, %s+F10 to release");
-	MSG_Add("TITLEBAR_HINT_CAPTURED_HOTKEY_MIDDLE",
-	        "mouse captured, %s+F10 or middle-click to release");
-	MSG_Add("TITLEBAR_HINT_RELEASED_HOTKEY",
-	        "to capture the mouse press %s+F10");
-	MSG_Add("TITLEBAR_HINT_RELEASED_HOTKEY_MIDDLE",
-	        "to capture the mouse press %s+F10 or middle-click");
-	MSG_Add("TITLEBAR_HINT_RELEASED_HOTKEY_ANY_BUTTON",
-	        "to capture the mouse press %s+F10 or click any button");
-	MSG_Add("TITLEBAR_HINT_SEAMLESS_HOTKEY",
-	        "seamless mouse, %s+F10 to capture");
-	MSG_Add("TITLEBAR_HINT_SEAMLESS_HOTKEY_MIDDLE",
-	        "seamless mouse, %s+F10 or middle-click to capture");
+	TITLEBAR_AddMessages();
 }
 
-static void config_add_sdl() {
-	Section_prop *sdl_sec=control->AddSection_prop("sdl", &GUI_StartUp);
+static void config_add_sdl()
+{
+	constexpr bool changeable_at_runtime = true;
+
+	Section_prop* sdl_sec = control->AddSection_prop("sdl",
+	                                                 &read_config,
+	                                                 changeable_at_runtime);
 	sdl_sec->AddInitFunction(&MAPPER_StartUp);
-	Prop_bool *Pbool; // use pbool for new properties
-	Prop_bool *pbool;
-	Prop_string *Pstring; // use pstring for new properties
-	Prop_string *pstring;
-	Prop_int *Pint; // use pint for new properties
-	Prop_int *pint;
-	PropMultiVal* Pmulti;
-	Section_prop* psection;
 
-	constexpr auto always = Property::Changeable::Always;
+	constexpr auto always     = Property::Changeable::Always;
 	constexpr auto deprecated = Property::Changeable::Deprecated;
-	constexpr auto on_start = Property::Changeable::OnlyAtStart;
+	constexpr auto on_start   = Property::Changeable::OnlyAtStart;
 
-	Pbool = sdl_sec->Add_bool("fullscreen", always, false);
-	Pbool->Set_help("Start directly in fullscreen (disabled by default).\n"
-	                "Run INTRO and see Special Keys for window control hotkeys.");
+#if C_OPENGL
+	const std::string default_output = "opengl";
+#else
+	const std::string default_output = "texture";
+#endif
+	auto pstring = sdl_sec->Add_string("output", always, default_output.c_str());
 
-	pint = sdl_sec->Add_int("display", on_start, 0);
-	pint->Set_help("Number of display to use; values depend on OS and user "
-	               "settings (0 by default).");
+	pstring->SetOptionHelp(
+	        "opengl_default",
+	        "Rendering backend to use for graphics output ('opengl' by default).\n"
+	        "Only the 'opengl' backend has shader support and is thus the preferred option.\n"
+	        "The 'texture' backend is only provided as a last resort fallback for buggy or\n"
+	        "non-existent OpenGL drivers (this is extremely rare).");
 
-	Pstring = sdl_sec->Add_string("fullresolution", always, "desktop");
-	Pstring->Set_help("What resolution to use for fullscreen: 'original', 'desktop'\n"
-	                  "or a fixed size, e.g. 1024x768 ('desktop' by default).");
+	pstring->SetOptionHelp("texture_default",
+	                       "Rendering backend to use for graphics output ('texture' by default).");
+
+	pstring->SetOptionHelp("opengl",
+	                       "  opengl:     OpenGL backend with shader support (default).");
+	pstring->SetOptionHelp("texture",
+	                       "  texture:    SDL's texture backend with bilinear interpolation.");
+	pstring->SetOptionHelp("texturenb",
+	                       "  texturenb:  SDL's texture backend with nearest-neighbour interpolation\n"
+	                       "              (no bilinear).");
+#if C_OPENGL
+	pstring->SetDeprecatedWithAlternateValue("surface", "opengl");
+	pstring->SetDeprecatedWithAlternateValue("openglpp", "opengl");
+	pstring->SetDeprecatedWithAlternateValue("openglnb", "opengl");
+#else
+	pstring->SetDeprecatedWithAlternateValue("surface", "texture");
+#endif
+	pstring->SetDeprecatedWithAlternateValue("texturepp", "texture");
+	pstring->Set_values({
+#if C_OPENGL
+		"opengl",
+#endif
+		        "texture", "texturenb",
+	});
+	pstring->SetEnabledOptions({
+#if C_OPENGL
+		"opengl_default", "opengl",
+#else
+		"texture_default",
+#endif
+		        "texture", "texturenb",
+	});
+
+	pstring = sdl_sec->Add_string("texture_renderer", always, "auto");
+	pstring->Set_help(
+	        "Render driver to use in 'texture' output mode ('auto' by default).\n"
+	        "Use 'texture_renderer = auto' for an automatic choice.");
+	pstring->Set_values(get_sdl_texture_renderers());
+
+	auto pint = sdl_sec->Add_int("display", on_start, 0);
+	pint->Set_help(
+	        "Number of display to use; values depend on OS and user "
+	        "settings (0 by default).");
+
+	auto pbool = sdl_sec->Add_bool("fullscreen", always, false);
+	pbool->Set_help(
+	        "Start directly in fullscreen (disabled by default).\n"
+	        "Run INTRO and see Special Keys for window control hotkeys.");
+
+	pstring = sdl_sec->Add_string("fullresolution", always, "desktop");
+	pstring->Set_help(
+	        "What resolution to use for fullscreen: 'original', 'desktop'\n"
+	        "or a fixed size, e.g. 1024x768 ('desktop' by default).");
 
 	pstring = sdl_sec->Add_string("windowresolution", on_start, "default");
 	pstring->Set_help(
@@ -4338,17 +4411,20 @@ static void config_add_sdl() {
 	        "  X,Y:       Set window position in X,Y format (e.g., 250,100).\n"
 	        "             0,0 is the top-left corner of the screen.");
 
-	Pbool = sdl_sec->Add_bool("window_decorations", always, true);
-	Pbool->Set_help("Enable window decorations in windowed mode (enabled by default).");
+	pbool = sdl_sec->Add_bool("window_decorations", always, true);
+	pbool->Set_help("Enable window decorations in windowed mode (enabled by default).");
 
-	Pint = sdl_sec->Add_int("transparency", always, 0);
-	Pint->Set_help("Set the transparency of the DOSBox Staging screen (0 by default).\n"
-	               "From 0 (no transparency) to 90 (high transparency).");
+	TITLEBAR_AddConfig(*sdl_sec);
 
-	pstring = sdl_sec->Add_path("max_resolution", deprecated, "");
+	pint = sdl_sec->Add_int("transparency", always, 0);
+	pint->Set_help(
+	        "Set the transparency of the DOSBox Staging screen (0 by default).\n"
+	        "From 0 (no transparency) to 90 (high transparency).");
+
+	pstring = sdl_sec->Add_string("max_resolution", deprecated, "");
 	pstring->Set_help("Moved to [render] section and renamed to 'viewport'.");
 
-	pstring = sdl_sec->Add_path("viewport_resolution", deprecated, "");
+	pstring = sdl_sec->Add_string("viewport_resolution", deprecated, "");
 	pstring->Set_help("Moved to [render] section and renamed to 'viewport'.");
 
 	pstring = sdl_sec->Add_string("host_rate", on_start, "auto");
@@ -4363,9 +4439,7 @@ static void config_add_sdl() {
 	        "  N:         Specify custom refresh rate in Hz (decimal values are allowed;\n"
 	        "             23.000 is the allowed minimum).");
 
-	const char* vsync_prefs[] = {"auto", "on", "adaptive", "off", "yield", nullptr};
 	pstring = sdl_sec->Add_string("vsync", always, "auto");
-
 	pstring->Set_help(
 	        "Set the host video driver's vertical synchronization (vsync) mode:\n"
 	        "  auto:      Limit vsync to beneficial cases, such as when using an\n"
@@ -4381,15 +4455,15 @@ static void config_add_sdl() {
 	        "  off:       Attempt to disable vsync to allow quicker frame presentation at\n"
 	        "             the risk of tearing in some games.\n"
 	        "  yield:     Let the host's video driver control video synchronization.");
-	pstring->Set_values(vsync_prefs);
+	pstring->Set_values({"auto", "on", "adaptive", "off", "yield"});
 
 	pint = sdl_sec->Add_int("vsync_skip", on_start, 0);
-	pint->Set_help("Number of microseconds to allow rendering to block before skipping the\n"
-	               "next frame. For example, a value of 7000 is roughly half the frame time\n"
-	               "at 70 Hz. 0 disables this and will always render (default).");
+	pint->Set_help(
+	        "Number of microseconds to allow rendering to block before skipping the\n"
+	        "next frame. For example, a value of 7000 is roughly half the frame time\n"
+	        "at 70 Hz. 0 disables this and will always render (default).");
 	pint->SetMinMax(0, 14000);
 
-	const char *presentation_modes[] = {"auto", "cfr", "vfr", nullptr};
 	pstring = sdl_sec->Add_string("presentation_mode", always, "auto");
 	pstring->Set_help(
 	        "Select the frame presentation mode:\n"
@@ -4397,71 +4471,32 @@ static void config_add_sdl() {
 	        "         based on host and DOS frame rates (default).\n"
 	        "  cfr:   Always present DOS frames at a constant frame rate.\n"
 	        "  vfr:   Always present changed DOS frames at a variable frame rate.");
-	pstring->Set_values(presentation_modes);
+	pstring->Set_values({"auto", "cfr", "vfr"});
 
-	const char* outputs[] =
-	{ "texture",
-	  "texturenb",
-#if C_OPENGL
-	  "opengl",
-	  "openglnb",
-#endif
-	  nullptr };
+	auto pmulti = sdl_sec->AddMultiVal("capture_mouse", deprecated, ",");
+	pmulti->Set_help("Moved to [mouse] section and renamed to 'mouse_capture'.");
 
-#if C_OPENGL
-	Pstring = sdl_sec->Add_string("output", always, "opengl");
-	Pstring->Set_help(
-	        "Video system to use for output ('opengl' by default).\n"
-	        "'texture' and 'opengl' use bilinear interpolation, 'texturenb' and\n"
-	        "'openglnb' use nearest-neighbour (no-bilinear). Some shaders require\n"
-	        "bilinear interpolation, making that the safest choice.");
-	Pstring->SetDeprecatedWithAlternateValue("openglpp", "opengl");
-	Pstring->SetDeprecatedWithAlternateValue("surface", "opengl");
-#else
-	Pstring = sdl_sec->Add_string("output", always, "texture");
-	Pstring->Set_help("Video system to use for output ('texture' by default).");
-	Pstring->SetDeprecatedWithAlternateValue("surface", "texture");
-#endif
-	Pstring->SetDeprecatedWithAlternateValue("texturepp", "texture");
-	Pstring->Set_values(outputs);
-
-	pstring = sdl_sec->Add_string("texture_renderer", always, "auto");
-	pstring->Set_help("Render driver to use in 'texture' output mode ('auto' by default).\n"
-	                  "Use 'texture_renderer = auto' for an automatic choice.");
-	pstring->Set_values(get_sdl_texture_renderers());
-
-	Pmulti = sdl_sec->AddMultiVal("capture_mouse", deprecated, ",");
-	Pmulti->Set_help("Moved to [mouse] section and renamed to 'mouse_capture'.");
-
-	Pmulti = sdl_sec->AddMultiVal("sensitivity", deprecated, ",");
-	Pmulti->Set_help("Moved to [mouse] section and renamed to 'mouse_sensitivity'.");
+	pmulti = sdl_sec->AddMultiVal("sensitivity", deprecated, ",");
+	pmulti->Set_help("Moved to [mouse] section and renamed to 'mouse_sensitivity'.");
 
 	pbool = sdl_sec->Add_bool("raw_mouse_input", deprecated, false);
 	pbool->Set_help("Moved to [mouse] section and renamed to 'mouse_raw_input'.");
 
-	Pbool = sdl_sec->Add_bool("waitonerror", always, true);
-	Pbool->Set_help("Keep the console open if an error has occurred (enabled by default).");
+	pbool = sdl_sec->Add_bool("waitonerror", always, true);
+	pbool->Set_help("Keep the console open if an error has occurred (enabled by default).");
 
-	Pmulti = sdl_sec->AddMultiVal("priority", always, " ");
-	Pmulti->SetValue("auto auto");
-	Pmulti->Set_help("Priority levels to apply when active and inactive, respectively.\n"
-	                 "('auto auto' by default)\n"
-	                 "'auto' lets the host operating system manage the priority.");
+	pmulti = sdl_sec->AddMultiVal("priority", always, " ");
+	pmulti->SetValue("auto auto");
+	pmulti->Set_help(
+	        "Priority levels to apply when active and inactive, respectively.\n"
+	        "('auto auto' by default)\n"
+	        "'auto' lets the host operating system manage the priority.");
 
-	const char *priority_level_choices[] = {
-	        "auto",
-	        "lowest",
-	        "lower",
-	        "normal",
-	        "higher",
-	        "highest",
-	        nullptr,
-	};
-	psection = Pmulti->GetSection();
-	psection->Add_string("active", always, priority_level_choices[0])
-	        ->Set_values(priority_level_choices);
-	psection->Add_string("inactive", always, priority_level_choices[0])
-	        ->Set_values(priority_level_choices);
+	auto psection = pmulti->GetSection();
+	psection->Add_string("active", always, "auto")
+	        ->Set_values({"auto", "lowest", "lower", "normal", "higher", "highest"});
+	psection->Add_string("inactive", always, "auto")
+	        ->Set_values({"auto", "lowest", "lower", "normal", "higher", "highest"});
 
 	pbool = sdl_sec->Add_bool("mute_when_inactive", on_start, false);
 	pbool->Set_help("Mute the sound when the window is inactive (disabled by default).");
@@ -4482,8 +4517,7 @@ static void config_add_sdl() {
 	        "Use 'allow' or 'block' to override the SDL_VIDEO_ALLOW_SCREENSAVER environment\n"
 	        "variable which usually blocks the OS screensaver while the emulator is\n"
 	        "running ('auto' by default).");
-	const char *ssopts[] = {"auto", "allow", "block", nullptr};
-	pstring->Set_values(ssopts);
+	pstring->Set_values({"auto", "allow", "block"});
 }
 
 static int edit_primary_config()
@@ -4529,9 +4563,10 @@ static int edit_primary_config()
 extern void DEBUG_ShutDown(Section * /*sec*/);
 #endif
 
-void MIXER_CloseAudioDevice(void);
+void restart_dosbox(std::vector<std::string> &parameters) {
 
-void restart_program(std::vector<std::string> & parameters) {
+	control->ApplyQueuedValuesToCli(parameters);
+
 #ifdef WIN32
 	std::string command_line = {};
 	bool first = true;
@@ -4615,16 +4650,11 @@ void restart_program(std::vector<std::string> & parameters) {
 #endif // WIN32
 }
 
-void Restart(bool pressed) { // mapper handler
-	(void) pressed; // deliberately unused but required for API compliance
-	restart_program(control->startup_params);
-}
-
 static void list_glshaders()
 {
 #if C_OPENGL
 	for (const auto& line : RENDER_GenerateShaderInventoryMessage()) {
-		printf_utf8("%s\n", line.c_str());
+		printf("%s\n", line.c_str());
 	}
 #else
 	fprintf(stderr,
@@ -4636,7 +4666,19 @@ static void list_glshaders()
 static void list_countries()
 {
 	const auto message_utf8 = DOS_GenerateListCountriesMessage();
-	printf_utf8("%s\n", message_utf8.c_str());
+	printf("%s\n", message_utf8.c_str());
+}
+
+static void list_keyboard_layouts()
+{
+	const auto message_utf8 = DOS_GenerateListKeyboardLayoutsMessage();
+	printf("%s\n", message_utf8.c_str());
+}
+
+static void list_code_pages()
+{
+	const auto message_utf8 = DOS_GenerateListCodePagesMessage();
+	printf("%s\n", message_utf8.c_str());
 }
 
 static int print_primary_config_location()
@@ -4702,18 +4744,26 @@ static int erase_mapper_file()
 	return 0;
 }
 
-static void override_wm_class()
+static void set_wm_class()
 {
-#if !defined(WIN32)
+#if (SDL_VERSION_ATLEAST(3, 0, 0))
+	SDL_SetHint(SDL_HINT_APP_ID, DOSBOX_APP_ID);
+#else
+#if !defined(WIN32) && !defined(MACOSX)
 	constexpr int overwrite = 0; // don't overwrite
-	setenv("SDL_VIDEO_X11_WMCLASS", CANONICAL_PROJECT_NAME, overwrite);
+	setenv("SDL_VIDEO_X11_WMCLASS", DOSBOX_APP_ID, overwrite);
+	setenv("SDL_VIDEO_WAYLAND_WMCLASS", DOSBOX_APP_ID, overwrite);
+#endif
 #endif
 }
 
-extern "C" int SDL_CDROMInit(void);
-
 int sdl_main(int argc, char* argv[])
 {
+	// Ensure we perform SDL cleanup and restore console settings
+	atexit(QuitSDL);
+
+	switch_console_to_utf8();
+
 	CommandLine command_line(argc, argv);
 	control = std::make_unique<Config>(&command_line);
 
@@ -4731,13 +4781,14 @@ int sdl_main(int argc, char* argv[])
 
 	if (arguments->version || arguments->help || arguments->printconf ||
 	    arguments->editconf || arguments->eraseconf || arguments->list_countries ||
+	    arguments->list_layouts || arguments->list_code_pages ||
 	    arguments->list_glshaders || arguments->erasemapper) {
 		loguru::g_stderr_verbosity = loguru::Verbosity_WARNING;
 	}
 
 	loguru::init(argc, argv);
 
-	LOG_MSG("%s version %s", CANONICAL_PROJECT_NAME, DOSBOX_GetDetailedVersion());
+	LOG_MSG("%s version %s", DOSBOX_PROJECT_NAME, DOSBOX_GetDetailedVersion());
 	LOG_MSG("---");
 
 	LOG_MSG("LOG: Loguru version %d.%d.%d initialised",
@@ -4757,8 +4808,8 @@ int sdl_main(int argc, char* argv[])
 			}
 		}
 
-		// Before SDL2 video subsystem is initialised
-		override_wm_class();
+		// Before SDL2/SDL3 video subsystem is initialised
+		set_wm_class();
 
 		// Create or determine the location of the config directory
 		// (e.g., in portable mode, the config directory is the
@@ -4813,16 +4864,16 @@ int sdl_main(int argc, char* argv[])
 		// perform some actions and print the results to the console.
 		if (arguments->version) {
 			printf(version_msg,
-			       CANONICAL_PROJECT_NAME,
+			       DOSBOX_PROJECT_NAME,
 			       DOSBOX_GetDetailedVersion());
 			return 0;
 		}
 		if (arguments->help) {
 			assert(argv && argv[0]);
 			const auto program_name = argv[0];
-			const auto help_utf8 = format_str(MSG_GetRaw("DOSBOX_HELP"),
-			                                     program_name);
-			printf_utf8("%s", help_utf8.c_str());
+			const auto help = format_str(MSG_GetForHost("DOSBOX_HELP"),
+			                             program_name);
+			printf("%s", help.c_str());
 			return 0;
 		}
 		if (arguments->editconf) {
@@ -4839,6 +4890,14 @@ int sdl_main(int argc, char* argv[])
 		}
 		if (arguments->list_countries) {
 			list_countries();
+			return 0;
+		}
+		if (arguments->list_layouts) {
+			list_keyboard_layouts();
+			return 0;
+		}
+		if (arguments->list_code_pages) {
+			list_code_pages();
 			return 0;
 		}
 		if (arguments->list_glshaders) {
@@ -4894,17 +4953,16 @@ int sdl_main(int argc, char* argv[])
 			return err;
 		}
 
-		if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) < 0) {
+		// Timer is needed for title bar animations
+		if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
 			E_Exit("SDL: Can't init SDL %s", SDL_GetError());
 		}
-		if (SDL_CDROMInit() < 0) {
-			LOG_WARNING("SDL: Failed to initialise CD-ROM support");
+		sdl.start_event_id = SDL_RegisterEvents(enum_val(SDL_DosBoxEvents::NumEvents));
+		if (sdl.start_event_id == UINT32_MAX) {
+			E_Exit("SDL: Failed to alocate event IDs");
 		}
 
 		sdl.initialized = true;
-
-		// Once initialised, ensure we clean up SDL for all exit conditions
-		atexit(QuitSDL);
 
 		SDL_version sdl_version = {};
 		SDL_GetVersion(&sdl_version);
@@ -4915,6 +4973,17 @@ int sdl_main(int argc, char* argv[])
 		        sdl_version.patch,
 		        SDL_GetCurrentVideoDriver(),
 		        SDL_GetCurrentAudioDriver());
+
+#if defined SDL_HINT_APP_NAME
+		// For KDE 6 volume applet and PipeWire audio driver; further
+		// SetHint calls have no effect in the GUI, only the first
+		// advertised name is used
+		SDL_SetHint(SDL_HINT_APP_NAME, DOSBOX_NAME);
+#endif
+#if defined SDL_HINT_AUDIO_DEVICE_STREAM_NAME
+		// Useful for 'pw-top' and possibly other PipeWire CLI tools
+		SDL_SetHint(SDL_HINT_AUDIO_DEVICE_STREAM_NAME, DOSBOX_NAME);
+#endif
 
 		for (auto line : arguments->set) {
 			trim(line);
@@ -4955,6 +5024,15 @@ int sdl_main(int argc, char* argv[])
 					            inputline.c_str());
 				}
 			}
+		}
+
+		// Plugins
+		const auto plugins_dir = GetConfigDir() / PluginsDir;
+
+		if (create_dir(plugins_dir, 0700, OK_IF_EXISTS) != 0) {
+			LOG_WARNING("CONFIG: Can't create directory '%s': %s",
+			            plugins_dir.string().c_str(),
+			            safe_strerror(errno).c_str());
 		}
 
 #if C_OPENGL
@@ -5001,6 +5079,7 @@ int sdl_main(int argc, char* argv[])
 		// All subsystems' hotkeys need to be registered at this point
 		// to ensure their hotkeys appear in the graphical mapper.
 		MAPPER_BindKeys(sdl_sec);
+		GFX_RegenerateWindow(sdl_sec);
 
 		if (arguments->startmapper) {
 			MAPPER_DisplayUI();

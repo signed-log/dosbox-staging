@@ -3,8 +3,9 @@
  *
  * In reverse chronological order:
  *
- *  Copyright (C) 2023-2023  The DOSBox Staging Team
+ *  Copyright (C) 2023-2024  The DOSBox Staging Team
  *    - Applied C++ modernization adjustments.
+ *    - Fixed struct naming conflict with DOSBox generic type 'Fraction'
  *
  *  Copyright (C) 2017-2020  Loris Chiocca
  *    - Authored the IBM Music Feature card (IMFC) emulator, as follows:
@@ -517,28 +518,28 @@ constexpr bool operator==(const Note& a, const Note& b)
 }
 
 #pragma pack(push, 1)
-struct Fraction {
+struct ImfcFraction {
 	uint8_t value = 0;
 
-	constexpr Fraction() = default;
-	constexpr Fraction(const uint8_t v) : value(v) {}
+	constexpr ImfcFraction() = default;
+	constexpr ImfcFraction(const uint8_t v) : value(v) {}
 };
 #pragma pack(pop)
-static_assert(sizeof(Fraction) == 1, "Fraction needs to be 1 in size!");
+static_assert(sizeof(ImfcFraction) == 1, "Fraction needs to be 1 in size!");
 
-constexpr bool operator==(const Fraction& a, const Fraction& b)
+constexpr bool operator==(const ImfcFraction& a, const ImfcFraction& b)
 {
 	return a.value == b.value;
 }
-static Fraction ZERO_FRACTION(0);
+static ImfcFraction ZERO_FRACTION(0);
 
 #pragma pack(push, 1)
 struct FractionalNote {
-	Fraction fraction = {};
-	Note note         = {};
+	ImfcFraction fraction = {};
+	Note note             = {};
 
 	constexpr FractionalNote() = default;
-	constexpr FractionalNote(const Note& nn, const Fraction& nf)
+	constexpr FractionalNote(const Note& nn, const ImfcFraction& nf)
 	        : fraction(nf),
 	          note(nn)
 	{}
@@ -560,7 +561,7 @@ constexpr std::pair<uint8_t, uint8_t> split_uint16_t(const uint16_t value) noexc
 static constexpr FractionalNote to_fractional_note(const uint16_t value) noexcept
 {
 	const auto [note, fraction] = split_uint16_t(value);
-	return {Note(note), Fraction(fraction)};
+	return {Note(note), ImfcFraction(fraction)};
 }
 
 
@@ -1761,7 +1762,7 @@ public:
 	InputOutputPin(const InputOutputPin& other)            = delete;
 	InputOutputPin& operator=(const InputOutputPin& other) = delete;
 
-	explicit InputOutputPin<DataType>(const std::string& name)
+	explicit InputOutputPin(const std::string& name)
 	        : InputPin<DataType>(name),
 	          m_dataContainer(nullptr)
 	{}
@@ -3107,7 +3108,7 @@ constexpr auto EG_OFF = 0;
 class ym2151_device {
 public:
 	// construction/destruction
-	explicit ym2151_device(mixer_channel_t&& channel);
+	explicit ym2151_device(MixerChannelPtr&& channel);
 	~ym2151_device();
 
 	// configuration helpers
@@ -3133,7 +3134,7 @@ public:
 	void device_clock_changed();
 
 	// sound stream update overrides
-	void sound_stream_update(const uint16_t requested_frames);
+	void sound_stream_update(const int requested_frames);
 
 private:
 	AudioFrame RenderFrame();
@@ -3163,11 +3164,10 @@ private:
 	};
 
 	// Playback related
-	mixer_channel_t audio_channel = nullptr;
+	MixerChannelPtr audio_channel = nullptr;
 	std::queue<AudioFrame> fifo   = {};
 	double last_rendered_ms       = 0.0;
 	double ms_per_render          = 0.0;
-	int frame_rate_hz             = 0;
 
 	int tl_tab[TL_TAB_LEN]{};
 	unsigned int sin_tab[SIN_LEN]{};
@@ -4835,7 +4835,7 @@ void ym2151_device::advance()
 //  ym2151_device - constructor
 //-------------------------------------------------
 
-ym2151_device::ym2151_device(mixer_channel_t&& channel)
+ym2151_device::ym2151_device(MixerChannelPtr&& channel)
         : audio_channel(std::move(channel))
 {
 	device_start();
@@ -4843,7 +4843,7 @@ ym2151_device::ym2151_device(mixer_channel_t&& channel)
 	device_reset();
 
 	assert(audio_channel);
-	ms_per_render = millis_in_second / audio_channel->GetSampleRate();
+	ms_per_render = MillisInSecond / audio_channel->GetSampleRate();
 	audio_channel->Enable(true);
 }
 
@@ -4995,7 +4995,7 @@ AudioFrame ym2151_device::RenderFrame()
 
 void ym2151_device::RenderUpToNow()
 {
-	const auto now = PIC_FullIndex();
+	const auto now = PIC_AtomicIndex();
 	// Keep rendering until we're current
 	while (last_rendered_ms < now) {
 		last_rendered_ms += ms_per_render;
@@ -5006,7 +5006,7 @@ void ym2151_device::RenderUpToNow()
 //  sound_stream_update - handle a stream update
 //-------------------------------------------------
 
-void ym2151_device::sound_stream_update(const uint16_t requested_frames)
+void ym2151_device::sound_stream_update(const int requested_frames)
 {
 	assert(audio_channel);
 
@@ -5032,7 +5032,7 @@ void ym2151_device::sound_stream_update(const uint16_t requested_frames)
 		audio_channel->AddSamples_sfloat(1, &frame[0]);
 		--frames_remaining;
 	}
-	last_rendered_ms = PIC_FullIndex();
+	last_rendered_ms = PIC_AtomicIndex();
 }
 
 // clang-format off
@@ -10154,11 +10154,11 @@ private:
 	                               YmChannelData* ymChannelData)
 	{
 		ymChannelData->currentlyPlaying = FractionalNote(Note(0),
-		                                                 Fraction(0));
+		                                                 ImfcFraction(0));
 		ymChannelData->portamentoTarget = FractionalNote(Note(0),
-		                                                 Fraction(0));
+		                                                 ImfcFraction(0));
 		ymChannelData->originalFractionAndNoteNumber =
-		        FractionalNote(Note(0), Fraction(0));
+		        FractionalNote(Note(0), ImfcFraction(0));
 		instr->ymChannelData = ymChannelData;
 	}
 
@@ -10446,7 +10446,7 @@ private:
 	// ROM Address: 0x24E1
 	void executeMidiCommand_NoteONOFF_internal_guard(InstrumentParameters* instr,
 	                                                 Note noteNumber,
-	                                                 Fraction fraction,
+	                                                 ImfcFraction fraction,
 	                                                 KeyVelocity velocity,
 	                                                 Duration duration)
 	{
@@ -10458,7 +10458,7 @@ private:
 
 	// ROM Address: 0x24EA
 	void executeMidiCommand_NoteONOFF_internal(InstrumentParameters* instr,
-	                                           Note noteNumber, Fraction fraction,
+	                                           Note noteNumber, ImfcFraction fraction,
 	                                           KeyVelocity velocity,
 	                                           Duration duration)
 	{
@@ -10803,7 +10803,7 @@ private:
 		ymChannelData->portamentoTarget = cropToPlayableRange(
 		        m_lastMidiOnOff_FractionAndNoteNumber,
 		        FractionalNote(Note(instr->voiceDefinition.getTranspose()),
-		                       Fraction(0)));
+		                       ImfcFraction(0)));
 	}
 
 	// ROM Address: 0x273A
@@ -11003,7 +11003,7 @@ private:
 			executeMidiCommand_NoteONOFF_internal_guard(
 			        instr,
 			        Note(m_sp_MidiDataOfMidiCommandInProgress[1]) /* note number */,
-			        Fraction(m_sp_MidiDataOfMidiCommandInProgress[2]) /* fraction */,
+			        ImfcFraction(m_sp_MidiDataOfMidiCommandInProgress[2]) /* fraction */,
 			        KeyVelocity(m_sp_MidiDataOfMidiCommandInProgress[3]) /* velocity */,
 			        Duration(check_cast<uint16_t>(
 			                m_sp_MidiDataOfMidiCommandInProgress[5] * 128 +
@@ -12865,7 +12865,7 @@ public:
 	MusicFeatureCard(const MusicFeatureCard&)            = delete;
 	MusicFeatureCard& operator=(const MusicFeatureCard&) = delete;
 
-	MusicFeatureCard(mixer_channel_t&& audio_channel, const io_port_t port,
+	MusicFeatureCard(MixerChannelPtr&& audio_channel, const io_port_t port,
 	                 const uint8_t irq)
 	        : m_ya2151(std::move(audio_channel)),
 	          // create all the instances
@@ -13216,7 +13216,7 @@ public:
 		SDL_UnlockMutex(m_hardwareMutex);
 	}
 
-	void mixerCallback(const uint16_t requested_frames)
+	void mixerCallback(const int requested_frames)
 	{
 		SDL_LockMutex(m_hardwareMutex);
 		m_ya2151.sound_stream_update(requested_frames);
@@ -13352,13 +13352,14 @@ static void Intel8253_TimerEvent(const uint32_t val)
 	imfc->onTimerEvent(val);
 }
 
-static void IMFC_Mixer_Callback(const uint16_t requested_frames)
+static void IMFC_Mixer_Callback(const int requested_frames)
 {
 	imfc->mixerCallback(requested_frames);
 }
 
 void imfc_destroy(Section* /*sec*/)
 {
+	MIXER_LockMixerThread();
 	imfc = {};
 
 #if IMFC_VERBOSE_LOGGING
@@ -13366,6 +13367,7 @@ void imfc_destroy(Section* /*sec*/)
 	SDL_DestroyMutex(m_loggerMutex);
 	m_loggerMutex = nullptr;
 #endif
+	MIXER_UnlockMixerThread();
 }
 
 static void imfc_init(Section* sec)
@@ -13375,6 +13377,8 @@ static void imfc_init(Section* sec)
 	if (!conf || !conf->Get_bool("imfc")) {
 		return;
 	}
+
+	MIXER_LockMixerThread();
 
 #if IMFC_VERBOSE_LOGGING
 	m_loggerMutex = SDL_CreateMutex();
@@ -13403,22 +13407,29 @@ static void imfc_init(Section* sec)
 	// https://www.youtube.com/watch?v=WHVWDi15AIw. The results are
 	// virtually indistinguishable from the real thing by ear and spectrum
 	// analysis.
-	const std::string filter_choice = conf->Get_string("imfc_filter");
-	const auto filter_choice_has_bool = parse_bool_setting(filter_choice);
+	//
+	auto enable_filter = [&]() {
+		constexpr auto Order        = 2;
+		constexpr auto CutoffFreqHz = 3500;
 
-	if (filter_choice_has_bool && *filter_choice_has_bool == true) {
-		constexpr auto order       = 2;
-		constexpr auto cutoff_freq = 3500;
-		channel->ConfigureLowPassFilter(order, cutoff_freq);
+		channel->ConfigureLowPassFilter(Order, CutoffFreqHz);
 		channel->SetLowPassFilter(FilterState::On);
+	};
 
-	} else if (!channel->TryParseAndSetCustomFilter(filter_choice)) {
-		if (!filter_choice_has_bool) {
-			LOG_WARNING("IMFC: Invalid 'imfc_filter' setting: '%s', using 'off'",
-			            filter_choice.data());
+	const std::string filter_choice = conf->Get_string("imfc_filter");
+
+	if (const auto maybe_bool = parse_bool_setting(filter_choice)) {
+		if (*maybe_bool) {
+			enable_filter();
+		} else {
+			channel->SetLowPassFilter(FilterState::Off);
 		}
+	} else if (!channel->TryParseAndSetCustomFilter(filter_choice)) {
+		LOG_WARNING("IMFC: Invalid 'imfc_filter' setting: '%s', using 'on'",
+		            filter_choice.c_str());
 
-		channel->SetLowPassFilter(FilterState::Off);
+		set_section_property_value("imfc", "imfc_filter", "on");
+		enable_filter();
 	}
 
 	const auto port = static_cast<io_port_t>(conf->Get_hex("imfc_base"));
@@ -13431,6 +13442,8 @@ static void imfc_init(Section* sec)
 
 	constexpr auto changeable_at_runtime = true;
 	sec->AddDestroyFunction(&imfc_destroy, changeable_at_runtime);
+
+	MIXER_UnlockMixerThread();
 }
 
 void init_imfc_dosbox_settings(Section_prop& secprop)
@@ -13443,15 +13456,13 @@ void init_imfc_dosbox_settings(Section_prop& secprop)
 
 	const auto hex_prop = secprop.Add_hex("imfc_base", when_idle, 0x2A20);
 	assert(hex_prop);
-	const char* const bases[] = {"2A20", "2A30", nullptr};
-	hex_prop->Set_values(bases);
+	hex_prop->Set_values({"2A20", "2A30"});
 	hex_prop->Set_help(
 	        "The IO base address of the IBM Music Feature Card (2A20 by default).");
 
 	const auto int_prop = secprop.Add_int("imfc_irq", when_idle, 3);
 	assert(int_prop);
-	const char* const irqs[] = {"2", "3", "4", "5", "6", "7", nullptr};
-	int_prop->Set_values(irqs);
+	int_prop->Set_values({"2", "3", "4", "5", "6", "7"});
 	int_prop->Set_help(
 	        "The IRQ number of the IBM Music Feature Card (3 by default).");
 
@@ -13464,7 +13475,7 @@ void init_imfc_dosbox_settings(Section_prop& secprop)
 	        "  <custom>:  Custom filter definition; see 'sb_filter' for details.");
 }
 
-void IMFC_AddConfigSection(const config_ptr_t& conf)
+void IMFC_AddConfigSection(const ConfigPtr& conf)
 {
 	assert(conf);
 
